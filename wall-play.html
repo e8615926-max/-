@@ -1479,6 +1479,8 @@ const MORE_SKINS12 = [
 for (const k of MORE_SKINS12) if (k.r === 1 || k.r === 2) { const h = [...k.id].reduce((a, ch) => a * 31 + ch.charCodeAt(0) >>> 0, 7); k.cost = k.r === 1 ? 200 + h % 6 * 50 : 700 + h % 7 * 100; }
 for (const k of MORE_SKINS12) { const fx = { samuraiham: ['petals', '#ffb0d8'], nebula: ['planets', '#a06ae0'], lavaknight: ['lava', '#ff5a1a'], dreamsheep: ['clouds', '#ffffff'] }[k.id]; if (fx) k.cfx = fx; }
 SKINS.push(...MORE_SKINS12);
+// все легенды — за монеты и не дешевле 3000 (бывшая цена в алмазах переводится по курсу 1 к 30)
+for (const k of SKINS) if (k.r === 3) { k.cost = Math.max(3000, k.gems ? Math.round(k.gems * 30 / 100) * 100 : k.cost || 0); delete k.gems; }
 // цена зависит только от редкости: редкие 200–450, эпики 700–1300 (дорогие — только легенды)
 for (const k of SKINS) {
   const h = [...k.id].reduce((a, ch) => a * 31 + ch.charCodeAt(0) >>> 0, 7);
@@ -1650,7 +1652,7 @@ const vib = ms => { if (SET.vibe && navigator.vibrate) try { navigator.vibrate(m
 
 // ---------- Канвас ----------
 const cv = document.getElementById('game');
-const ctx = cv.getContext('2d');
+let ctx = cv.getContext('2d');   // let: слои (карточки бойцов) рисуются тем же кодом в свой холст
 let scale = 1;
 function resize() {
   const ww = document.body.clientWidth || window.innerWidth, wh = document.body.clientHeight || window.innerHeight;
@@ -4085,28 +4087,68 @@ const zc = (b, key) => b.t > 0 ? mix(b.z[key], b.n[key], b.t) : b.z[key];
 function colAt(wy) {
   return { c: W / 2 + Math.sin(wy * 0.004) * 40 + Math.sin(wy * 0.011) * 18, hw: 92 + Math.sin(wy * 0.007) * 28 + Math.sin(wy * 0.019) * 10 };
 }
+// крона рисуется сотнями эллипсов — поэтому её готовые полосы кэшируются и только сдвигаются
+function paintBush(c, off, y0, y1, bush, bushD, bushL, skyCol, stable) {
+  const step = 14, first = Math.floor((off + y0 - 40) / step), lastK = Math.ceil((off + y1 + 40) / step);
+  for (let k = first; k <= lastK; k++) {
+    const wy = k * step, { c: cc, hw } = colAt(wy), sy = wy - off;
+    for (const s of [-1, 1]) { const r = 9 + hash2(k, s + 3) * 7; pell(c, cc + s * (hw + hash2(k, s) * 6) + s * 2, sy + 3, r + 2, r + 2, bushD); }
+  }
+  c.fillStyle = bush; c.beginPath();
+  for (let sy = y0 - 8; sy <= y1 + 8; sy += 8) { const { c: cc, hw } = colAt(sy + off); c.lineTo(even(cc - hw), sy); }
+  for (let sy = y1 + 8; sy >= y0 - 8; sy -= 8) { const { c: cc, hw } = colAt(sy + off); c.lineTo(even(cc + hw), sy); }
+  c.fill();
+  for (let k = first; k <= lastK; k++) {
+    const wy = k * step, { c: cc, hw } = colAt(wy), sy = wy - off;
+    for (const s of [-1, 1]) {
+      const r = 9 + hash2(k, s + 3) * 7, ex = cc + s * (hw + hash2(k, s) * 6);
+      pell(c, ex, sy, r, r, bush);
+      if (hash2(k, s + 21) < 0.45) pell(c, ex + s * 2, sy - 4, r * 0.5, r * 0.35, bushL);
+    }
+    if (hash2(k, 11) < 0.25) pell(c, cc + (hash2(k, 12) - 0.5) * hw * 1.3, sy, 8, 6, bushL);
+    if (skyCol && hash2(k, 13) < 0.07) { const hx = cc + (hash2(k, 14) - 0.5) * hw; pell(c, hx, sy, 11, 9, bushD); pell(c, hx, sy, 8, 6, skyCol); }
+  }
+}
+const BUSH_CH = 128, bushCache = { key: '', map: new Map(), pool: [] };   // pool: холсты ушедших полос — без лишней сборки мусора
 function drawBushColumn(b, skyCol) {
   const bush = zc(b, 'bush'), bushD = zc(b, 'bushD'), bushL = zc(b, 'bushL');
-  const off = even(camR * 0.85);
-  const step = 14, first = Math.floor((off - 40) / step), lastK = Math.ceil((off + H + 40) / step);
-  for (let k = first; k <= lastK; k++) {
-    const wy = k * step, { c, hw } = colAt(wy), sy = wy - off;
-    for (const s of [-1, 1]) { const r = 9 + hash2(k, s + 3) * 7; pell(ctx, c + s * (hw + hash2(k, s) * 6) + s * 2, sy + 3, r + 2, r + 2, bushD); }
-  }
-  ctx.fillStyle = bush; ctx.beginPath();
-  for (let sy = -8; sy <= H + 8; sy += 8) { const { c, hw } = colAt(sy + off); ctx.lineTo(even(c - hw), sy); }
-  for (let sy = H + 8; sy >= -8; sy -= 8) { const { c, hw } = colAt(sy + off); ctx.lineTo(even(c + hw), sy); }
-  ctx.fill();
-  for (let k = first; k <= lastK; k++) {
-    const wy = k * step, { c, hw } = colAt(wy), sy = wy - off;
-    for (const s of [-1, 1]) {
-      const r = 9 + hash2(k, s + 3) * 7, ex = c + s * (hw + hash2(k, s) * 6);
-      pell(ctx, ex, sy, r, r, bush);
-      if (hash2(k, s + 21) < 0.45) pell(ctx, ex + s * 2, sy - 4, r * 0.5, r * 0.35, bushL);
+  const off = even(camR * 0.85), S = ctx.getTransform().a;
+  if (b.t > 0 || !(S > 0)) { paintBush(ctx, off, 0, H, bush, bushD, bushL, skyCol, false); return; }   // переход между картами — рисуем вживую
+  const key = bush + bushD + bushL + S;
+  if (key !== bushCache.key) { bushCache.key = key; bushCache.map.clear(); bushCache.pool = []; }
+  const j0 = Math.floor(off / BUSH_CH), j1 = Math.floor((off + H) / BUSH_CH);
+  for (let j = j0; j <= j1; j++) {
+    let cv = bushCache.map.get(j);
+    if (!cv) {
+      cv = bushCache.pool.pop();
+      if (!cv) { cv = document.createElement('canvas'); cv.width = Math.ceil(W * S); cv.height = Math.ceil(BUSH_CH * S); }
+      const g = cv.getContext('2d'); g.setTransform(1, 0, 0, 1, 0, 0); g.clearRect(0, 0, cv.width, cv.height); g.setTransform(S, 0, 0, S, 0, 0);
+      g.save(); g.beginPath(); g.rect(0, 0, W, BUSH_CH); g.clip();
+      paintBush(g, j * BUSH_CH, 0, BUSH_CH, bush, bushD, bushL, null, true);
+      g.restore(); bushCache.map.set(j, cv);
     }
-    if (hash2(k, 11) < 0.25) pell(ctx, c + (hash2(k, 12) - 0.5) * hw * 1.3, sy, 8, 6, bushL);
-    if (hash2(k, 13) < 0.07) { const hx = c + (hash2(k, 14) - 0.5) * hw; pell(ctx, hx, sy, 11, 9, bushD); pell(ctx, hx, sy, 8, 6, skyCol); }
+    ctx.drawImage(cv, 0, j * BUSH_CH - off, W, BUSH_CH);
   }
+  for (const [k, c2] of bushCache.map) if (k < j0 - 2 || k > j1 + 2) { bushCache.map.delete(k); bushCache.pool.push(c2); }
+  // дупла с цветом неба (оно бывает живым) — поверх, вживую
+  const step = 14, first = Math.floor((off - 40) / step), lastK = Math.ceil((off + H + 40) / step);
+  for (let k = first; k <= lastK; k++) if (hash2(k, 13) < 0.07) {
+    const wy = k * step, { c: cc, hw } = colAt(wy), hx = cc + (hash2(k, 14) - 0.5) * hw;
+    pell(ctx, hx, wy - off, 11, 9, bushD); pell(ctx, hx, wy - off, 8, 6, skyCol);
+  }
+}
+// облако тоже собрано из эллипсов — кэшируем по цвету
+const cloudCache = { key: '', cv: null };
+function drawCloud(x, y, cloud, cloudS, live) {
+  if (live) { pell(ctx, x + 2, y + 6, 46, 12, cloudS); pell(ctx, x, y, 44, 11, cloud); pell(ctx, x - 18, y - 7, 20, 13, cloud); pell(ctx, x + 14, y - 10, 22, 15, cloud); return; }
+  const S = ctx.getTransform().a, key = cloud + cloudS + S;
+  if (cloudCache.key !== key) {
+    const cv = document.createElement('canvas'); cv.width = Math.ceil(130 * S); cv.height = Math.ceil(56 * S);
+    const g = cv.getContext('2d'); g.setTransform(S, 0, 0, S, 0, 0);
+    pell(g, 72, 34, 46, 12, cloudS); pell(g, 70, 28, 44, 11, cloud); pell(g, 52, 21, 20, 13, cloud); pell(g, 84, 18, 22, 15, cloud);
+    cloudCache.key = key; cloudCache.cv = cv;
+  }
+  ctx.drawImage(cloudCache.cv, even(x) - 70, even(y) - 28, 130, 56);
 }
 
 function drawOrb(o, a) {
@@ -4170,8 +4212,7 @@ function drawBackground() {
   for (let k = 0; k < 5; k++) {
     const x = ((hash(k * 5) * (W + 200) + time * (5 + k * 3)) % (W + 200)) - 100;
     const y = ((hash(k * 9) * 1000 - camY * 0.12) % 1000 + 1000) % 1000 - 150;
-    pell(ctx, x + 2, y + 6, 46, 12, cloudS);
-    pell(ctx, x, y, 44, 11, cloud); pell(ctx, x - 18, y - 7, 20, 13, cloud); pell(ctx, x + 14, y - 10, 22, 15, cloud);
+    drawCloud(x, y, cloud, cloudS, b.t > 0);
   }
   const th = 640, off = ((-camR * 0.3) % th + th) % th;
   const drawTile = (zi, a) => {
@@ -5282,7 +5323,7 @@ function shopClick(pt) {
   if (shopMain === 0) {
     for (let i = 0; i < 4; i++) if (inRect(pt, tabRect(i))) { shopTab = i; shopPage = 0; sfx.click(); return; }
     const list = pageSkins();
-    for (let j = 0; j < list.length; j++) if (inRect(pt, shopRect(j))) { buySkin(list[j], priceOf(list[j])); return; }
+    for (let j = 0; j < list.length; j++) if (inRect(pt, shopRect(j))) { openHero(list[j]); return; }
     if (inRect(pt, PAGE_PREV) && shopPage > 0) { shopPage--; sfx.click(); return; }
     if (inRect(pt, PAGE_NEXT) && shopPage < pageCount() - 1) { shopPage++; sfx.click(); return; }
     if (inRect(pt, CHEST_BTN)) { openChest(false); return; }
@@ -5304,12 +5345,91 @@ function shopClick(pt) {
 const MODAL_PANEL = { x: 20, y: 150, w: W - 40, h: 340 };
 const MODAL_OK = { x: W / 2 - 70, y: 430, w: 140, h: 38 };
 function modalClick(pt) {
+  if (modal.kind === 'hero') { heroModalClick(pt); return; }
   if (modal.kind === 'daily') {
     if (canClaim() && inRect(pt, MODAL_OK)) { claimDaily(); modal = null; return; }
     if (!inRect(pt, MODAL_PANEL) || inRect(pt, MODAL_OK)) modal = null;
     return;
   }
   if (modal.t > 0.3) modal = null;
+}
+
+// ---------- Окно бойца: живой герой на фоне в его стиле, цена, «купить» и «подтвердить» ----------
+const HERO_UI = {
+  ru: ['КУПИТЬ', 'ПОДТВЕРДИТЬ?'], en: ['BUY', 'CONFIRM?'], es: ['COMPRAR', '¿CONFIRMAR?'], de: ['KAUFEN', 'BESTÄTIGEN?'], fr: ['ACHETER', 'CONFIRMER ?'],
+  pt: ['COMPRAR', 'CONFIRMAR?'], it: ['COMPRA', 'CONFERMI?'], tr: ['SATIN AL', 'ONAYLA?'], uk: ['КУПИТИ', 'ПІДТВЕРДИТИ?'], pl: ['KUP', 'POTWIERDŹ?'],
+};
+const heroUI = i => (HERO_UI[lang] || HERO_UI.en)[i];
+const HM_PANEL = { x: 14, y: 70, w: W - 28, h: 500 }, HM_ART = { x: 28, y: 150, w: W - 56, h: 250 };
+const HM_BTN = { x: W / 2 - 100, y: 470, w: 200, h: 50 }, HM_CLOSE = { x: W - 56, y: 78, w: 34, h: 34 };
+function openHero(k) { modal = { kind: 'hero', t: 0, k, confirm: false, shake: 0 }; sfx.click(); }
+function heroModalClick(pt) {
+  const k = modal.k, own = owned.includes(k.id);
+  if (inRect(pt, HM_CLOSE) || !inRect(pt, HM_PANEL)) { modal = null; sfx.click(); return; }
+  if (!inRect(pt, HM_BTN)) { if (modal.confirm) { modal.confirm = false; sfx.click(); } return; }
+  if (own) { selectSkin(k); sfx.ach(); modal = null; return; }
+  const pr = priceOf(k);
+  if (!canPay(pr)) { sfx.no(); modal.shake = 0.4; modal.confirm = false; return; }
+  if (!modal.confirm) { modal.confirm = true; modal.ct = modal.t; tone(660, 880, 0.08, 'triangle', 0.05); return; }
+  modal = null; buySkin(k, pr); selectSkin(k);
+}
+function drawHeroModal() {
+  const k = modal.k, R = RARITY[k.r], own = owned.includes(k.id), sel = k.id === skinId, t = modal.t;
+  const P = HM_PANEL, A = HM_ART, cx = W / 2, sc = easeBack(clamp(t * 4, 0, 1));
+  ctx.fillStyle = 'rgba(10,4,20,0.8)'; ctx.fillRect(0, 0, W, H);
+  ctx.save(); ctx.translate(cx, P.y + P.h / 2); ctx.scale(sc, sc); ctx.translate(-cx, -(P.y + P.h / 2));
+  // рамка окна в цветах редкости
+  ctx.fillStyle = OL; ctx.fillRect(P.x - 4, P.y - 4, P.w + 8, P.h + 8);
+  ctx.fillStyle = R.col; ctx.fillRect(P.x - 1, P.y - 1, P.w + 2, P.h + 2);
+  const g = ctx.createLinearGradient(0, P.y, 0, P.y + P.h); g.addColorStop(0, hexMix(k.dark, '#1a0a30', 0.55)); g.addColorStop(1, '#120820');
+  ctx.fillStyle = g; ctx.fillRect(P.x + 3, P.y + 3, P.w - 6, P.h - 6);
+  const [l1, l2] = skinLines(k);
+  text(l2 ? l1 + ' ' + l2 : l1, cx - 14, P.y + 40, 3, '#ffffff', 'center', OL, P.w - 96);
+  ctx.fillStyle = R.col; ctx.fillRect(cx - 70, P.y + 52, 140, 18); ctx.fillStyle = 'rgba(255,255,255,0.35)'; ctx.fillRect(cx - 70, P.y + 52, 140, 4);
+  text(T('one')[k.r], cx, P.y + 66, 1, OL, 'center', null, 136);
+  // сцена: фон в стиле героя — его цвета, лучи, искры, подиум
+  ctx.save(); ctx.beginPath(); ctx.rect(A.x, A.y, A.w, A.h); ctx.clip();
+  const bg = ctx.createLinearGradient(0, A.y, 0, A.y + A.h);
+  bg.addColorStop(0, hexMix(k.light || '#ffffff', '#ffffff', 0.35)); bg.addColorStop(0.6, hexMix(k.body, '#ffffff', 0.25)); bg.addColorStop(1, hexMix(k.dark, '#000000', 0.25));
+  ctx.fillStyle = bg; ctx.fillRect(A.x, A.y, A.w, A.h);
+  ctx.save(); ctx.translate(cx, A.y + A.h * 0.55); ctx.rotate(time * 0.4); ctx.fillStyle = 'rgba(255,255,255,0.18)';
+  for (let q = 0; q < 12; q++) { ctx.rotate(Math.PI / 6); ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(-18, -260); ctx.lineTo(18, -260); ctx.fill(); }
+  ctx.restore();
+  const cols = k.trail && k.trail.cols ? k.trail.cols : [k.body, k.light || '#ffffff'];
+  for (let i = 0; i < 18; i++) {   // искры плывут вверх
+    const x = A.x + hash(i * 7 + 3) * A.w, y = A.y + A.h - ((time * (20 + hash(i) * 30) + hash(i * 3) * A.h) % A.h), on = Math.sin(time * 5 + i) > -0.3;
+    if (on) prect(ctx, x, y, i % 3 ? 2 : 4, i % 3 ? 2 : 4, k.trail && k.trail.kind === 'rainbow' ? hsl(time * 120 + i * 40) : cols[i % cols.length]);
+  }
+  ctx.globalAlpha = 0.35; pell(ctx, cx, A.y + A.h - 22, 74, 16, '#000000'); ctx.globalAlpha = 1;
+  pell(ctx, cx, A.y + A.h - 26, 70, 14, OL); pell(ctx, cx, A.y + A.h - 27, 66, 11, R.col); pell(ctx, cx, A.y + A.h - 29, 56, 7, hexMix(R.col, '#ffffff', 0.4));
+  // живой герой крупно: легенды разыгрывают свою сценку, остальные дышат и иногда радуются
+  const s = 5, sp = { x: cx - 16 * s, y: A.y + A.h - 34 - 32 * s, s };
+  const fr = { x: A.x - 2, y: A.y - 2, w: A.w + 4, h: A.h + 4 };
+  if (k.cfx) cardFx(k, fr, time, sp, false);
+  if (k.r === 3) cardHero(k, fr, time, sp);
+  else {
+    const ph = time % 4, pose = ph > 3 && ph < 3.6 ? 'cheer' : 'idle', hop = pose === 'cheer' ? Math.sin((ph - 3) / 0.6 * Math.PI) * 12 : 0;
+    heroSprite(k, pose, time, Math.sin(time * 1.3) > 0.97); blitHero(k, sp.x, sp.y - hop, 32 * s, 40 * s);
+  }
+  if (k.cfx) cardFx(k, fr, time, sp, true);
+  ctx.restore();
+  ctx.strokeStyle = OL; ctx.lineWidth = 4; ctx.strokeRect(A.x, A.y, A.w, A.h);
+  if (k.r === 3) cardMarquee({ x: A.x, y: A.y, w: A.w, h: A.h }, R.col, time);
+  // цена и кнопка
+  if (own) text(sel ? T('selected') : T('take'), cx, 446, 2, sel ? '#ffd23a' : '#7cf0ff', 'center', OL);
+  else priceDraw(cx, 450, priceOf(k), 3, canPay(priceOf(k)) ? '#ffffff' : '#ff7a7a');
+  const shake = modal.shake > 0 ? Math.sin(modal.t * 60) * 6 * modal.shake : 0;
+  if (modal.shake > 0) modal.shake -= 1 / 60;
+  const B = { x: HM_BTN.x + shake, y: HM_BTN.y, w: HM_BTN.w, h: HM_BTN.h };
+  if (own) button(B, sel ? T('selected') : T('take'), '#3ab0ff', '#1a70c0');
+  else if (modal.confirm) {
+    const pu = 1 + Math.sin((modal.t - modal.ct) * 10) * 0.05;
+    ctx.globalAlpha = 0.3 + Math.sin(time * 8) * 0.15; pell(ctx, cx, B.y + B.h / 2, B.w / 2 + 16, B.h / 2 + 14, '#fff27a'); ctx.globalAlpha = 1;
+    ctx.save(); ctx.translate(cx, B.y + B.h / 2); ctx.scale(pu, pu); ctx.translate(-cx, -(B.y + B.h / 2));
+    button(B, heroUI(1), '#ff8a1e', '#c05a10'); ctx.restore();
+  } else button(B, heroUI(0), canPay(priceOf(k)) ? '#3ce06a' : '#8a7a9a', canPay(priceOf(k)) ? '#1a9a3a' : '#5a4a6a');
+  roundBtn(HM_CLOSE); text('X', HM_CLOSE.x + 17, HM_CLOSE.y + 25, 2, OL, 'center', null);
+  ctx.restore();
 }
 
 // Настройки
@@ -9268,6 +9388,21 @@ function drawShopHeader() {
     if ((i === 1 && canClaim()) || (i === 2 && freeSpin())) badge(r.x + r.w - 4, r.y + 2);
   }
 }
+// Слой с тяжёлой живой картинкой: перерисовывается ~30 раз в секунду, а на экран выводится каждый кадр.
+// Эффекты те же, но работы вдвое меньше (на 120-герцовых экранах — вчетверо).
+const cardLayer = { cv: null, g: null, S: 0, t: -1, sig: '' };
+function drawLayer(L, sig, paint) {
+  const m = ctx.getTransform(), S = m.a;
+  if (!(S > 0) || m.e || m.f) { paint(); return; }
+  if (L.S !== S) { L.cv = document.createElement('canvas'); L.cv.width = Math.ceil(W * S); L.cv.height = Math.ceil(H * S); L.g = L.cv.getContext('2d'); L.S = S; L.t = -1; }
+  if (sig !== L.sig || time - L.t >= 1 / 31 || time < L.t) {
+    const g = L.g; g.setTransform(1, 0, 0, 1, 0, 0); g.clearRect(0, 0, L.cv.width, L.cv.height); g.setTransform(S, 0, 0, S, 0, 0); g.imageSmoothingEnabled = false;
+    const real = ctx; ctx = g;
+    try { paint(); } finally { ctx = real; }
+    L.sig = sig; L.t = time;
+  }
+  ctx.drawImage(L.cv, 0, 0, W, H);
+}
 function drawHeroesTab() {
   for (let i = 0; i < 4; i++) {
     const r = tabRect(i), R = RARITY[i], on = i === shopTab;
@@ -9276,7 +9411,8 @@ function drawHeroesTab() {
     text(T('rarity')[i], r.x + r.w / 2, r.y + 17, 1, on ? OL : '#ffffff', 'center', null, r.w - 4);
   }
   const ps = pageSkins();   // снизу вверх: высокие шляпы нижнего ряда не закрывают цены верхнего
-  for (let j = ps.length - 1; j >= 0; j--) drawSkinCard(shopRect(j), ps[j]);
+  drawLayer(cardLayer, 'p' + shopTab + '|' + shopPage + '|' + skinId + '|' + owned.length + '|' + bank + '|' + gems + '|' + lang,
+    () => { for (let j = ps.length - 1; j >= 0; j--) drawSkinCard(shopRect(j), ps[j]); });
   if (pageCount() > 1) {
     for (const [b, ch, ok] of [[PAGE_PREV, '<', shopPage > 0], [PAGE_NEXT, '>', shopPage < pageCount() - 1]]) {
       ctx.globalAlpha = ok ? 1 : 0.35;
@@ -9557,6 +9693,7 @@ function drawShop() {
   drawShopHeader();
 }
 function drawModal() {
+  if (modal.kind === 'hero') { drawHeroModal(); return; }
   ctx.fillStyle = 'rgba(10,4,20,0.75)'; ctx.fillRect(0, 0, W, H);
   const P = MODAL_PANEL, sc = Math.min(1, modal.t * 6);
   ctx.save(); ctx.translate(W / 2, P.y + P.h / 2); ctx.scale(sc, sc); ctx.translate(-W / 2, -(P.y + P.h / 2));
