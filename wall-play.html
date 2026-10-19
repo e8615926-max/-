@@ -1414,6 +1414,24 @@ const MORE_SKINS10 = [
   { id: 'tanuki', r: 3, gems: 135, body: '#8a6a4a', dark: '#3a2a1a', light: '#e8d0b0', ear: '#3a2a1a', ol: '#1a1008', tail: 'ring', tailTip: '#3a2a1a', mask: '#3a2a1a', whiskers: true, noScarf: true, parts: ['leafHead', 'bellyDrum', 'puffSmoke'], trail: { kind: 'dot', cols: ['#9af07a', '#e8d0b0'] }, sfx: 'genie', fx: 'leaf' },
 ];
 SKINS.push(...MORE_SKINS10);
+// Супергерои и бойцы: переделаны ближе к оригиналам (маски, эмблемы, пояса, оружие)
+const REWORK = {
+  youngsuper: { body: '#ffd23a', head: '#ffd8b8', dark: '#2a4ad8', light: '#fff6a0', ear: '#ffd8b8', ol: '#0a1430', noEyes: true, noMuzzle: true, cover: undefined, parts: ['rwInvincible'] },
+  mustachetitan: { body: '#f4f4f8', head: '#ffd8b8', dark: '#c81a1a', light: '#ffffff', ol: '#1a1a24', parts: ['rwOmni'] },
+  redmerc: { body: '#c81a1a', dark: '#1a1a24', light: '#e84a4a', parts: ['dualKatana', 'rwDeadpool'] },
+  nightguard: { body: '#5a5a6a', head: '#e8c8a0', dark: '#1a1a24', light: '#7a7a8a', ear: '#1a1a24', noEyes: true, noMuzzle: true, parts: ['rwBatman'] },
+  shieldcaptain: { body: '#2a4ab0', head: '#ffd8b8', dark: '#c81a1a', light: '#5a7ad8', noMuzzle: true, parts: ['rwCaptain', 'starShield'] },
+  hellmarine: { body: '#4a6a2a', dark: '#3a3020', light: '#6a8a3a', parts: ['rwDoomArmor', 'rwDoomHelmet', 'shotgun'] },
+  superwarrior: { body: '#ff8a1e', head: '#ffd8b8', dark: '#2a3a8a', light: '#ffb060', hairGlow: false, parts: ['rwKiAura', 'rwGi', 'rwGokuHair'] },
+  antman: { body: '#c01a1a', dark: '#1a1a24', light: '#e84a3a', parts: ['rwAntSuit', 'rwAntHelmet'] },
+  titanglove: { body: '#2a3a8a', head: '#8a5ab0', dark: '#c89a10', light: '#4a5ab0', ear: '#8a5ab0', ol: '#140a24', parts: ['rwThanosArmor', 'rwThanosHelmet', 'rwGauntlet'] },
+  iceninja: { body: '#2a6ad8', head: '#2a6ad8', dark: '#1a1a24', light: '#5a8ae8', special: undefined, mkMask: '#4a5a7a', mkLine: '#8a9ab8', mkEye: '#e0faff', mkSkin: '#f2c9a0', parts: ['rwMKNinja', 'iceHands', 'frostAura'] },
+  yellowninja: { body: '#ffd23a', head: '#ffd23a', dark: '#1a1a24', light: '#fff27a', special: undefined, mkMask: '#1a1a24', mkLine: '#3a3a4a', mkEye: '#ffffff', mkSkin: '#f2c9a0', mkGlow: '#fff6a0', parts: ['rwMKNinja', 'chainSpear'] },
+  titanfighter: { body: '#ece4d4', head: '#ffd8b8', dark: '#4a2a14', light: '#ffffff', noMuzzle: true, hair: '#4a2a14', eye: '#2a8a6a', parts: ['rwCloak', 'rwEren'] },
+  cyberhamster: { parts: ['jetpack', 'rwCyberHam'] },
+  hunterborg: { body: '#1a1a24', head: '#d8b898', parts: ['jacket', 'rwTerminator', 'shotgun'] },
+};
+for (const [id, o] of Object.entries(REWORK)) Object.assign(SKINS.find(k => k.id === id), o);
 // цена зависит только от редкости: редкие 200–450, эпики 700–1300 (дорогие — только легенды)
 for (const k of SKINS) {
   const h = [...k.id].reduce((a, ch) => a * 31 + ch.charCodeAt(0) >>> 0, 7);
@@ -1589,7 +1607,7 @@ let scale = 1;
 function resize() {
   const ww = document.body.clientWidth || window.innerWidth, wh = document.body.clientHeight || window.innerHeight;
   scale = Math.min(ww / W, wh / H);
-  const dpr = window.devicePixelRatio || 1;
+  const dpr = Math.min(2, window.devicePixelRatio || 1);   // пиксель-арт: больше 2× не видно глазом, а рисовать в 2,25 раза дольше
   cv.style.width = Math.floor(W * scale) + 'px';
   cv.style.height = Math.floor(H * scale) + 'px';
   cv.width = Math.floor(W * scale * dpr);
@@ -2373,7 +2391,7 @@ const BACK_PARTS = new Set(['wingsAngel', 'wingsBat', 'wingsFairy', 'wingsButter
   'katanaBack', 'roundShield', 'heroCapeLong', 'frostAura', 'tailFeathers', 'shoulderCannon', 'speedLines', 'smokeWisps', 'lionMane', 'tailTuft',
   'accretionBack', 'wingsBee', 'jackalEars', 'smokeTail', 'skullFireBack',
   'quiver', 'gladShield', 'helmWheel', 'nineTails', 'waterAura', 'braids', 'mailBag', 'longScarf', 'sunHalo', 'starMane', 'backpack', 'darkAura', 'goldWings', 'lootSack', 'cottonPuffs', 'surfboard', 'branchArm', 'warBanner', 'protonPack', 'boltTail', 'greenCloak', 'dualKatana',
-  'squirrelTail', 'beaverTail', 'axoGills', 'peacockFan', 'bugWings', 'glowBum', 'moonBack', 'auroraTail', 'jellyTentacles']);
+  'rwCloak', 'rwKiAura', 'squirrelTail', 'beaverTail', 'axoGills', 'peacockFan', 'bugWings', 'glowBum', 'moonBack', 'auroraTail', 'jellyTentacles']);
 function drawParts(c, sk, t, pose, blink, back, Hd, B, A1, ex1, ex2, ey) {
   const r = Math.round, ol = sk.ol, hx = r(Hd.x), hy = r(Hd.y), bx = r(B.x), by = r(B.y);
   const R = (x, y, w, h, col) => { c.fillStyle = col; c.fillRect(r(x), r(y), w, h); };
@@ -2381,6 +2399,10 @@ function drawParts(c, sk, t, pose, blink, back, Hd, B, A1, ex1, ex2, ey) {
   const O = (x, y, rx, ry, col) => { E(x, y, rx + 1, ry + 1, ol); E(x, y, rx, ry, col); };
   const flying = pose === 'jump' || pose === 'tuck';
   const flap = flying ? (Math.sin(t * 20) > 0 ? -2 : 1) : (Math.sin(t * 3) > 0.5 ? -1 : 0);
+  // маска/шлем: закрашивает голову выше строки cut; костюм: тело ниже строки from
+  const cowl = (col, cut) => { c.save(); c.beginPath(); c.rect(0, -8, 32, cut + 8); c.clip(); E(Hd.x, Hd.y, Hd.rx + 0.5, Hd.ry + 0.5, col); c.restore(); };
+  const eyes = (col = '#1a1010') => { if (blink) { R(ex1, ey + 2, 2, 1, col); R(ex2, ey + 2, 2, 1, col); } else { R(ex1, ey, 2, 3, col); R(ex2, ey, 2, 3, col); R(ex1, ey, 1, 1, '#ffffff'); R(ex2, ey, 1, 1, '#ffffff'); } };
+  const glove = col => { E(A1.x, A1.y, 1.8, 2, col); };
   for (const part of sk.parts) {
     if (BACK_PARTS.has(part) !== back) continue;
     switch (part) {
@@ -3280,6 +3302,144 @@ function drawParts(c, sk, t, pose, blink, back, Hd, B, A1, ex1, ex2, ey) {
           if (Math.sin(t * 8 + s * 2) > 0.6) R(x + Math.cos(an) * 2, y + Math.sin(an) * 2, 1, 1, '#e8261a');
         }
         break;
+
+      // ---- переделанные супергерои ----
+      case 'rwInvincible':   // синяя маска до носа, белые линзы, чёрные вихры, синие перчатки и плечи
+        R(bx - 6, by - 4, 3, 3, '#2a4ad8'); R(bx + 4, by - 4, 3, 3, '#2a4ad8'); R(bx - 5, by + 3, 11, 1, '#2a4ad8'); glove('#2a4ad8');
+        cowl('#2a4ad8', hy + 2);
+        for (const [x, y, w, h] of [[-5, -9, 3, 2], [-2, -10, 3, 3], [1, -9, 3, 2], [-7, -7, 2, 2], [4, -8, 2, 1]]) { R(hx + x - 1, hy + y - 1, w + 2, h + 2, ol); }
+        for (const [x, y, w, h] of [[-5, -9, 3, 2], [-2, -10, 3, 3], [1, -9, 3, 2], [-7, -7, 2, 2], [4, -8, 2, 1]]) R(hx + x, hy + y, w, h, '#1a1a24');
+        for (const ex of [ex1 - 1, ex2]) { R(ex - 1, ey - 1, 5, 4, ol); R(ex, ey, 3, 2, '#ffffff'); R(ex + (ex === ex2 ? 2 : 0), ey - 1, 1, 1, '#ffffff'); if (blink) R(ex, ey, 3, 1, '#2a4ad8'); }
+        R(hx + 4, hy + 4, 3, 1, '#a0503a'); break;
+      case 'rwOmni':   // белый костюм, красный воротник и перчатки, зачёс с проседью, густые усы и брови
+        R(bx - 5, by - 5, 11, 2, '#e8261a'); R(bx - 1, by - 3, 3, 1, '#e8261a'); glove('#e8261a');
+        R(hx - 6, hy - 8, 11, 3, '#1a1a24'); R(hx - 8, hy - 6, 4, 6, '#1a1a24'); R(hx + 4, hy - 7, 2, 2, '#1a1a24'); R(hx - 6, hy - 3, 2, 2, '#8a8a9a');
+        R(ex1 - 1, ey - 2, 4, 1, '#1a1a24'); R(ex2, ey - 2, 3, 1, '#1a1a24');
+        R(hx + 2, hy + 2, 7, 2, '#1a1a24'); R(hx + 2, hy + 4, 1, 1, '#1a1a24'); R(hx + 8, hy + 4, 1, 1, '#1a1a24'); break;
+      case 'rwDeadpool':   // красная маска с чёрными пятнами глаз и швом, чёрные бока, пояс с пряжкой-кругом
+        R(bx - 6, by - 3, 2, 6, '#1a1a24'); R(bx + 5, by - 3, 1, 5, '#1a1a24');
+        R(bx - 5, by + 2, 11, 2, '#5a3a1a'); R(bx - 4, by + 2, 2, 2, '#3a2410'); R(bx + 4, by + 2, 2, 2, '#3a2410');
+        O(bx + 1, by + 3, 1.6, 1.6, '#c81a1a'); R(bx + 1, by + 2, 1, 3, '#1a1a24');
+        cowl('#c81a1a', hy + 8); R(hx + 2, hy - 6, 1, 4, '#8a0a0a'); R(hx - 5, hy - 4, 3, 1, '#8a0a0a');
+        E(ex1 + 0.5, ey + 1, 3, 2.6, '#1a1a24'); E(ex2 + 1.5, ey + 1, 2.6, 2.4, '#1a1a24');
+        if (blink) { R(ex1 - 1, ey + 1, 3, 1, '#c8c8d0'); R(ex2 + 1, ey + 1, 2, 1, '#c8c8d0'); }
+        else { R(ex1 - 1, ey + 1, 3, 1, '#ffffff'); R(ex1 + 1, ey, 1, 1, '#ffffff'); R(ex2 + 1, ey + 1, 2, 1, '#ffffff'); R(ex2 + 1, ey, 1, 1, '#ffffff'); }
+        break;
+      case 'rwBatman': {   // чёрный капюшон с ушками, белые щели глаз, бежевый рот, жёлтая эмблема и пояс
+        cowl('#1a1a24', hy + 2);
+        for (const x of [hx - 4, hx + 2]) { R(x - 1, hy - 10, 4, 5, ol); R(x, hy - 12, 2, 2, ol); R(x, hy - 10, 2, 4, '#1a1a24'); R(x + (x > hx ? 1 : 0), hy - 12, 1, 2, '#1a1a24'); }
+        R(ex1 - 1, ey - 1, 4, 1, '#05050a'); R(ex2, ey - 1, 3, 1, '#05050a');
+        if (!blink) { R(ex1, ey, 2, 1, '#ffffff'); R(ex2, ey, 2, 1, '#ffffff'); }
+        R(hx + 3, hy + 4, 3, 1, '#8a5a3a');
+        O(bx + 1, by - 2, 3.2, 1.8, '#ffd23a'); R(bx - 1, by - 2, 5, 1, '#1a1a24'); R(bx, by - 3, 1, 1, '#1a1a24'); R(bx + 2, by - 3, 1, 1, '#1a1a24'); R(bx + 1, by - 1, 1, 1, '#1a1a24');
+        R(bx - 5, by + 2, 11, 2, '#ffd23a'); for (const x of [-3, 0, 3]) R(bx + x, by + 2, 1, 2, '#c89a10');
+        glove('#1a1a24'); R(A1.x - 2, A1.y - 1, 1, 1, '#1a1a24'); R(A1.x - 2, A1.y + 1, 1, 1, '#1a1a24'); break;
+      }
+      case 'rwCaptain':   // синий шлем с белой «A» и крылышками, звезда на груди, красно-белые полосы
+        R(bx, by - 5, 1, 3, '#ffffff'); R(bx - 1, by - 4, 3, 1, '#ffffff');
+        for (let i = 0; i < 4; i++) R(bx - 4, by + i, 9, 1, i % 2 ? '#ffffff' : '#e8261a');
+        glove('#e8261a'); cowl('#2a4ab0', hy + 1); eyes();
+        R(hx + 2, hy - 6, 1, 3, '#ffffff'); R(hx + 4, hy - 6, 1, 3, '#ffffff'); R(hx + 3, hy - 7, 1, 1, '#ffffff'); R(hx + 3, hy - 5, 1, 1, '#ffffff');
+        R(hx - 5, hy - 2, 3, 1, '#ffffff'); R(hx - 6, hy - 3, 2, 1, '#ffffff'); R(hx - 4, hy - 1, 2, 1, '#ffffff');
+        R(hx + 4, hy + 4, 3, 1, '#a0503a'); break;
+      case 'rwDoomArmor':   // зелёный нагрудник, наплечники, ремень с подсумками
+        R(bx - 4, by - 5, 9, 5, '#5a7a3a'); R(bx, by - 5, 1, 5, '#3a5a20'); R(bx - 4, by - 1, 9, 1, '#3a5a20');
+        O(bx - 5, by - 4, 2.2, 1.8, '#7a8a5a'); O(bx + 5, by - 4, 2, 1.8, '#7a8a5a');
+        R(bx - 5, by + 1, 11, 2, '#5a3a1a'); R(bx - 3, by + 1, 2, 2, '#3a2410'); R(bx + 2, by + 1, 2, 2, '#3a2410'); glove('#5a4a3a'); break;
+      case 'rwDoomHelmet':   // шлем с золотым визором, гребнем и дыхательной решёткой
+        cowl('#4a6a2a', hy + 8); R(hx - 2, hy - 7, 3, 4, '#2a3a14'); R(hx - 6, hy - 4, 2, 6, '#3a5a20');
+        O(hx - 3, hy + 1, 1.6, 1.6, '#6a8a4a');
+        R(hx + 1, ey - 1, 8, 5, ol); R(hx + 2, ey, 6, 3, '#c87a10'); R(hx + 2, ey, 6, 1, '#ffb030'); R(hx + 2, ey, 2, 1, '#fff6a0');
+        if (Math.sin(t * 2) > 0.85) R(hx + 4 + r((t * 20) % 4), ey + 1, 1, 1, '#ffffff');
+        R(hx + 3, hy + 3, 5, 3, '#2a3a14'); R(hx + 4, hy + 3, 1, 3, '#5a7a3a'); R(hx + 6, hy + 3, 1, 3, '#5a7a3a'); break;
+      case 'rwKiAura': {   // раз в 7 секунд — супер-сайян: золотая аура
+        const ssj = t % 7 > 4.8; if (!ssj) break;
+        c.globalAlpha = 0.25 + Math.sin(t * 20) * 0.08; E(hx, by - 3, 12, 15, '#ffe03a'); c.globalAlpha = 0.45; E(hx, by - 3, 9, 12, '#fff6a0'); c.globalAlpha = 1;
+        for (let k = 0; k < 4; k++) { const y = by + 6 - ((t * 30 + k * 9) % 26); R(hx - 9 + k * 6, y, 1, 3, '#fff27a'); } break;
+      }
+      case 'rwGi':   // оранжевое ги, синяя майка, синий пояс и напульсники, знак на груди
+        R(bx - 1, by - 5, 3, 2, '#2a4ab0'); R(bx, by - 3, 1, 1, '#2a4ab0'); R(bx - 2, by - 5, 1, 1, '#c85a10'); R(bx + 2, by - 5, 1, 1, '#c85a10');
+        O(bx + 3, by - 2, 1.3, 1.3, '#ffffff'); R(bx + 3, by - 2, 1, 1, '#1a1a24');
+        R(bx - 5, by + 1, 11, 2, '#2a4ab0'); R(bx - 7, by + 2, 2, 3, '#2a4ab0'); R(A1.x - 1, A1.y + 1, 3, 1, '#2a4ab0'); break;
+      case 'rwGokuHair': {   // острые чёрные пряди «пальмой»; в сайян-режиме — золотые и дыбом
+        const ssj = t % 7 > 4.8, col = ssj ? (Math.sin(t * 16) > 0 ? '#ffe03a' : '#fff27a') : '#1a1a24', up = ssj ? 2 : 0;
+        const spikes = [[-7, -9, 6], [-3, -13 - up, 8 + up], [1, -14 - up, 9 + up], [5, -12 - up, 7 + up]];
+        for (const [x, y, h] of spikes) stri(c, hx + x, hy + y, h, ol, 1);
+        R(hx - 8, hy - 7, 14, 4, ol); R(hx - 12 - up, hy - 7, 5, 3, ol); R(hx - 11 - up, hy - 4, 4, 3, ol);
+        for (const [x, y, h] of spikes) stri(c, hx + x, hy + y, h, col);
+        R(hx - 7, hy - 7, 12, 3, col); R(hx - 11 - up, hy - 6, 4, 1, col); R(hx - 10 - up, hy - 3, 3, 1, col); R(hx - 8, hy - 5, 2, 4, col);
+        R(hx + 1, hy - 5, 2, 2, col); R(hx + 4, hy - 5, 2, 3, col); R(hx + 6, hy - 6, 1, 2, col);
+        if (ssj && !blink) { R(ex1, ey + 1, 1, 1, '#2ac8a0'); R(ex2, ey + 1, 1, 1, '#2ac8a0'); }
+        break;
+      }
+      case 'rwAntSuit':   // чёрная полоса с серебряными швами, пояс
+        R(bx - 1, by - 5, 3, 8, '#1a1a24'); R(bx, by - 5, 1, 8, '#a8b0c0'); R(bx - 6, by - 2, 2, 4, '#1a1a24');
+        R(bx - 5, by + 2, 11, 1, '#1a1a24'); O(bx + 1, by + 2, 1.2, 1.2, '#c8d0e0'); glove('#1a1a24'); break;
+      case 'rwAntHelmet':   // серебряный шлем, красный гребень, круглые красные линзы, решётка
+        cowl('#a8b0c0', hy + 8); R(hx - 5, hy - 7, 9, 2, '#c01a1a'); R(hx - 6, hy - 5, 2, 1, '#c01a1a');
+        O(hx - 3, hy + 1, 2, 2, '#6a7080'); R(hx - 3, hy + 1, 1, 1, '#c8d0e0');
+        for (const ex of [ex1 + 0.5, ex2 + 1.5]) { E(ex, ey + 1, 2.6, 2.6, ol); E(ex, ey + 1, 1.8, 1.8, blink ? '#8a1a10' : '#ff3a2a'); R(ex - 1, ey, 1, 1, '#ffb0a0'); }
+        R(hx + 3, hy + 3, 5, 3, '#3a3a4a'); for (const x of [4, 6]) R(hx + x, hy + 3, 1, 3, '#8a90a0');
+        R(hx - 1, hy - 10, 1, 3, '#8a90a0'); R(hx + 2, hy - 10, 1, 3, '#8a90a0'); break;
+      case 'rwThanosArmor':   // золотые наплечники, кайма и пояс поверх синего костюма
+        R(bx - 4, by - 5, 9, 1, '#ffd23a'); O(bx - 5, by - 4, 2.4, 2, '#ffd23a'); O(bx + 5, by - 4, 2.2, 2, '#ffd23a');
+        R(bx - 5, by + 2, 11, 2, '#ffd23a'); R(bx - 5, by + 3, 11, 1, '#c89a10'); R(bx, by - 4, 1, 6, '#1a2a6a'); break;
+      case 'rwThanosHelmet':   // золотой шлем с гребнем и боковыми щитками, полосы на подбородке
+        cowl('#ffd23a', hy - 3); R(hx - 6, hy - 6, 12, 1, '#c89a10');
+        R(hx - 3, hy - 10, 6, 3, ol); R(hx - 2, hy - 9, 4, 2, '#ffd23a');
+        R(hx - 9, hy - 5, 4, 8, ol); R(hx - 8, hy - 4, 2, 6, '#ffd23a'); R(hx - 8, hy + 1, 2, 1, '#c89a10');
+        for (let i = 0; i < 4; i++) R(hx + 1 + i * 2, hy + 3, 1, 3, '#5a3a7a');
+        R(hx + 3, hy + 2, 4, 1, '#4a2a5a'); break;
+      case 'rwGauntlet': {   // золотая перчатка с шестью камнями, камни вспыхивают
+        const x = A1.x, y = A1.y;
+        E(x + 0.5, y, 3.4, 3.4, ol); E(x + 0.5, y, 2.6, 2.6, '#ffd23a'); R(x - 1, y + 2, 4, 1, '#c89a10');
+        const st = ['#e8261a', '#3ab0ff', '#a64aff', '#3ce06a', '#ff8a1e', '#ffe03a'];
+        [[-1, -1], [0, -2], [1, -2], [2, -1], [-1, 1], [1, 0]].forEach(([dx, dy], i) => R(x + dx, y + dy, 1, 1, st[i]));
+        if (t % 4 < 0.3) { c.globalAlpha = 0.5; E(x + 0.5, y - 0.5, 5, 5, '#ffffff'); c.globalAlpha = 1; } break;
+      }
+      case 'rwMKNinja': {   // капюшон, щель с глазами, нижняя маска, чёрный низ, пояс — как бойцы из турниров
+        R(bx - 6, by - 2, 2, 5, '#1a1a24'); R(bx + 5, by - 2, 1, 4, '#1a1a24');
+        R(bx - 5, by + 1, 11, 2, '#1a1a24'); R(bx + 1, by + 3, 3, 3, sk.body); R(bx + 1, by + 5, 3, 1, sk.light);
+        R(bx - 5, by - 5, 11, 1, sk.light); glove('#1a1a24');
+        R(hx - 1, ey - 2, 10, 5, ol); R(hx, ey - 1, 8, 3, sk.mkSkin);
+        if (sk.mkGlow) { c.globalAlpha = 0.35 + Math.sin(t * 5) * 0.15; R(ex1 - 1, ey - 1, 4, 3, sk.mkGlow); R(ex2, ey - 1, 4, 3, sk.mkGlow); c.globalAlpha = 1; }
+        if (blink) { R(ex1, ey + 1, 2, 1, '#1a1010'); R(ex2, ey + 1, 2, 1, '#1a1010'); }
+        else { R(ex1, ey, 2, 2, sk.mkEye); R(ex2, ey, 2, 2, sk.mkEye); if (!sk.mkGlow) { R(ex1 + 1, ey + 1, 1, 1, '#1a3a6a'); R(ex2 + 1, ey + 1, 1, 1, '#1a3a6a'); } }
+        R(hx - 1, ey + 2, 10, 6, ol); R(hx, ey + 3, 8, 4, sk.mkMask);
+        for (const y of [ey + 4, ey + 6]) R(hx + 1, y, 7, 1, sk.mkLine);
+        R(hx - 2, ey - 3, 10, 1, sk.dark === '#1a1a24' ? sk.light : sk.dark); break;
+      }
+      case 'rwCloak': {   // зелёный плащ разведкорпуса с крыльями на спине
+        const w = Math.sin(t * 6) > 0 ? 1 : 0;
+        R(bx - 10 - w, by - 6, 6, 14 + w, ol); R(bx - 9 - w, by - 5, 4, 12 + w, '#2a6a3a'); R(bx - 9 - w, by - 5, 1, 12 + w, '#3a8a4a');
+        R(bx - 8 - w, by - 1, 1, 2, '#ffffff'); R(bx - 7 - w, by - 2, 1, 2, '#3a6ad8'); R(bx - 7 - w, by, 1, 1, '#ffffff'); break;
+      }
+      case 'rwEren': {   // короткая куртка, ремни УПМ, баллоны на бедре, каштановые пряди; в ярости — следы титана
+        R(bx - 5, by - 5, 3, 6, '#a0703a'); R(bx + 3, by - 5, 3, 5, '#a0703a'); R(bx - 5, by + 1, 11, 1, '#5a3a1a');
+        R(bx - 1, by - 4, 1, 5, '#5a3a1a'); R(bx + 2, by - 4, 1, 5, '#5a3a1a'); R(bx - 4, by + 4, 3, 1, '#5a3a1a'); R(bx + 2, by + 4, 3, 1, '#5a3a1a');
+        R(bx - 4, by + 1, 5, 3, ol); R(bx - 3, by + 2, 3, 1, '#a8b0c0'); R(A1.x, A1.y - 1, 1, 6, '#c8d0e0');
+        const hcol = sk.hair; R(hx - 6, hy - 8, 12, 3, hcol); R(hx - 8, hy - 6, 3, 7, hcol); R(hx + 3, hy - 6, 3, 2, hcol); R(hx + 5, hy - 5, 2, 3, hcol); R(hx - 1, hy - 6, 3, 1, hcol);
+        if (t % 8 > 6) { R(ex1 - 1, ey + 3, 1, 3, '#c8705a'); R(ex2 + 2, ey + 3, 1, 3, '#c8705a'); c.globalAlpha = 0.5; for (let k = 0; k < 3; k++) E(hx - 4 + k * 5, hy - 9 - ((t * 8 + k * 3) % 6), 1.5, 1.2, '#ffffff'); c.globalAlpha = 1; }
+        R(hx + 4, hy + 4, 3, 1, '#a0503a'); break;
+      }
+      case 'rwCyberHam': {   // хромированная пластина на полголовы, светящийся глаз-сканер, контуры схем, рука-манипулятор
+        c.save(); c.beginPath(); c.rect(hx + 1, -8, 32, hy + 9); c.clip(); E(Hd.x, Hd.y, Hd.rx + 0.5, Hd.ry + 0.5, '#a8b0c0'); c.restore();
+        R(hx + 1, hy - 7, 1, 8, '#5a6070'); R(hx + 1, hy + 1, 7, 1, '#5a6070'); R(hx + 3, hy - 5, 1, 1, '#e0e8f0'); R(hx + 6, hy - 6, 1, 1, '#e0e8f0'); R(hx + 7, hy - 1, 1, 1, '#e0e8f0');
+        const g = 0.5 + 0.5 * Math.sin(t * 5);
+        R(ex2 - 1, ey - 1, 4, 4, '#1a1a24'); c.globalAlpha = 0.3 + g * 0.3; E(ex2 + 1, ey + 1, 3.5, 3.5, '#3af0ff'); c.globalAlpha = 1;
+        R(ex2, ey, 2, 2, g > 0.5 ? '#3af0ff' : '#bff8ff'); if (t % 3 < 0.4) { c.globalAlpha = 0.7; R(ex2 + 2, ey + 1, 8, 1, '#ff3a3a'); c.globalAlpha = 1; }
+        R(hx - 1, hy + 2, 3, 1, '#3af0ff'); R(hx + 1, hy + 3, 1, 2, '#3af0ff'); R(hx + 4, hy - 10, 1, 4, '#6a7080'); R(hx + 4, hy - 11, 1, 1, Math.sin(t * 8) > 0 ? '#ff3a3a' : '#5a1a1a');
+        E(A1.x, A1.y, 2, 2.2, '#a8b0c0'); R(A1.x - 1, A1.y - 1, 1, 1, '#3af0ff'); R(A1.x + 1, A1.y + 1, 1, 1, '#5a6070');
+        O(bx + 1, by - 1, 1.6, 1.6, '#1a1a24'); R(bx + 1, by - 1, 1, 1, g > 0.5 ? '#3af0ff' : '#ff3af0');
+        c.globalAlpha = 0.5 + g * 0.5; R(bx - 4, by + 2, 4, 1, '#3af0ff'); R(bx - 4, by + 2, 1, 2, '#3af0ff'); c.globalAlpha = 1; break;
+      }
+      case 'rwTerminator': {   // короткая стрижка, тёмные очки, рваная щека с металлом и красным глазом
+        R(hx - 6, hy - 8, 12, 2, '#2a1a10'); R(hx - 8, hy - 6, 2, 4, '#2a1a10'); R(hx - 6, hy - 6, 9, 1, '#2a1a10');
+        R(ex2 - 1, ey + 2, 5, 4, ol); R(ex2, ey + 3, 3, 2, '#a8b0c0'); R(ex2, ey + 3, 1, 1, '#e0e8f0'); R(ex2 + 2, ey + 4, 1, 1, '#5a6070');
+        const g = 0.5 + 0.5 * Math.sin(t * 4);
+        c.globalAlpha = 0.3 + g * 0.3; E(ex2 + 1, ey + 1, 3, 3, '#ff2a2a'); c.globalAlpha = 1; R(ex2, ey, 2, 2, '#ff2a2a'); R(ex2, ey, 1, 1, '#ffb0a0');
+        R(hx + 3, hy + 4, 3, 1, '#6a3a2a'); R(bx - 1, by - 5, 3, 1, '#3a3a4a'); break;
+      }
       // лесные, водные и сказочные зверята
       case 'squirrelTail': {   // пушистый хвост завитком над спиной
         const w = Math.sin(t * 5) > 0 ? 1 : 0, pts = [[-7, 1, 3.6, 3.4], [-9, -4, 3.4, 3.6], [-7, -9, 3, 3]];
@@ -3535,7 +3695,7 @@ function reset() {
   camY = -H + 150; camR = even(camY);
   minY = p.y;
   coinsRun = 0; gemsRun = 0; kicks = 0; flips = 0; combo = 0; comboT = 0;
-  shake = 0; deadT = 0; zoneIdx = 0; banner = null; paused = false; overSkip = false; overConf = []; overTick = -1; overDone = false;
+  shake = 0; deadT = 0; zoneIdx = 0; banner = null; paused = false; overSkip = false; overConf = []; overTick = -1; overDone = false; overFx = []; overStage = 0; overTickAt = 0; overPunch = [0, 0, 0];
   zonesSeen = 1;
   tutStep = tutDone ? 2 : 0;
   birds.push({ x: 240, y: 0, t: 0, st: 'perch', vx: 0, vy: 0, dir: -1 });
@@ -4659,6 +4819,13 @@ cv.addEventListener('pointerdown', e => {
 });
 cv.addEventListener('pointermove', e => { if (held) touchX = toGame(e).x; });
 window.addEventListener('pointerup', release);
+// свайп влево-вправо листает колёса фортуны
+cv.addEventListener('pointerdown', e => { swipe0 = state === 'shop' && shopMain === 2 ? toGame(e) : null; });
+window.addEventListener('pointerup', e => {
+  if (!swipe0 || state !== 'shop' || shopMain !== 2 || modal || chest) { swipe0 = null; return; }
+  const q = toGame(e), dx = q.x - swipe0.x, dy = q.y - swipe0.y; swipe0 = null;
+  if (Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy) * 1.3) switchWheel(dx < 0 ? 1 : -1);
+});
 window.addEventListener('pointercancel', release);
 window.addEventListener('blur', release);
 window.addEventListener('keydown', e => {
@@ -4732,7 +4899,8 @@ function uiClick(pt) {
 // сервиса с сервером. Здесь — витрина: кнопки наборов показывают сообщение, а кристаллы
 // зарабатываются в игре (ежедневная награда, колесо, кристаллы на уровнях).
 let shopMain = 0, shopPage = 0, modal = null, dealsCache = null;
-const wheel = { rot: 0, spinning: false, t: 0, from: 0, to: 0, idx: 0, lastSeg: 0, bump: 0 };
+const wheel = { rots: [0, 0, 0], sel: 1, spinning: false, t: 0, from: 0, to: 0, idx: 0, lastSeg: 0, bump: 0 };
+let wheelSel = 1, wheelView = 1, swipe0 = null;   // 0 — ледяное, 1 — обычное, 2 — королевское
 const MAIN_TABS = ['heroes', 'dealsTab', 'wheel', 'premium'];
 const mainTabRect = i => ({ x: 8 + i * 87, y: 66, w: 82, h: 30 });
 const tabRect = i => ({ x: 14 + i * 84, y: 104, w: 80, h: 24 });
@@ -4764,6 +4932,29 @@ const WHEEL = [
   { kind: 'coins', n: 50, w: 22, col: '#3ce06a' }, { kind: 'gems', n: 10, w: 6, col: '#c04aff' },
   { kind: 'skin', r: 2, w: 8, col: '#e05aff' }, { kind: 'skin', r: 3, w: 4, col: '#ffb02a' },
 ];
+// ещё два колеса по бокам: листаются стрелками или свайпом, награды крупнее
+const WHEELS = [
+  { theme: 'ice', cost: { coins: 400 }, segs: [
+    { kind: 'coins', n: 300, w: 20, col: '#7ad8ff' }, { kind: 'gems', n: 5, w: 14, col: '#3a6ad8' },
+    { kind: 'coins', n: 600, w: 12, col: '#bff4ff' }, { kind: 'skin', r: 1, w: 16, col: '#5ac8ff' },
+    { kind: 'coins', n: 150, w: 20, col: '#e0f6ff' }, { kind: 'skin', r: 2, w: 10, col: '#8a7aff' },
+    { kind: 'gems', n: 12, w: 6, col: '#2a4ab0' }, { kind: 'coins', n: 1000, w: 2, col: '#ffd23a' },
+  ] },
+  { theme: 'gold', cost: { gems: 5 }, free: true, segs: WHEEL },
+  { theme: 'royal', cost: { gems: 30 }, segs: [
+    { kind: 'gems', n: 15, w: 20, col: '#a64aff' }, { kind: 'skin', r: 2, w: 20, col: '#e05aff' },
+    { kind: 'coins', n: 1500, w: 16, col: '#ffd23a' }, { kind: 'skin', r: 3, w: 8, col: '#ffb02a' },
+    { kind: 'gems', n: 30, w: 14, col: '#7a1ab0' }, { kind: 'skin', r: 2, w: 14, col: '#c04aff' },
+    { kind: 'gems', n: 60, w: 4, col: '#3ab0ff' }, { kind: 'skin', r: 3, w: 4, col: '#ff3d7f' },
+  ] },
+];
+const WHEEL_NAMES = {
+  ru: ['ЛЕДЯНОЕ КОЛЕСО', 'КОРОЛЕВСКОЕ КОЛЕСО'], en: ['ICE WHEEL', 'ROYAL WHEEL'], es: ['RUEDA DE HIELO', 'RUEDA REAL'],
+  de: ['EISRAD', 'KÖNIGSRAD'], fr: ['ROUE DE GLACE', 'ROUE ROYALE'], pt: ['RODA DE GELO', 'RODA REAL'],
+  it: ['RUOTA DI GHIACCIO', 'RUOTA REALE'], tr: ['BUZ ÇARKI', 'KRALİYET ÇARKI'], uk: ['КРИЖАНЕ КОЛЕСО', 'КОРОЛІВСЬКЕ КОЛЕСО'], pl: ['LODOWE KOŁO', 'KRÓLEWSKIE KOŁO'],
+};
+const wheelName = i => i === 1 ? T('wheel') : (WHEEL_NAMES[lang] || WHEEL_NAMES.en)[i ? 1 : 0];
+const WHL_PREV = { x: 2, y: 276, w: 34, h: 48 }, WHL_NEXT = { x: W - 36, y: 276, w: 34, h: 48 };
 const tabSkins = () => SKINS.filter(k => k.r === shopTab);
 const pageCount = () => Math.max(1, Math.ceil(tabSkins().length / PER_PAGE));
 const pageSkins = () => tabSkins().slice(shopPage * PER_PAGE, (shopPage + 1) * PER_PAGE);
@@ -4880,11 +5071,13 @@ function claimDaily() {
 }
 function spinWheel() {
   if (wheel.spinning) return;
-  if (freeSpin()) store.set('wheelDay', dayNum());
-  else if (gems >= SPIN_COST) { gems -= SPIN_COST; saveMoney(); }
+  const def = WHEELS[wheelSel], segs = def.segs, cost = def.free ? { gems: SPIN_COST } : def.cost;
+  if (def.free && freeSpin()) store.set('wheelDay', dayNum());
+  else if (canPay(cost)) pay(cost);
   else { sfx.no(); return; }
-  const idx = pickIdx(WHEEL.map(s => s.w)), seg = Math.PI * 2 / WHEEL.length;
-  wheel.from = ((wheel.rot % (Math.PI * 2)) + Math.PI * 2) % (Math.PI * 2);
+  wheel.sel = wheelSel;
+  const idx = pickIdx(segs.map(s => s.w)), seg = Math.PI * 2 / segs.length;
+  wheel.from = ((wheel.rots[wheelSel] % (Math.PI * 2)) + Math.PI * 2) % (Math.PI * 2);
   wheel.to = Math.PI * 12 + (Math.PI * 2 - (idx + 0.5) * seg) + rand(-0.3, 0.3) * seg;
   wheel.t = 0; wheel.idx = idx; wheel.spinning = true; wheel.lastSeg = Math.floor(wheel.from / seg);
   tone(400, 800, 0.2, 'triangle', 0.06);
@@ -4898,14 +5091,21 @@ function awardWheel(s) {
   else { const g = [0, 5, 10, 20][s.r]; gems += g; saveMoney(); modal = { kind: 'prize', t: 0, s: { kind: 'gems', n: g } }; }
 }
 function updateWheel(dt) {
+  wheelView += (wheelSel - wheelView) * Math.min(1, dt * 9);
+  if (Math.abs(wheelSel - wheelView) < 0.002) wheelView = wheelSel;
   if (wheel.bump > 0) wheel.bump -= dt * 6;
   if (!wheel.spinning) return;
   wheel.t += dt;
-  const k = Math.min(1, wheel.t / 4.2), e = 1 - Math.pow(1 - k, 3), seg = Math.PI * 2 / WHEEL.length;
-  wheel.rot = wheel.from + (wheel.to - wheel.from) * e;
-  const n = Math.floor(wheel.rot / seg);
+  const segs = WHEELS[wheel.sel].segs, k = Math.min(1, wheel.t / 4.2), e = 1 - Math.pow(1 - k, 3), seg = Math.PI * 2 / segs.length;
+  const rot = wheel.rots[wheel.sel] = wheel.from + (wheel.to - wheel.from) * e;
+  const n = Math.floor(rot / seg);
   if (n !== wheel.lastSeg) { wheel.lastSeg = n; sfx.tick(); wheel.bump = 1; }
-  if (k >= 1) { wheel.spinning = false; awardWheel(WHEEL[wheel.idx]); }
+  if (k >= 1) { wheel.spinning = false; awardWheel(segs[wheel.idx]); }
+}
+function switchWheel(d) {
+  const n = clamp(wheelSel + d, 0, WHEELS.length - 1);
+  if (n === wheelSel || wheel.spinning) return;
+  wheelSel = n; tone(500, 900, 0.1, 'triangle', 0.05); tone(900, 1300, 0.08, 'sine', 0.03, 0.05);
 }
 function shopClick(pt) {
   if (wheel.spinning) return;
@@ -4925,6 +5125,8 @@ function shopClick(pt) {
     if (canClaim() && inRect(pt, CLAIM_BTN)) claimDaily();
   } else if (shopMain === 2) {
     if (inRect(pt, SPIN_BTN)) spinWheel();
+    else if (inRect(pt, WHL_PREV)) switchWheel(-1);
+    else if (inRect(pt, WHL_NEXT)) switchWheel(1);
   } else if (GOLD.some((G2, i) => inRect(pt, goldRect(i)))) {
     buyGold(GOLD.findIndex((G2, i) => inRect(pt, goldRect(i))));
   } else if (inRect(pt, STARTER) || inRect(pt, SUB_BTN) || [0, 1, 2, 3].some(i => inRect(pt, packRect(i)))) {
@@ -6561,7 +6763,7 @@ function drawMenu() {
   button(BTN.wheel, T('wheel'), '#3ce06a', '#1a9a3a');
   button(BTN.ach, T('awards'), '#3ab0ff', '#1a70c0');
   if (canClaim()) badge(BTN.store.x + BTN.store.w - 4, BTN.store.y + 2);
-  if (freeSpin()) badge(BTN.wheel.x + BTN.wheel.w - 4, BTN.wheel.y + 2);
+  if (freeSpin()) { badge(BTN.wheel.x + BTN.wheel.w - 4, BTN.wheel.y + 2); freeTag(BTN.wheel.x + BTN.wheel.w / 2, BTN.wheel.y - 2); }
   button(BTN.tent, T('tent'), '#a64aff', '#6a1ac0');
   button(BTN.allies, T('allies'), '#e8261a', '#a01008');
   drawMuteBtn();
@@ -8476,20 +8678,68 @@ function drawHeroesTab() {
   text('0/45/40/15%', LCHEST_BTN.x + LCHEST_BTN.w / 2, 544, 1, '#c8b8e0', 'center', null);
   text(T('collected') + ' ' + owned.length + ' / ' + SKINS.length, W / 2, 576, 2, '#ffd23a');
 }
+function giftIcon(x, y, s = 1) {   // подарок с лентой и бантом
+  const P = (dx, dy, w, h, col) => prect(ctx, x + dx * s, y + dy * s, w * s, h * s, col);
+  P(-12, -6, 24, 18, OL); P(-10, -4, 20, 14, '#c04aff'); P(-14, -12, 28, 8, OL); P(-12, -10, 24, 4, '#e07aff');
+  P(-2, -10, 4, 20, '#ffd23a'); P(-10, 0, 20, 2, '#ffd23a');
+  P(-8, -18, 6, 6, OL); P(2, -18, 6, 6, OL); P(-6, -16, 4, 4, '#ffd23a'); P(4, -16, 4, 4, '#ffd23a'); P(-2, -14, 4, 4, '#ffb02a');
+  P(-10, -4, 2, 8, 'rgba(255,255,255,0.3)');
+}
+function dailyBox(rw, i, r, done, now) {
+  const day = i + 1;
+  ctx.fillStyle = OL; ctx.fillRect(r.x - 2, r.y - 2, r.w + 4, r.h + 4);
+  ctx.fillStyle = done ? '#5a4a7a' : now ? '#ffd23a' : day === 7 ? '#e0b0ff' : '#ffffff'; ctx.fillRect(r.x, r.y, r.w, r.h);
+  if (now) { ctx.fillStyle = '#fff6a0'; ctx.fillRect(r.x, r.y, r.w, 4); ctx.fillStyle = '#e8a820'; ctx.fillRect(r.x, r.y + r.h - 4, r.w, 4); }
+  text(String(day), r.x + r.w / 2, r.y + 14, 1, done ? '#c8b8e0' : OL, 'center', null);
+  if (rw.c) coinIcon(r.x + 20, r.y + 32, 6);
+  else if (rw.g) gemIcon(r.x + 20, r.y + 32, 0.6);
+  else giftIcon(r.x + 20, r.y + 38, 0.75);
+  if (rw.c || rw.g) text(String(rw.c || rw.g), r.x + r.w / 2, r.y + 58, 1, done ? '#c8b8e0' : OL, 'center', null);
+  if (done) { prect(ctx, r.x + 10, r.y + 30, 4, 4, '#3ce06a'); prect(ctx, r.x + 14, r.y + 34, 4, 4, '#3ce06a'); prect(ctx, r.x + 18, r.y + 30, 4, 4, '#3ce06a'); prect(ctx, r.x + 22, r.y + 26, 4, 4, '#3ce06a'); prect(ctx, r.x + 26, r.y + 22, 4, 4, '#3ce06a'); }
+}
+// красная точка-уведомление
+function redDot(x, y, s = 1) {
+  const k = (1 + Math.max(0, Math.sin(time * 6)) * 0.25) * s;
+  pell(ctx, x, y, 7 * k, 7 * k, OL); pell(ctx, x, y, 5 * k, 5 * k, '#ff2a2a'); prect(ctx, x - 2 * k, y - 3 * k, 2, 2, '#ffb0a0');
+}
 function drawDailyRow(y) {
   const can = canClaim(), cur = nextStreak();
+  let nowI = -1;
   DAILY.forEach((rw, i) => {
     const r = dayBox(i, y), day = i + 1, done = can ? day < cur : day <= cur, now = can && day === cur;
-    if (now) { ctx.globalAlpha = 0.4 + Math.sin(time * 6) * 0.2; pell(ctx, r.x + r.w / 2, r.y + r.h / 2, 28, 40, '#ffd23a'); ctx.globalAlpha = 1; }
-    ctx.fillStyle = OL; ctx.fillRect(r.x - 2, r.y - 2, r.w + 4, r.h + 4);
-    ctx.fillStyle = done ? '#5a4a7a' : now ? '#ffd23a' : day === 7 ? '#e0b0ff' : '#ffffff'; ctx.fillRect(r.x, r.y, r.w, r.h);
-    text(String(day), r.x + r.w / 2, r.y + 14, 1, done ? '#c8b8e0' : OL, 'center', null);
-    if (rw.c) coinIcon(r.x + 20, r.y + 32, 6);
-    else if (rw.g) gemIcon(r.x + 20, r.y + 32, 0.6);
-    else text('?', r.x + 21, r.y + 40, 3, '#c04aff', 'center', OL);
-    if (rw.c || rw.g) text(String(rw.c || rw.g), r.x + r.w / 2, r.y + 58, 1, done ? '#c8b8e0' : OL, 'center', null);
-    if (done) { prect(ctx, r.x + 10, r.y + 30, 4, 4, '#3ce06a'); prect(ctx, r.x + 14, r.y + 34, 4, 4, '#3ce06a'); prect(ctx, r.x + 18, r.y + 30, 4, 4, '#3ce06a'); prect(ctx, r.x + 22, r.y + 26, 4, 4, '#3ce06a'); prect(ctx, r.x + 26, r.y + 22, 4, 4, '#3ce06a'); }
+    if (now) { nowI = i; return; }   // сегодняшний подарок рисуем последним — поверх соседей
+    if (day === 7 && !done) { ctx.globalAlpha = 0.25 + Math.sin(time * 3) * 0.1; pell(ctx, r.x + r.w / 2, r.y + r.h / 2, 26, 38, '#e07aff'); ctx.globalAlpha = 1; }
+    dailyBox(rw, i, r, done, false);
   });
+  if (nowI < 0) return;
+  // сегодняшний день: лучи, свечение, пульс «больше-меньше», искры и красная точка
+  const r = dayBox(nowI, y), cx = r.x + r.w / 2, cy = r.y + r.h / 2, pul = 1 + 0.09 * Math.sin(time * 5);
+  ctx.save(); ctx.beginPath(); ctx.rect(cx - 60, cy - 60, 120, 120); ctx.clip();
+  ctx.translate(cx, cy); ctx.rotate(time * 0.9); ctx.fillStyle = 'rgba(255,230,120,0.35)';
+  for (let q = 0; q < 8; q++) { ctx.rotate(Math.PI / 4); ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(-8, -60); ctx.lineTo(8, -60); ctx.fill(); }
+  ctx.restore();
+  ctx.globalAlpha = 0.45 + Math.sin(time * 5) * 0.2; pell(ctx, cx, cy, 30 * pul, 42 * pul, '#ffd23a'); ctx.globalAlpha = 0.3; pell(ctx, cx, cy, 36 * pul, 48 * pul, '#fff6a0'); ctx.globalAlpha = 1;
+  ctx.save(); ctx.translate(cx, cy); ctx.scale(pul, pul); ctx.translate(-cx, -cy);
+  dailyBox(DAILY[nowI], nowI, r, false, true);
+  const sh = ((time * 0.9) % 1.6) * (r.w + 30) - 15;   // блик пробегает по ячейке
+  ctx.save(); ctx.beginPath(); ctx.rect(r.x, r.y, r.w, r.h); ctx.clip(); ctx.fillStyle = 'rgba(255,255,255,0.55)';
+  ctx.beginPath(); ctx.moveTo(r.x + sh, r.y); ctx.lineTo(r.x + sh + 8, r.y); ctx.lineTo(r.x + sh - 8, r.y + r.h); ctx.lineTo(r.x + sh - 16, r.y + r.h); ctx.fill(); ctx.restore();
+  redDot(r.x + r.w, r.y);
+  ctx.restore();
+  for (let k = 0; k < 4; k++) {   // искорки вокруг
+    const a = time * 1.6 + k * Math.PI / 2, x = cx + Math.cos(a) * 30, yy = cy + Math.sin(a) * 42, on = Math.sin(time * 7 + k * 2) > 0;
+    if (on) { prect(ctx, x - 1, yy - 4, 2, 8, '#ffffff'); prect(ctx, x - 4, yy - 1, 8, 2, '#ffffff'); }
+  }
+}
+// плашка «БЕСПЛАТНО» над кнопкой — подпрыгивает и мигает
+function freeTag(cx, y) {
+  const b = Math.abs(Math.sin(time * 4)) * -4, w = Math.min(130, T('free').length * 12 + 24), s = 1 + Math.sin(time * 8) * 0.04;
+  ctx.save(); ctx.translate(cx, y + b); ctx.scale(s, s);
+  ctx.fillStyle = OL; ctx.fillRect(-w / 2 - 2, -12, w + 4, 22); ctx.beginPath(); ctx.moveTo(-6, 9); ctx.lineTo(6, 9); ctx.lineTo(0, 16); ctx.fill();
+  ctx.fillStyle = Math.sin(time * 6) > 0 ? '#ff3d7f' : '#ff5a3a'; ctx.fillRect(-w / 2, -10, w, 18); ctx.beginPath(); ctx.moveTo(-4, 8); ctx.lineTo(4, 8); ctx.lineTo(0, 13); ctx.fill();
+  ctx.fillStyle = 'rgba(255,255,255,0.35)'; ctx.fillRect(-w / 2, -10, w, 4);
+  text(T('free') + '!', 0, 5, 1, '#ffffff', 'center', OL, w - 6);
+  ctx.restore();
 }
 function drawDealsTab() {
   text(T('skinsDay'), W / 2, 124, 2, '#ffd23a');
@@ -8537,36 +8787,96 @@ function drawDealsTab() {
   if (canClaim()) button(CLAIM_BTN, T('claim'), '#3ce06a', '#1a9a3a');
   else text(T('tomorrow') + '  ' + timeToMidnight(), W / 2, 476, 1, '#ffffff', 'center', null);
 }
-function drawWheelTab() {
-  const cx = W / 2, cy = 300, R = 126, seg = Math.PI * 2 / WHEEL.length;
-  ctx.globalAlpha = 0.25 + Math.sin(time * 3) * 0.1; pell(ctx, cx, cy, R + 26, R + 26, '#ffd23a'); ctx.globalAlpha = 1;
+const WHEEL_THEME = {
+  gold: { glow: '#ffd23a', rim: '#c06a00', lights: ['#ffffff', '#ffd23a'], hub: ['#ffd23a', '#fff6a0'], ptr: ['#ff3a3a'], title: '#ffd23a' },
+  ice: { glow: '#7ad8ff', rim: '#2a6ad8', lights: ['#ffffff', '#7af0ff'], hub: ['#bff4ff', '#ffffff'], ptr: ['#bff4ff', '#3a8ad8'], title: '#bff4ff' },
+  royal: { glow: '#c04aff', rim: '#5a0a90', lights: ['#ffd23a', '#ff5ab0'], hub: ['#ffd23a', '#fff6a0'], ptr: ['#ffd23a', '#c06a00'], title: '#ffb0ff' },
+};
+function drawWheelAt(def, cx, cy, rot) {
+  const R = 126, segs = def.segs, seg = Math.PI * 2 / segs.length, th = WHEEL_THEME[def.theme];
+  if (def.theme === 'royal') {   // за королевским колесом крутятся золотые лучи
+    ctx.save(); ctx.translate(cx, cy); ctx.rotate(-time * 0.4); ctx.fillStyle = 'rgba(255,210,58,0.16)';
+    for (let q = 0; q < 14; q++) { ctx.rotate(Math.PI / 7); ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(-22, -220); ctx.lineTo(22, -220); ctx.fill(); }
+    ctx.restore();
+  }
+  ctx.globalAlpha = 0.25 + Math.sin(time * 3) * 0.1; pell(ctx, cx, cy, R + 26, R + 26, th.glow); ctx.globalAlpha = 1;
+  if (def.theme === 'ice') {   // ледяные кристаллы по ободу
+    for (let i = 0; i < 12; i++) {
+      const a = i / 12 * Math.PI * 2 + 0.13, x = cx + Math.cos(a) * (R + 14), y = cy + Math.sin(a) * (R + 14), l = 12 + (i % 3) * 5;
+      ctx.save(); ctx.translate(x, y); ctx.rotate(a + Math.PI / 2);
+      ctx.fillStyle = OL; ctx.beginPath(); ctx.moveTo(-7, 2); ctx.lineTo(0, -l - 3); ctx.lineTo(7, 2); ctx.fill();
+      ctx.fillStyle = i % 2 ? '#bff4ff' : '#7ad8ff'; ctx.beginPath(); ctx.moveTo(-4, 0); ctx.lineTo(0, -l); ctx.lineTo(4, 0); ctx.fill();
+      ctx.restore();
+    }
+  }
   ctx.fillStyle = OL; ctx.beginPath(); ctx.arc(cx, cy, R + 14, 0, Math.PI * 2); ctx.fill();
-  ctx.fillStyle = '#c06a00'; ctx.beginPath(); ctx.arc(cx, cy, R + 10, 0, Math.PI * 2); ctx.fill();
-  WHEEL.forEach((s, i) => {
-    const a0 = wheel.rot + i * seg - Math.PI / 2;
-    ctx.fillStyle = s.col; ctx.beginPath(); ctx.moveTo(cx, cy); ctx.arc(cx, cy, R, a0, a0 + seg); ctx.closePath(); ctx.fill();
+  ctx.fillStyle = th.rim; ctx.beginPath(); ctx.arc(cx, cy, R + 10, 0, Math.PI * 2); ctx.fill();
+  if (def.theme === 'royal') { ctx.strokeStyle = '#ffd23a'; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(cx, cy, R + 4, 0, Math.PI * 2); ctx.stroke(); }
+  segs.forEach((sg, i) => {
+    const a0 = rot + i * seg - Math.PI / 2;
+    ctx.fillStyle = sg.col; ctx.beginPath(); ctx.moveTo(cx, cy); ctx.arc(cx, cy, R, a0, a0 + seg); ctx.closePath(); ctx.fill();
     ctx.fillStyle = 'rgba(255,255,255,0.2)'; ctx.beginPath(); ctx.moveTo(cx, cy); ctx.arc(cx, cy, R, a0, a0 + seg / 2); ctx.closePath(); ctx.fill();
     ctx.strokeStyle = OL; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(cx + Math.cos(a0) * R, cy + Math.sin(a0) * R); ctx.stroke();
     const am = a0 + seg / 2;
     ctx.save(); ctx.translate(cx + Math.cos(am) * R * 0.66, cy + Math.sin(am) * R * 0.66); ctx.rotate(am + Math.PI / 2);
-    if (s.kind === 'coins') { coinIcon(0, -6, 8); text(String(s.n), 0, 18, 2, '#ffffff', 'center', OL); }
-    else if (s.kind === 'gems') { gemIcon(0, -6, 0.9); text(String(s.n), 0, 18, 2, '#ffffff', 'center', OL); }
-    else { text('?', 0, 6, 4, '#ffffff', 'center', OL); text(T('one')[s.r], 0, 22, 1, '#ffffff', 'center', OL, 70); }
+    if (sg.kind === 'coins') { coinIcon(0, -6, 8); text(String(sg.n), 0, 18, 2, '#ffffff', 'center', OL); }
+    else if (sg.kind === 'gems') { gemIcon(0, -6, 0.9); text(String(sg.n), 0, 18, 2, '#ffffff', 'center', OL); }
+    else {
+      if (sg.r === 3) { ctx.globalAlpha = 0.5 + Math.sin(time * 6 + i) * 0.3; pell(ctx, 0, 0, 16, 16, '#fff6a0'); ctx.globalAlpha = 1; }
+      text('?', 0, 6, 4, '#ffffff', 'center', OL); text(T('one')[sg.r], 0, 22, 1, '#ffffff', 'center', OL, 70);
+    }
     ctx.restore();
   });
   for (let i = 0; i < 16; i++) {
     const a = i / 16 * Math.PI * 2, on = (Math.floor(time * 6) + i) % 2 === 0;
-    pell(ctx, cx + Math.cos(a) * (R + 10), cy + Math.sin(a) * (R + 10), 4, 4, on ? '#ffffff' : '#ffd23a');
+    pell(ctx, cx + Math.cos(a) * (R + 10), cy + Math.sin(a) * (R + 10), 4, 4, on ? th.lights[0] : th.lights[1]);
   }
-  pell(ctx, cx, cy, 22, 22, OL); pell(ctx, cx, cy, 18, 18, '#ffd23a'); pell(ctx, cx - 4, cy - 4, 6, 6, '#fff6a0');
-  const py = cy - R - 18 + Math.max(0, wheel.bump) * 4;
+  pell(ctx, cx, cy, 22, 22, OL); pell(ctx, cx, cy, 18, 18, th.hub[0]); pell(ctx, cx - 4, cy - 4, 6, 6, th.hub[1]);
+  if (def.theme === 'royal') {   // корона в центре
+    const P = (x, y, w, h, c) => prect(ctx, cx + x, cy + y, w, h, c);
+    P(-10, -2, 20, 10, OL); P(-8, 0, 16, 6, '#c06a00'); for (const x of [-10, -2, 6]) { P(x, -10, 4, 10, OL); P(x + 1, -8, 2, 8, '#c06a00'); } P(-2, 2, 4, 2, '#ff3d7f');
+  } else if (def.theme === 'ice') {   // снежинка в центре
+    for (let k = 0; k < 3; k++) { ctx.save(); ctx.translate(cx, cy); ctx.rotate(k * Math.PI / 3 + time * 0.5); ctx.fillStyle = '#3a8ad8'; ctx.fillRect(-12, -1.5, 24, 3); ctx.restore(); }
+  }
+  const py = cy - R - 18 + (wheel.sel === WHEELS.indexOf(def) ? Math.max(0, wheel.bump) * 4 : 0);
   ctx.fillStyle = OL; ctx.beginPath(); ctx.moveTo(cx - 16, py - 4); ctx.lineTo(cx + 16, py - 4); ctx.lineTo(cx, py + 26); ctx.fill();
-  ctx.fillStyle = '#ff3a3a'; ctx.beginPath(); ctx.moveTo(cx - 11, py); ctx.lineTo(cx + 11, py); ctx.lineTo(cx, py + 18); ctx.fill();
+  ctx.fillStyle = th.ptr[0]; ctx.beginPath(); ctx.moveTo(cx - 11, py); ctx.lineTo(cx + 11, py); ctx.lineTo(cx, py + 18); ctx.fill();
+  if (th.ptr[1]) { ctx.fillStyle = th.ptr[1]; ctx.beginPath(); ctx.moveTo(cx, py); ctx.lineTo(cx + 11, py); ctx.lineTo(cx, py + 18); ctx.fill(); }
+  if (def.theme === 'royal') { pell(ctx, cx, py + 3, 4, 4, OL); pell(ctx, cx, py + 3, 3, 3, '#ff3d7f'); }
+}
+function drawWheelTab() {
+  const cy = 300;
+  if (WHEELS[wheelSel].theme === 'ice') for (let k = 0; k < 18; k++) {   // снег на ледяном колесе
+    const x = (hash(k * 5) * W + Math.sin(time + k) * 10) % W, y = ((hash(k * 9) * H + time * (30 + k * 3)) % (H - 110)) + 100;
+    prect(ctx, x, y, 2, 2, '#e0f6ff');
+  }
+  for (let i = 0; i < WHEELS.length; i++) {
+    const x = W / 2 + (i - wheelView) * W;
+    if (Math.abs(x - W / 2) >= W) continue;
+    drawWheelAt(WHEELS[i], x, cy, wheel.rots[i]);
+    const th = WHEEL_THEME[WHEELS[i].theme];
+    text(wheelName(i), x, 132, 2, th.title, 'center', OL, W - 90);
+  }
+  // стрелки к соседним колёсам
+  for (const [b, d, ok] of [[WHL_PREV, -1, wheelSel > 0], [WHL_NEXT, 1, wheelSel < WHEELS.length - 1]]) {
+    if (!ok) continue;
+    const nb = Math.sin(time * 5) * 2 * d, cxb = b.x + b.w / 2 + nb, cyb = b.y + b.h / 2, th = WHEEL_THEME[WHEELS[wheelSel + d].theme];
+    ctx.fillStyle = OL; ctx.fillRect(b.x + nb - 2, b.y - 2, b.w + 4, b.h + 4);
+    ctx.fillStyle = th.glow; ctx.fillRect(b.x + nb, b.y, b.w, b.h);
+    ctx.fillStyle = 'rgba(255,255,255,0.35)'; ctx.fillRect(b.x + nb, b.y, b.w, 5);
+    ctx.fillStyle = OL; ctx.beginPath(); ctx.moveTo(cxb - 8 * d, cyb - 12); ctx.lineTo(cxb + 9 * d, cyb); ctx.lineTo(cxb - 8 * d, cyb + 12); ctx.fill();
+    ctx.fillStyle = '#ffffff'; ctx.beginPath(); ctx.moveTo(cxb - 5 * d, cyb - 7); ctx.lineTo(cxb + 4 * d, cyb); ctx.lineTo(cxb - 5 * d, cyb + 7); ctx.fill();
+  }
+  const def = WHEELS[wheelSel], th = WHEEL_THEME[def.theme], free = def.free && freeSpin();
   ctx.globalAlpha = wheel.spinning ? 0.5 : 1;
-  button(SPIN_BTN, T('spin'), '#3ce06a', '#1a9a3a');
+  button(SPIN_BTN, T('spin'), def.theme === 'royal' ? '#c04aff' : def.theme === 'ice' ? '#3ab0ff' : '#3ce06a', def.theme === 'royal' ? '#7a1ab0' : def.theme === 'ice' ? '#1a70c0' : '#1a9a3a');
   ctx.globalAlpha = 1;
-  if (freeSpin()) text(T('free'), W / 2, 546, 2, '#7cf08a');
-  else priceDraw(W / 2, 546, { gems: SPIN_COST }, 2, '#ffffff');
+  if (free) { freeTag(W / 2, SPIN_BTN.y - 6); text(T('free'), W / 2, 546, 2, '#7cf08a'); }
+  else priceDraw(W / 2, 546, def.free ? { gems: SPIN_COST } : def.cost, 2, canPay(def.free ? { gems: SPIN_COST } : def.cost) ? '#ffffff' : '#a898c8');
+  for (let i = 0; i < WHEELS.length; i++) {   // точки-страницы
+    const on = i === wheelSel, x = W / 2 + (i - 1) * 22;
+    pell(ctx, x, 572, on ? 7 : 5, on ? 7 : 5, OL); pell(ctx, x, 572, on ? 5 : 3, on ? 5 : 3, on ? th.title : '#7a6a9a');
+  }
 }
 function drawPremiumTab() {
   const s = STARTER;   // набор новичка
@@ -8783,43 +9093,139 @@ function drawSettings() {
   text(T('backMiss'), W / 2, H - 10, 1, '#ffffff', 'center', null);
 }
 
-let overSkip = false, overConf = [], overTick = -1, overDone = false;
-const overCount = () => overSkip ? 1 : clamp((deadT - 1.2) / 1.6, 0, 1);
-function overSound() {   // тиканье счётчика и финальный звон, конфетти при рекорде
-  const c = overCount();
-  if (state !== 'over' || c <= 0) return;
-  const k = Math.floor(c * 24);
-  if (c < 1 && k !== overTick) { overTick = k; tone(700 + k * 40, 700 + k * 40, 0.04, 'triangle', 0.05); }
-  if (c >= 1 && !overDone) {
-    overDone = true; [784, 988, 1175, 1568].forEach((f, i) => tone(f, f, 0.18, 'square', 0.035, i * 0.07));
+// ---------- Табло после забега: всё считается по очереди, как в аркадах ----------
+let overSkip = false, overConf = [], overTick = -1, overDone = false, overFx = [], overStage = 0, overTickAt = 0, overPunch = [0, 0, 0];
+const OVER_T = { m: [0.45, 1.75], c: [1.9, 2.6], g: [2.7, 3.2], stars: [3.4, 3.65, 3.9], end: 4.1 };
+const overT = () => overSkip ? 99 : deadT - (p.dk === 'zap' ? 2 : 0.9);   // время с появления табло
+const overCount = () => clamp(overT() / OVER_T.end, 0, 1);
+const overSt = ([a, b]) => clamp((overT() - a) / (b - a), 0, 1);
+const easeOut3 = x => 1 - Math.pow(1 - x, 3);
+const easeBack = x => { const c = 1.70158; return 1 + (c + 1) * Math.pow(x - 1, 3) + c * Math.pow(x - 1, 2); };
+function overStars() {
+  const m = heightM();
+  return (m >= 20 ? 1 : 0) + (m >= best * 0.5 && m >= 40 ? 1 : 0) + (p.newBest || (m >= best * 0.9 && m >= 60) ? 1 : 0);
+}
+function overBurst(x, y, n, cols, sp = 160, size = 4) {
+  if (!SET.fx) n = Math.ceil(n / 3);
+  for (let i = 0; i < n; i++) { const a = rand(0, Math.PI * 2), v = rand(0.3, 1) * sp; overFx.push({ x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v - 60, life: rand(0.4, 0.8), max: 0.8, col: cols[i % cols.length], s: size }); }
+}
+function overSound() {   // тиканье счётчиков, звон монет и алмазов, звёзды и финальная фанфара
+  if (state !== 'over') return;
+  const ot = overT(), now = time;
+  // счётчики: щелчок на каждое новое число, но не чаще ~22 раз в секунду
+  const counters = [['m', heightM()], ['c', coinsRun], ['g', gemsRun]];
+  counters.forEach(([key, total], i) => {
+    const pr = overSt(OVER_T[key]);
+    if (pr <= 0 || pr >= 1 || total <= 0) return;
+    const v = Math.floor(total * easeOut3(pr));
+    if (v !== overTick && now - overTickAt > 0.045) {
+      overTick = v; overTickAt = now; overPunch[i] = 1;
+      if (key === 'm') tone(520 + pr * 900, 540 + pr * 900, 0.035, 'square', 0.03);
+      else if (key === 'c') { tone(1760 + pr * 300, 1760 + pr * 300, 0.04, 'square', 0.022); tone(2640, 2640, 0.05, 'triangle', 0.018, 0.025); }
+      else tone(1300 + pr * 700, 2100 + pr * 700, 0.07, 'sine', 0.05);
+    }
+  });
+  // окончание каждого этапа: «бах», вспышка искр
+  const stages = [OVER_T.m[1], OVER_T.c[1], OVER_T.g[1]];
+  while (overStage < 3 && ot >= stages[overStage]) {
+    const i = overStage++;
+    if (overSkip) continue;
+    overPunch[i] = 1.6;
+    if (i === 0) { tone(200, 60, 0.22, 'sine', 0.14); noise(0.15, 0.06, 0, 1200); overBurst(W / 2, 270, 26, ['#ffd23a', '#fff6a0', '#ffffff'], 220); if (SET.shake) shake = Math.max(shake, 0.12); vib(20); }
+    else if (i === 1 && coinsRun > 0) { sfx.coin(); overBurst(W / 2 - 66, 361, 14, ['#ffd23a', '#c8820a', '#fff6a0'], 140); }
+    else if (i === 2 && gemsRun > 0) { [1568, 2093, 2637].forEach((f, k) => tone(f, f, 0.12, 'sine', 0.05, k * 0.05)); overBurst(W / 2 + 66, 361, 14, ['#3ab0ff', '#8ae0ff', '#ffffff'], 140); }
+  }
+  // звёзды-оценка выскакивают по одной
+  const ns = overStars();
+  while (overStage >= 3 && overStage < 6 && ot >= OVER_T.stars[overStage - 3]) {
+    const i = overStage++ - 3;
+    if (overSkip || i >= ns) continue;
+    [659, 784, 988].forEach((f, k) => tone(f * Math.pow(1.26, i), f * Math.pow(1.26, i), 0.12, 'square', 0.035, k * 0.04));
+    noise(0.2, 0.04, 4000, 0, 0.02);
+    overBurst(W / 2 + (i - 1) * 64, 210, 18, ['#ffd23a', '#ffffff', '#ff8a1e'], 180, 3);
+    if (SET.shake) shake = Math.max(shake, 0.08 + i * 0.04); vib(15);
+  }
+  if (ot >= OVER_T.end && !overDone) {
+    overDone = true; overStage = 6;
+    [784, 988, 1175, 1568].forEach((f, i) => tone(f, f, 0.18, 'square', 0.035, i * 0.07));
     if (p.newBest) { for (let i = 0; i < 70; i++) overConf.push({ x: W / 2, y: 250, vx: rand(-260, 260), vy: rand(-420, -80), col: ['#ffd23a', '#ff3d7f', '#3ab0ff', '#3ce06a', '#ffffff'][i % 5], life: rand(1.4, 2.4), rot: rand(0, 6) }); noise(0.8, 0.05, 5000, 0, 0.2); }
   }
 }
+function starPath(cx, cy, r) {
+  ctx.beginPath();
+  for (let i = 0; i < 10; i++) { const a = -Math.PI / 2 + i * Math.PI / 5, rr = i % 2 ? r * 0.45 : r; ctx.lineTo(cx + Math.cos(a) * rr, cy + Math.sin(a) * rr); }
+  ctx.closePath();
+}
+function drawOverStar(cx, cy, r, on, pop) {
+  ctx.lineJoin = 'round';
+  ctx.save(); ctx.translate(cx, cy);
+  if (on) { const s = pop < 1 ? easeBack(pop) : 1 + Math.sin(time * 4 + cx) * 0.04; ctx.scale(s, s); ctx.rotate((1 - Math.min(1, pop)) * -1.2); }
+  starPath(0, 0, r); ctx.strokeStyle = OL; ctx.lineWidth = 6; ctx.stroke();
+  ctx.fillStyle = on ? '#ffd23a' : '#5a4a6a'; ctx.fill();
+  if (on) { starPath(-1, -2, r * 0.55); ctx.fillStyle = '#fff6a0'; ctx.fill(); }
+  else { starPath(0, 1, r * 0.6); ctx.fillStyle = '#4a3a5a'; ctx.fill(); }
+  ctx.restore();
+}
 function drawOver() {
   overSound();
-  const c = overCount(), e = 1 - Math.pow(1 - c, 3), cnt = v => Math.floor(v * e);
-  const a = clamp((deadT - 0.9) * 4, 0, 1);
+  const ot = overT(), dt = 1 / 60;
+  const a = clamp(ot * 4, 0, 1), drop = easeBack(clamp(ot / 0.4, 0, 1));
+  for (let i = 0; i < 3; i++) overPunch[i] = Math.max(0, overPunch[i] - dt * 6);
   ctx.globalAlpha = a;
-  ctx.fillStyle = 'rgba(42,20,8,0.45)'; ctx.fillRect(0, 0, W, H);
-  ctx.fillStyle = OL; ctx.fillRect(28, 130, W - 56, 280);
-  ctx.fillStyle = '#ffffff'; ctx.fillRect(34, 136, W - 68, 268);
-  ctx.fillStyle = '#ff3d7f'; ctx.fillRect(34, 136, W - 68, 50);
-  text(T('oops'), W / 2, 172, 3, '#ffffff');
-  const m = heightM();
-  text(cnt(m) + T('m'), W / 2, 254, 6, '#ffd23a');
-  if (p.newBest && c >= 1) { const pu = 1 + Math.sin(time * 8) * 0.06; ctx.save(); ctx.translate(W / 2, 290); ctx.scale(pu, pu); text(T('newBest') + ' ' + m + T('m'), 0, 4, 2, '#ff3d7f', 'center', null, W - 80); ctx.restore(); }
-  else if (p.newBest) text(T('best') + ' ' + cnt(m) + T('m'), W / 2, 294, 2, OL, 'center', null, W - 80);
-  else text(T('best') + ' ' + best + T('m'), W / 2, 294, 2, OL, 'center', null, W - 80);
-  coinIcon(W / 2 - 74, 326);
-  text('+' + cnt(coinsRun), W / 2 - 60, 334, 2, OL, 'left', null);
-  gemIcon(W / 2 + 22, 326, 0.7);
-  text('+' + cnt(gemsRun), W / 2 + 36, 334, 2, '#1a70c0', 'left', null);
-  text(T('kicks') + ' ' + kicks + '  ' + T('flips') + ' ' + flips, W / 2, 376, 1, '#6a5a4a', 'center', null, W - 80);
-  if (c >= 1) {
+  ctx.fillStyle = 'rgba(42,20,8,0.55)'; ctx.fillRect(0, 0, W, H);
+  // лучи за табло
+  ctx.save(); ctx.translate(W / 2, 270); ctx.rotate(time * 0.35); ctx.fillStyle = p.newBest ? 'rgba(255,210,58,0.16)' : 'rgba(255,255,255,0.08)';
+  for (let q = 0; q < 12; q++) { ctx.rotate(Math.PI / 6); ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(-34, -420); ctx.lineTo(34, -420); ctx.fill(); }
+  ctx.restore();
+  ctx.save(); ctx.translate(0, (1 - drop) * -420);
+  const PX = 26, PY = 112, PW = W - 52, PH = 336;
+  ctx.fillStyle = 'rgba(0,0,0,0.25)'; ctx.fillRect(PX + 6, PY + 8, PW, PH);
+  ctx.fillStyle = OL; ctx.fillRect(PX, PY, PW, PH);
+  const g = ctx.createLinearGradient(0, PY, 0, PY + PH); g.addColorStop(0, '#ffffff'); g.addColorStop(1, '#ffe6c8');
+  ctx.fillStyle = g; ctx.fillRect(PX + 6, PY + 6, PW - 12, PH - 12);
+  // лента с заголовком
+  ctx.fillStyle = OL; ctx.fillRect(PX - 12, PY + 10, PW + 24, 52);
+  ctx.fillStyle = '#c01f5a'; ctx.fillRect(PX - 8, PY + 14, PW + 16, 44);
+  ctx.fillStyle = '#ff3d7f'; ctx.fillRect(PX - 8, PY + 14, PW + 16, 30);
+  ctx.fillStyle = 'rgba(255,255,255,0.35)'; ctx.fillRect(PX - 8, PY + 16, PW + 16, 4);
+  { const st = clamp((ot - 0.2) / 0.25, 0, 1), s = st < 1 ? 2.2 - easeOut3(st) * 1.2 : 1; ctx.save(); ctx.globalAlpha = a * st; ctx.translate(W / 2, PY + 46); ctx.scale(s, s); text(T('oops'), 0, 0, 3, '#ffffff'); ctx.restore(); ctx.globalAlpha = a; }
+  // звёзды
+  const ns = overStars();
+  for (let i = 0; i < 3; i++) {
+    const pop = (ot - OVER_T.stars[i]) / 0.35, on = i < ns && pop >= 0;
+    drawOverStar(W / 2 + (i - 1) * 64, 208 - (i === 1 ? 6 : 0), i === 1 ? 24 : 19, on, Math.max(0, pop));
+  }
+  // метры: большое число с пульсом на каждом щелчке
+  const m = heightM(), mm = Math.floor(m * easeOut3(overSt(OVER_T.m)));
+  { const pu = 1 + overPunch[0] * 0.12; ctx.save(); ctx.translate(W / 2, 276); ctx.scale(pu, pu); text(mm + T('m'), 0, 18, 6, overPunch[0] > 1 ? '#ffffff' : '#ffd23a'); ctx.restore(); }
+  const shine = ((time * 0.8) % 2) * (PW + 80) - 40;   // блик пробегает по цифрам
+  ctx.save(); ctx.beginPath(); ctx.rect(PX + 6, 250, PW - 12, 50); ctx.clip(); ctx.globalAlpha = a * 0.25; ctx.fillStyle = '#ffffff';
+  ctx.beginPath(); ctx.moveTo(PX + shine, 250); ctx.lineTo(PX + shine + 14, 250); ctx.lineTo(PX + shine - 6, 300); ctx.lineTo(PX + shine - 20, 300); ctx.fill(); ctx.restore(); ctx.globalAlpha = a;
+  if (p.newBest && overDone) { const pu = 1 + Math.sin(time * 8) * 0.06; ctx.save(); ctx.translate(W / 2, 322); ctx.scale(pu, pu); text(T('newBest') + ' ' + m + T('m'), 0, 4, 2, '#ff3d7f', 'center', null, W - 80); ctx.restore(); }
+  else text(T('best') + ' ' + (p.newBest ? mm : best) + T('m'), W / 2, 326, 2, OL, 'center', null, W - 80);
+  // монеты и алмазы в своих плашках
+  const cc = Math.floor(coinsRun * easeOut3(overSt(OVER_T.c))), gg = Math.floor(gemsRun * easeOut3(overSt(OVER_T.g)));
+  for (const [i, x, col] of [[1, W / 2 - 66, '#f0d8a0'], [2, W / 2 + 66, '#c8e8ff']]) {
+    const pu = 1 + overPunch[i] * 0.1;
+    ctx.fillStyle = OL; ctx.fillRect(x - 58, 342, 116, 38); ctx.fillStyle = col; ctx.fillRect(x - 55, 345, 110, 32);
+    ctx.fillStyle = 'rgba(255,255,255,0.5)'; ctx.fillRect(x - 55, 345, 110, 4);
+    ctx.save(); ctx.translate(x, 361); ctx.scale(pu, pu);
+    if (i === 1) { const spin = overSt(OVER_T.c) > 0 && overSt(OVER_T.c) < 1 ? Math.cos(time * 14) : 1; coinIcon(-34, 0, 8, Math.abs(spin)); text('+' + cc, -20, 8, 2, OL, 'left', null); }
+    else { gemIcon(-34, 0, 0.7); text('+' + gg, -20, 8, 2, '#1a70c0', 'left', null); }
+    ctx.restore();
+  }
+  { const sa = clamp((ot - OVER_T.g[1]) / 0.3, 0, 1); ctx.globalAlpha = a * sa; text(T('kicks') + ' ' + kicks + '  ' + T('flips') + ' ' + flips, W / 2, 412 + (1 - sa) * 10, 1, '#6a5a4a', 'center', null, W - 80); ctx.globalAlpha = a; }
+  ctx.restore();
+  if (overDone) {
     ctx.globalAlpha = a * (0.55 + Math.sin(time * 5) * 0.45);
     text(T('again'), W / 2, H - 150, 2, '#ffffff');
   }
   ctx.globalAlpha = 1;
+  for (let i = overFx.length - 1; i >= 0; i--) {   // искры этапов
+    const f = overFx[i]; f.life -= dt; if (f.life <= 0) { overFx.splice(i, 1); continue; }
+    f.vy += 500 * dt; f.x += f.vx * dt; f.y += f.vy * dt;
+    ctx.globalAlpha = clamp(f.life / f.max * 1.5, 0, 1); prect(ctx, f.x, f.y, f.s, f.s, f.col);
+  }
   for (let i = overConf.length - 1; i >= 0; i--) {   // конфетти нового рекорда
     const f = overConf[i]; f.life -= 1 / 60; if (f.life <= 0) { overConf.splice(i, 1); continue; }
     f.vy += 400 / 60; f.x += f.vx / 60; f.y += f.vy / 60; f.rot += 0.25;
@@ -8877,11 +9283,14 @@ function draw() {
   if (state === 'load') { drawLoad(); return; }
   ctx.save();
   if (shake > 0) ctx.translate(even(rand(-1, 1) * shake * 14), even(rand(-1, 1) * shake * 14));
-  drawBackground();
-  ctx.save();
-  ctx.translate(0, -camR);
-  drawWorld();
-  ctx.restore();
+  // магазин, шатёр и союзники целиком закрывают экран — мир под ними не рисуем
+  if (state !== 'shop' && state !== 'tent' && state !== 'allies') {
+    drawBackground();
+    ctx.save();
+    ctx.translate(0, -camR);
+    drawWorld();
+    ctx.restore();
+  }
   ctx.restore();
   if (state === 'dead' && p.zapT > 0 && Math.floor(time * 14) % 2) { ctx.globalAlpha = 0.2; ctx.fillStyle = '#3a6aff'; ctx.fillRect(0, 0, W, H); ctx.globalAlpha = 1; }
   if (state === 'play' && p.slow > 0) { ctx.globalAlpha = 0.14; ctx.fillStyle = '#3a6aff'; ctx.fillRect(0, 0, W, H); ctx.globalAlpha = 1; }
