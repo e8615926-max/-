@@ -26,6 +26,21 @@ const INFO := {
 		"desc": "Бинты, антисептик, обезболивающее."},
 	"chocolate": {"name": "Шоколад", "slot": "", "use": {"mood": 25},
 		"desc": "Довоенная плитка. На вес золота."},
+	"pills": {"name": "Таблетки", "slot": "", "use": {"cure": true},
+		"desc": "Излечивают самую тяжёлую болезнь."},
+	"armor": {"name": "Бронежилет", "slot": "outfit", "bonus": {"combat": 3},
+		"desc": "Тяжёлый, но спасает жизнь."},
+}
+
+## Что можно изготовить: в какой комнате, из чего и после какого исследования.
+const RECIPES := {
+	"knife": {"room": "workshop", "cost": {"metal": 8, "wood": 4}, "research": "toolmaking"},
+	"trowel": {"room": "workshop", "cost": {"metal": 6, "wood": 6}, "research": "toolmaking"},
+	"wrench": {"room": "workshop", "cost": {"metal": 14}, "research": "toolmaking"},
+	"gasmask": {"room": "workshop", "cost": {"metal": 10, "wood": 2}, "research": "toolmaking"},
+	"armor": {"room": "workshop", "cost": {"metal": 25, "wood": 5}, "research": "armor"},
+	"pistol": {"room": "workshop", "cost": {"metal": 30}, "research": "armor"},
+	"pills": {"room": "pharmacy", "cost": {"medicine": 3}, "research": "field_medicine"},
 }
 
 ## Что можно найти в экспедиции.
@@ -76,4 +91,6 @@ static func effect_text(id: String) -> String:
 			parts.append("Здоровье +%d" % int(use["health"]))
 		if use.has("mood"):
 			parts.append("Настроение +%d" % int(use["mood"]))
+		if use.has("cure"):
+			parts.append("Лечит болезнь")
 	return ", ".join(parts)

@@ -2,8 +2,8 @@ class_name ShelterLayout
 extends RefCounted
 ## Геометрия убежища в «арт-пикселях» (до увеличения на экране).
 
-const COLS := 6
-const LEVELS := 3
+const COLS := 8
+const LEVELS := 4
 const ROOM_W := 64
 const ROOM_H := 40
 ## Высота ячейки: комната плюс перекрытие, на котором пишется название.

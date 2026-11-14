@@ -40,6 +40,7 @@ func _run() -> void:
 	await _test_build_and_rooms()
 	await _test_storage_and_expedition()
 	await _test_time_and_events()
+	await _test_stage3()
 	await _test_next_day_and_save()
 	await _test_touch_scroll()
 	await _test_restart_and_game_over()
@@ -253,6 +254,63 @@ func _test_time_and_events() -> void:
 	await _frames(30)
 	await _shot("16_night")
 	await _click(_button("×3"), "вернуть скорость ×1")
+
+
+func _test_stage3() -> void:
+	var game := get_tree().current_scene
+	var shelter := game.get("_shelter") as ShelterView
+	for res in ResourceDefs.IDS:
+		GameState.resources[res] = 100
+	GameState.resources_changed.emit()
+	# Улучшение фермы из окна комнаты
+	var farm := GameState.first_room_of_type("farm")
+	await _tap(_slot_center(shelter, farm.level, farm.col))
+	await _click(_button_prefix("Улучшить до II"), "кнопка улучшения")
+	_check(farm.tier == 2, "ферма улучшена кнопкой")
+	await _shot("17_upgraded_room")
+	# Украшение
+	await _click(_button_prefix("Слева:"), "место для украшения")
+	_check(_panel(DecorPanel) != null, "открывается выбор украшения")
+	await _click(_row_button("Картина", "Поставить"), "поставить картину")
+	_check(farm.decor[0] == "painting" and _panel(RoomPanel) != null, "картина на месте, возврат к комнате")
+	await _tap(OUTSIDE)
+	# Исследования из меню
+	await _click(_menu_button(), "кнопка меню")
+	await _click(_button("Исследования"), "исследования в меню")
+	_check(_panel(ResearchPanel) != null, "открываются исследования")
+	await _click(_row_button("Гидропоника", "Изучать"), "начать гидропонику")
+	_check(GameState.research_current == "hydroponics", "исследование начато кнопкой")
+	await _shot("18_research")
+	await _tap(OUTSIDE)
+	# Перетаскивание вида пальцем
+	var world := shelter.get("_world") as Node2D
+	var before := world.position
+	var pos := Vector2(900, 400)
+	Input.warp_mouse(pos)
+	await _frames(2)
+	_push_button(pos, true)
+	for _i in 10:
+		var motion := InputEventMouseMotion.new()
+		motion.button_mask = MOUSE_BUTTON_MASK_LEFT
+		motion.relative = Vector2(-20, -10)
+		pos += motion.relative
+		motion.position = pos
+		motion.global_position = pos
+		get_viewport().push_input(motion, true)
+		await _frames(1)
+	_push_button(pos, false)
+	await _frames(3)
+	_check(world.position != before and _panel(BasePanel) == null, "вид двигается пальцем, комната при этом не открывается")
+	await _shot("19_panned")
+	shelter.scroll_by(Vector2(10000, 10000))
+	await _frames(2)
+	# Место вылазки
+	GameState.locations.append("hospital")
+	await _click(_button("Экспедиции"), "кнопка «Экспедиции»")
+	await _click(_card("Больница №3"), "выбрать больницу")
+	_check(_panel(ExpeditionsPanel).get("_location") == "hospital", "место вылазки выбирается")
+	await _shot("20_locations")
+	await _tap(OUTSIDE)
 
 
 func _test_touch_scroll() -> void:

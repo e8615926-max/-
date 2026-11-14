@@ -36,7 +36,7 @@ static func is_night(minute: float) -> bool:
 
 
 static func needs_rest(s: SurvivorData) -> bool:
-	return s.health < s.max_health * 0.4 or s.has_condition("sick") or s.has_condition("wounded")
+	return s.health < s.max_health * 0.4 or s.is_ill() or s.has_condition("wounded")
 
 
 ## Чем выживший занят в эту минуту.

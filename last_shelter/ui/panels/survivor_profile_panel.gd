@@ -210,8 +210,13 @@ func _build_health(s: SurvivorData) -> void:
 		notes.append(["Голод: вчера не хватило еды. Здоровье падает.", UITheme.BAD])
 	if s.has_condition("thirsty"):
 		notes.append(["Жажда: вчера не хватило воды. Здоровье падает.", UITheme.BAD])
-	if s.has_condition("sick"):
-		notes.append(["Болезнь: работает на 30% хуже и слабеет. Проходит сама, в медпункте быстрее.", UITheme.BAD])
+	for entry: Dictionary in s.illnesses:
+		var illness: Dictionary = IllnessDefs.INFO[entry["id"]]
+		var cure := "лечится в медпункте за медикаменты" if MedicalSystem.has_medbay() else "нужен медпункт"
+		if not bool(illness["needs_medicine"]):
+			cure = "пройдёт сама, с лечением быстрее"
+		notes.append(["%s (ещё ≈%d дн.): %s Работает ×%.2f; %s." % [illness["name"], ceili(float(entry["days"])),
+			illness["desc"], float(illness["work"]), cure], UITheme.BAD])
 	if s.has_condition("wounded"):
 		notes.append(["Ранение: получено в экспедиции. Помогут медпункт или аптечка.", UITheme.BAD])
 	if s.mood < 30.0:

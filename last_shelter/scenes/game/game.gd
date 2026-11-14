@@ -204,6 +204,8 @@ func _open_pause() -> void:
 	_cancel_build()
 	var panel := PausePanel.new()
 	panel.chronicle_requested.connect(_open_chronicle)
+	panel.research_requested.connect(_open_research)
+	panel.radio_requested.connect(_open_radio)
 	panel.save_requested.connect(func() -> void:
 		_show_toast("Игра сохранена" if SaveManager.save_game() else "Не удалось сохранить игру")
 		panel.close())
@@ -217,8 +219,31 @@ func _on_room_tapped(room_id: int) -> void:
 	if _shelter.get_build_type() != "":
 		_show_toast("Это место уже занято")
 		return
+	_open_room(room_id)
+
+
+func _open_room(room_id: int) -> void:
 	var panel := RoomPanel.new(room_id)
 	panel.survivor_requested.connect(_open_profile)
+	panel.research_requested.connect(_open_research)
+	panel.radio_requested.connect(_open_radio)
+	panel.decor_requested.connect(_open_decor)
+	_open(panel)
+
+
+func _open_research() -> void:
+	_cancel_build()
+	_open(ResearchPanel.new())
+
+
+func _open_radio() -> void:
+	_cancel_build()
+	_open(RadioPanel.new())
+
+
+func _open_decor(room_id: int, slot: int) -> void:
+	var panel := DecorPanel.new(room_id, slot)
+	panel.back_requested.connect(_open_room.bind(room_id))
 	_open(panel)
 
 

@@ -38,24 +38,26 @@ static func work_factor(s: SurvivorData, room: RoomData) -> float:
 		factor *= 0.7
 	if s.health < s.max_health * 0.3:
 		factor *= 0.7
-	if s.has_condition("sick"):
-		factor *= 0.7
+	factor *= s.illness_work_factor()
 	return factor * RelationshipSystem.teamwork_factor(s, room.id)
 
 
 static func worker_output(s: SurvivorData, room: RoomData) -> float:
 	var def := room.get_def()
-	return (float(def["base"]) + s.effective_skill(def["skill"])) * work_factor(s, room)
+	return (room.base_output() + s.effective_skill(def["skill"])) * work_factor(s, room)
 
 
-## Сколько комната произведёт за день (если есть энергия и она исправна).
+## Сколько комната произведёт за день (если есть энергия и она исправна):
+## работники и уровень комнаты, исследования, у аптеки — свой темп.
 static func room_output(room: RoomData) -> int:
 	var def := room.get_def()
-	if def["produces"] == "":
+	var product := room.product()
+	if product == "":
 		return 0
 	var total := float(def["passive"])
 	for s in GameState.workers_of(room.id):
 		total += worker_output(s, room)
+	total *= RoomDefs.tier_output(room.tier) * ResearchSystem.output_mult(product) * float(def.get("rate", 1.0))
 	return roundi(total)
 
 
@@ -64,7 +66,7 @@ static func kitchen_savings(room: RoomData) -> float:
 	var total := 0.0
 	for s in GameState.workers_of(room.id):
 		total += (1.0 + s.effective_skill("farming") * 0.35) * work_factor(s, room)
-	return total
+	return total * RoomDefs.tier_output(room.tier)
 
 
 ## Сколько здоровья в день восстанавливает медпункт.
@@ -72,14 +74,16 @@ static func medbay_heal(room: RoomData) -> float:
 	var heal := 6.0
 	for s in GameState.workers_of(room.id):
 		heal += s.effective_skill("medicine") * 2.0 * work_factor(s, room)
-	return heal
+	return heal * RoomDefs.tier_output(room.tier)
 
 
 ## Прогноз на следующий день без изменения состояния. Возвращает
 ## {"delta": {ресурс: изменение}, "unpowered": [id], "broken": [id], "outputs": {id: выработка},
 ##  "heal": лечение, "kitchen_fed": кормит ли кухня горячим}.
 static func compute_economy() -> Dictionary:
-	var delta := {"food": 0, "water": 0, "metal": 0, "power": 0}
+	var delta := {}
+	for res in ResourceDefs.IDS:
+		delta[res] = 0
 	var unpowered: Array[int] = []
 	var broken: Array[int] = []
 	var outputs := {}
@@ -109,10 +113,13 @@ static func compute_economy() -> Dictionary:
 			unpowered.append(room.id)
 			continue
 		power_pool -= need
-		if def["produces"] != "":
+		if room.product() != "":
 			var out := room_output(room)
 			outputs[room.id] = out
-			delta[def["produces"]] += out
+			delta[room.product()] += out
+			var consumes: Dictionary = def.get("consumes", {})
+			for res: String in consumes:
+				delta[res] -= int(consumes[res]) * GameState.workers_of(room.id).size()
 		elif room.type == "medbay":
 			heal += medbay_heal(room)
 		elif room.type == "kitchen":
@@ -127,8 +134,12 @@ static func compute_economy() -> Dictionary:
 		delta["water"] -= WATER_PER_SURVIVOR
 	var saved_total := mini(roundi(kitchen_raw), floori(consumption * KITCHEN_MAX_SHARE))
 	delta["food"] -= consumption - saved_total
+	var off: Array[int] = unpowered.duplicate()
+	off.append_array(broken)
+	delta["medicine"] -= MedicalSystem.patients_today(off)
 	return {"delta": delta, "unpowered": unpowered, "broken": broken, "outputs": outputs,
-		"heal": heal, "kitchen_fed": kitchen_raw > 0.0}
+		"heal": heal, "kitchen_fed": kitchen_raw > 0.0,
+		"research": ResearchSystem.points_per_day(off), "signal": RadioSystem.signal_per_day(off)}
 
 
 # --- Смена дня ------------------------------------------------------------
@@ -151,8 +162,12 @@ static func advance() -> Dictionary:
 	# 1. Ресурсы.
 	var hungry := false
 	var thirsty := false
+	var patients_medicine := MedicalSystem.patients_today(_off_rooms(unpowered, broken))
 	for res in ResourceDefs.IDS:
-		var value := GameState.get_resource(res) + int(delta[res])
+		var change := int(delta[res])
+		if res == "medicine":
+			change += patients_medicine
+		var value := GameState.get_resource(res) + change
 		if value < 0:
 			hungry = hungry or res == "food"
 			thirsty = thirsty or res == "water"
@@ -195,13 +210,18 @@ static func advance() -> Dictionary:
 		if not hungry and not thirsty:
 			s.change_health(3.0)
 		s.change_health(heal)
-		_update_sickness(s, heal > 0.0, lines, rng)
 		if s.has_condition("wounded") and s.health >= s.max_health * 0.6:
 			s.set_condition("wounded", false)
 			lines.append({"text": "%s %s от ран." % [s.first_name, s.by_gender("оправился", "оправилась")], "kind": "good"})
 		_update_mood(s, people, unpowered, crowded, kitchen_fed, finished_day)
 	if crowded:
 		lines.append({"text": "В убежище тесно: не хватает спальных мест.", "kind": "bad"})
+
+	# 3б. Болезни и лечение, исследования, эфир.
+	var off := _off_rooms(unpowered, broken)
+	MedicalSystem.daily(lines, off, thirsty, rng)
+	ResearchSystem.daily(lines, off)
+	RadioSystem.daily(lines, off, rng)
 
 	# 4. Отношения, пары и экспедиции.
 	RelationshipSystem.daily_update(lines)
@@ -262,15 +282,10 @@ static func advance() -> Dictionary:
 	}
 
 
-## Болезнь отнимает силы, но проходит сама; медпункт ускоряет выздоровление.
-static func _update_sickness(s: SurvivorData, medbay: bool, lines: Array[Dictionary], rng: RandomNumberGenerator) -> void:
-	if not s.has_condition("sick"):
-		return
-	s.change_health(-2.0)
-	s.change_mood(-2.0)
-	if rng.randf() < (0.55 if medbay else 0.3):
-		s.set_condition("sick", false)
-		lines.append({"text": "%s %s." % [s.first_name, s.by_gender("выздоровел", "выздоровела")], "kind": "good"})
+static func _off_rooms(unpowered: Array[int], broken: Array[int]) -> Array[int]:
+	var off: Array[int] = unpowered.duplicate()
+	off.append_array(broken)
+	return off
 
 
 static func _update_mood(s: SurvivorData, people: Array[SurvivorData], unpowered: Array[int],
@@ -285,6 +300,10 @@ static func _update_mood(s: SurvivorData, people: Array[SurvivorData], unpowered
 		s.change_mood(1.0)
 	if kitchen_fed:
 		s.change_mood(2.0)
+	# Уют от украшений и утепление.
+	s.change_mood(GameState.comfort() * DecorDefs.MOOD_PER_COMFORT)
+	if ResearchSystem.has("insulation"):
+		s.change_mood(1.0)
 	if not unpowered.is_empty():
 		s.change_mood(-3.0)
 	if crowded:

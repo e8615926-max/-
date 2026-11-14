@@ -2,7 +2,7 @@ class_name ChroniclePanel
 extends BasePanel
 ## Летопись убежища: важные события по дням, свежие сверху.
 
-const KIND_COLORS := {"good": UITheme.GOOD, "bad": UITheme.BAD, "info": UITheme.TEXT}
+const KIND_COLORS := {"good": UITheme.GOOD, "bad": UITheme.BAD, "info": UITheme.TEXT, "story": UITheme.TEAL}
 
 var _list: VBoxContainer
 

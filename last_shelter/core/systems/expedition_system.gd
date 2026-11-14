@@ -10,35 +10,47 @@ const SUPPLY_PER_DAY := 2
 const MIN_HEALTH := 40.0
 
 
-static func supplies_for(days: int) -> Dictionary:
-	return {"food": SUPPLY_PER_DAY * days, "water": SUPPLY_PER_DAY * days}
+static func supplies_for(days: int, location: String = "outskirts") -> Dictionary:
+	var supplies := {"food": SUPPLY_PER_DAY * days, "water": SUPPLY_PER_DAY * days}
+	var extra: Dictionary = LocationDefs.INFO[location].get("supplies", {})
+	for res: String in extra:
+		supplies[res] = int(supplies.get(res, 0)) + int(extra[res])
+	return supplies
+
+
+## Сколько дней можно провести в этом месте: [мин, макс].
+static func days_range(location: String) -> Array[int]:
+	var range_days: Array = LocationDefs.INFO[location]["days"]
+	return [int(range_days[0]), int(range_days[1]) + ResearchSystem.extra_expedition_days()]
 
 
 ## Пустая строка — отправить можно, иначе причина отказа.
-static func start_error(s: SurvivorData, days: int) -> String:
+static func start_error(s: SurvivorData, days: int, location: String = "outskirts") -> String:
 	if s == null:
 		return "Выберите выжившего"
 	if s.on_expedition:
 		return "%s уже в экспедиции" % s.first_name
-	if days < MIN_DAYS or days > MAX_DAYS:
+	if not GameState.locations.has(location):
+		return "Это место ещё не найдено"
+	var range_days := days_range(location)
+	if days < range_days[0] or days > range_days[1]:
 		return "Неверная длительность"
 	if s.health < MIN_HEALTH:
 		return "%s: слишком мало здоровья" % s.first_name
-	var supplies := supplies_for(days)
-	for res: String in supplies:
-		if not GameState.can_afford(res, int(supplies[res])):
-			return "Не хватает припасов: %s" % ResourceDefs.name_of(res).to_lower()
+	var missing := GameState.missing_resource(supplies_for(days, location))
+	if missing != "":
+		return "Не хватает припасов: %s" % ResourceDefs.name_of(missing).to_lower()
 	return ""
 
 
 ## Вероятность ранения за вылазку.
-static func danger_of(s: SurvivorData, days: int) -> float:
-	var danger := 0.2 + 0.12 * days - s.effective_skill("combat") * 0.04
+static func danger_of(s: SurvivorData, days: int, location: String = "outskirts") -> float:
+	var danger := (0.2 + 0.12 * days - s.effective_skill("combat") * 0.04) * float(LocationDefs.INFO[location]["danger"])
 	if s.profession == "soldier":
 		danger *= 0.6
 	if s.has_trait("nervous"):
 		danger *= 1.25
-	return clampf(danger, 0.05, 0.8)
+	return clampf(danger, 0.05, 0.85)
 
 
 ## Вероятность принести полезную вещь.
@@ -49,16 +61,14 @@ static func find_chance(s: SurvivorData, days: int) -> float:
 	return clampf(chance, 0.0, 0.95)
 
 
-static func start(survivor_id: int, days: int) -> bool:
+static func start(survivor_id: int, days: int, location: String = "outskirts") -> bool:
 	var s := GameState.get_survivor(survivor_id)
-	if start_error(s, days) != "":
+	if start_error(s, days, location) != "":
 		return false
-	var supplies := supplies_for(days)
-	for res: String in supplies:
-		GameState.resources[res] = GameState.get_resource(res) - int(supplies[res])
+	GameState.pay(supplies_for(days, location))
 	s.room_id = -1
 	s.on_expedition = true
-	GameState.expeditions.append({"survivor_id": s.id, "days_left": days, "total_days": days})
+	GameState.expeditions.append({"survivor_id": s.id, "days_left": days, "total_days": days, "location": location})
 	GameState.resources_changed.emit()
 	GameState.survivors_changed.emit()
 	GameState.expeditions_changed.emit()
@@ -82,36 +92,53 @@ static func tick(lines: Array[Dictionary]) -> void:
 		GameState.expeditions.remove_at(i)
 		var s := GameState.get_survivor(int(e["survivor_id"]))
 		if s != null:
-			_resolve(s, int(e["total_days"]), lines)
+			_resolve(s, int(e["total_days"]), String(e.get("location", "outskirts")), lines)
 
 
-static func _resolve(s: SurvivorData, days: int, lines: Array[Dictionary]) -> void:
+static func _resolve(s: SurvivorData, days: int, location: String, lines: Array[Dictionary]) -> void:
 	var rng := GameState.rng
+	var place: Dictionary = LocationDefs.INFO[location]
 	s.on_expedition = false
-	var mult := 1.0 + s.effective_skill("scavenging") * 0.08
+	var mult := (1.0 + s.effective_skill("scavenging") * 0.08) * ResearchSystem.loot_mult()
 	if s.has_trait("brave"):
 		mult *= 1.2
 
-	var loot := {"metal": 0, "food": 0, "water": 0}
-	for _day in days:
-		loot["metal"] += roundi(rng.randi_range(8, 14) * mult)
-		loot["food"] += roundi(rng.randi_range(2, 5) * mult)
-		loot["water"] += roundi(rng.randi_range(1, 4) * mult)
-	if s.profession == "hunter":
-		loot["food"] = roundi(loot["food"] * 1.6)
+	var loot_table: Dictionary = place["loot"]
+	var loot := {}
+	for res: String in loot_table:
+		var amounts: Array = loot_table[res]
+		var total := 0
+		for _day in days:
+			total += roundi(rng.randi_range(int(amounts[0]), int(amounts[1])) * mult)
+		if res == "food" and s.profession == "hunter":
+			total = roundi(total * 1.6)
+		loot[res] = total
 	var parts: PackedStringArray = []
-	for res: String in loot:
-		var cap := GameState.get_cap(res)
-		GameState.resources[res] = mini(GameState.get_resource(res) + int(loot[res]), cap)
-		parts.append("%s +%d" % [ResourceDefs.name_of(res).to_lower(), int(loot[res])])
-	lines.append({"text": "%s возвращается из экспедиции: %s." % [s.first_name, ", ".join(parts)], "kind": "good", "log": true})
+	for res in ResourceDefs.IDS:
+		if loot.has(res):
+			GameState.resources[res] = mini(GameState.get_resource(res) + int(loot[res]), GameState.get_cap(res))
+			parts.append("%s +%d" % [ResourceDefs.name_of(res).to_lower(), int(loot[res])])
+	lines.append({"text": "%s возвращается (%s): %s." % [s.first_name, LocationDefs.name_of(location), ", ".join(parts)],
+		"kind": "good", "log": true})
 
+	var items: Array = place["items"]
 	if rng.randf() < find_chance(s, days):
-		var item_id: String = ItemDefs.LOOT_TABLE[rng.randi() % ItemDefs.LOOT_TABLE.size()]
+		var item_id: String = items[rng.randi() % items.size()]
 		GameState.storage[item_id] = GameState.storage_count(item_id) + 1
 		lines.append({"text": "Находка отправлена на склад: %s." % ItemDefs.name_of(item_id).to_lower(), "kind": "good"})
 
-	if rng.randf() < danger_of(s, days):
+	if place.has("research"):
+		var points := rng.randi_range(int(place["research"][0]), int(place["research"][1]))
+		if GameState.research_current != "":
+			lines.append({"text": "Записи из лаборатории продвинули исследование (+%d очков)." % points, "kind": "good"})
+			ResearchSystem.add_points(points, lines)
+
+	if not GameState.visited.has(location):
+		GameState.visited.append(location)
+		if place.has("first_visit"):
+			lines.append({"text": "%s: %s" % [LocationDefs.name_of(location), place["first_visit"]], "kind": "story", "log": true})
+
+	if rng.randf() < danger_of(s, days, location):
 		var damage := float(rng.randi_range(10, 25))
 		if s.has_trait("tough"):
 			damage *= 0.5
@@ -120,15 +147,25 @@ static func _resolve(s: SurvivorData, days: int, lines: Array[Dictionary]) -> vo
 		s.change_mood(-12.0 if s.has_trait("nervous") else -8.0)
 		lines.append({"text": "%s %s на поверхности (−%d здоровья)." % [s.first_name, s.by_gender("ранен", "ранена"), int(damage)],
 			"kind": "bad", "log": true})
+		# Грязная рана без обработки может воспалиться.
+		if rng.randf() < 0.35:
+			MedicalSystem.infect(s, "infection", rng, lines, "рана воспалилась")
 	else:
 		s.change_mood(5.0)
+	if place.has("illness") and rng.randf() < float(place["illness"]["chance"]):
+		MedicalSystem.infect(s, String(place["illness"]["id"]), rng, lines, LocationDefs.name_of(location))
 
 	if s.add_skill_xp("scavenging", 12 * days):
 		lines.append({"text": "%s: навык «Разведка» вырос до %d." % [s.first_name, s.skill_level("scavenging")], "kind": "good"})
 	if s.add_skill_xp("combat", 6 * days):
 		lines.append({"text": "%s: навык «Бой» вырос до %d." % [s.first_name, s.skill_level("combat")], "kind": "good"})
 
-	if GameState.has_free_bed() and rng.randf() < 0.12 * days:
+	# Первая встреча в месте, о котором говорили по радио, — наверняка; потом по случаю.
+	var first_meeting := location != "outskirts" and not GameState.visited.has(location + ":met")
+	var chance := float(place["survivor"]) * days
+	if GameState.has_free_bed() and (first_meeting or rng.randf() < chance):
+		if first_meeting:
+			GameState.visited.append(location + ":met")
 		_bring_newcomer(s, rng, lines)
 
 

@@ -25,7 +25,7 @@ func _init() -> void:
 	set_side_inset(0.0)
 	add_theme_stylebox_override("panel", _style)
 
-	var row := UI.hbox(10)
+	var row := UI.hbox(6)
 	add_child(row)
 
 	var menu := UI.icon_button("menu", 3, 60)
@@ -35,14 +35,14 @@ func _init() -> void:
 	_day_button = UI.button("День 1 · 06:00", 0, 60)
 	_day_button.icon = PixelIcons.get_icon("day", 3)
 	_day_button.tooltip_text = "Летопись убежища"
-	_day_button.add_theme_font_size_override("font_size", 20)
+	_day_button.add_theme_font_size_override("font_size", 18)
 	_day_button.add_theme_color_override("font_color", UITheme.ACCENT)
 	_day_button.add_theme_color_override("font_hover_color", UITheme.ACCENT)
 	_day_button.add_theme_stylebox_override("normal", UITheme.button_box(UITheme.PANEL_DARK, UITheme.PANEL_LIGHT))
 	_day_button.pressed.connect(func() -> void: chronicle_pressed.emit())
 	row.add_child(_day_button)
 
-	_speed_button = UI.button("×1", 66, 60)
+	_speed_button = UI.button("×1", 58, 60)
 	_speed_button.tooltip_text = "Скорость времени"
 	_speed_button.add_theme_font_size_override("font_size", 20)
 	_speed_button.pressed.connect(func() -> void: speed_pressed.emit())
@@ -53,20 +53,21 @@ func _init() -> void:
 	for res in ResourceDefs.IDS:
 		var chip := _chip()
 		chip.get_parent().tooltip_text = ResourceDefs.name_of(res)
-		chip.add_child(UI.icon(ResourceDefs.INFO[res]["icon"], 3))
-		var value := UI.label("0", 22)
-		value.custom_minimum_size.x = 40
+		chip.add_child(UI.icon(ResourceDefs.INFO[res]["icon"], 2))
+		var value := UI.label("0", 20)
+		value.custom_minimum_size.x = 34
 		chip.add_child(value)
-		var delta := UI.label("", 16, UITheme.TEXT_DIM)
-		delta.custom_minimum_size.x = 30
-		chip.add_child(delta)
 		_value_labels[res] = value
-		_delta_labels[res] = delta
+		if ResourceDefs.DAILY.has(res):
+			var delta := UI.label("", 15, UITheme.TEXT_DIM)
+			delta.custom_minimum_size.x = 28
+			chip.add_child(delta)
+			_delta_labels[res] = delta
 		row.add_child(chip.get_parent())
 
 	row.add_child(UI.spacer())
 
-	_survivors_button = UI.button("0/0", 130, 60)
+	_survivors_button = UI.button("0/0", 104, 60)
 	_survivors_button.icon = PixelIcons.get_icon("survivors", 3)
 	_survivors_button.pressed.connect(func() -> void: survivors_pressed.emit())
 	row.add_child(_survivors_button)
@@ -99,7 +100,7 @@ func set_side_inset(inset: float) -> void:
 ## Создаёт рамку-«плашку» и возвращает её внутренний HBox.
 func _chip() -> HBoxContainer:
 	var panel := PanelContainer.new()
-	panel.add_theme_stylebox_override("panel", UITheme.box(UITheme.PANEL_DARK, UITheme.PANEL_LIGHT, 2, 8))
+	panel.add_theme_stylebox_override("panel", UITheme.box(UITheme.PANEL_DARK, UITheme.PANEL_LIGHT, 2, 6))
 	panel.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	var box := UI.hbox(6)
 	panel.add_child(box)
@@ -114,6 +115,8 @@ func refresh() -> void:
 		var value_label: Label = _value_labels[res]
 		value_label.text = str(value)
 		value_label.add_theme_color_override("font_color", UITheme.BAD if value <= 0 else UITheme.TEXT)
+		if not _delta_labels.has(res):
+			continue
 		var change := int(forecast[res])
 		var delta_label: Label = _delta_labels[res]
 		delta_label.text = UI.signed(change)

@@ -11,6 +11,8 @@ signal storage_changed
 signal expeditions_changed
 signal time_changed
 signal chronicle_changed
+signal research_changed
+signal radio_changed
 
 ## Сколько записей хранит летопись.
 const CHRONICLE_MAX := 300
@@ -23,7 +25,7 @@ var day: int = 1
 var minute: float = TimeSystem.DAY_START
 ## Когда сегодня случится событие (минута) или -1.
 var event_minute: int = -1
-var resources: Dictionary = {"food": 0, "water": 0, "metal": 0, "power": 0}
+var resources: Dictionary = {}
 var survivors: Array[SurvivorData] = []
 var rooms: Array[RoomData] = []
 ## item_id -> количество на общем складе
@@ -32,6 +34,19 @@ var storage: Dictionary = {}
 var expeditions: Array[Dictionary] = []
 ## Летопись убежища: {"day", "text", "kind"}
 var chronicle: Array[Dictionary] = []
+
+## Исследования: изученные, текущее и накопленные очки.
+var research_done: Array[String] = []
+var research_current: String = ""
+var research_progress: float = 0.0
+## Эфир: накопленный сигнал, услышанные передачи, журнал и ждущая расшифровки.
+var radio_progress: float = 0.0
+var radio_heard: Array[String] = []
+var radio_log: Array[Dictionary] = []
+var radio_pending: String = ""
+## Места для вылазок: открытые и уже посещённые.
+var locations: Array[String] = ["outskirts"]
+var visited: Array[String] = []
 
 var next_survivor_id: int = 1
 var next_room_id: int = 1
@@ -48,12 +63,23 @@ func reset() -> void:
 	day = 1
 	minute = TimeSystem.DAY_START
 	event_minute = -1
-	resources = {"food": 0, "water": 0, "metal": 0, "power": 0}
+	resources = {}
+	for id in ResourceDefs.IDS:
+		resources[id] = 0
 	survivors.clear()
 	rooms.clear()
 	storage.clear()
 	expeditions.clear()
 	chronicle.clear()
+	research_done.clear()
+	research_current = ""
+	research_progress = 0.0
+	radio_progress = 0.0
+	radio_heard.clear()
+	radio_log.clear()
+	radio_pending = ""
+	locations = ["outskirts"]
+	visited.clear()
 	next_survivor_id = 1
 	next_room_id = 1
 
@@ -83,6 +109,8 @@ func emit_all() -> void:
 	day_changed.emit()
 	time_changed.emit()
 	chronicle_changed.emit()
+	research_changed.emit()
+	radio_changed.emit()
 
 
 # --- Время и летопись ---------------------------------------------------------
@@ -115,7 +143,7 @@ func get_resource(id: String) -> int:
 func get_cap(_id: String) -> int:
 	var cap := ResourceDefs.BASE_CAP
 	for room in rooms:
-		cap += int(room.get_def()["cap"])
+		cap += RoomDefs.cap_of(room.type, room.tier)
 	return cap
 
 
@@ -126,6 +154,31 @@ func add_resource(id: String, amount: int) -> void:
 
 func can_afford(id: String, amount: int) -> bool:
 	return get_resource(id) >= amount
+
+
+func can_pay(cost: Dictionary) -> bool:
+	for res: String in cost:
+		if not can_afford(res, int(cost[res])):
+			return false
+	return true
+
+
+## Списывает цену, если хватает всего. Возвращает, получилось ли.
+func pay(cost: Dictionary) -> bool:
+	if not can_pay(cost):
+		return false
+	for res: String in cost:
+		resources[res] = get_resource(res) - int(cost[res])
+	resources_changed.emit()
+	return true
+
+
+## Первый ресурс, которого не хватает ("" — хватает всего).
+func missing_resource(cost: Dictionary) -> String:
+	for res in ResourceDefs.IDS:
+		if int(cost.get(res, 0)) > get_resource(res):
+			return res
+	return ""
 
 
 # --- Выжившие -------------------------------------------------------------
@@ -152,7 +205,7 @@ func population() -> int:
 func bed_capacity() -> int:
 	var beds := 0
 	for room in rooms:
-		beds += int(room.get_def()["beds"])
+		beds += RoomDefs.beds_of(room.type, room.tier)
 	return beds
 
 
@@ -222,21 +275,116 @@ func can_build_at(level: int, col: int) -> bool:
 func build_error(type: String, level: int, col: int) -> String:
 	if not RoomDefs.exists(type):
 		return "Неизвестный тип комнаты"
+	var research := RoomDefs.research_of(type)
+	if research != "" and not ResearchSystem.has(research):
+		return "Нужно исследование: %s" % ResearchDefs.name_of(research)
 	if not can_build_at(level, col):
 		return "Здесь строить нельзя"
-	if not can_afford("metal", int(RoomDefs.get_def(type)["cost"])):
-		return "Недостаточно металла"
+	var missing := missing_resource(RoomDefs.cost_of(type))
+	if missing != "":
+		return "Не хватает: %s" % ResourceDefs.name_of(missing).to_lower()
 	return ""
 
 
 func build_room(type: String, level: int, col: int) -> bool:
 	if build_error(type, level, col) != "":
 		return false
-	resources["metal"] = get_resource("metal") - int(RoomDefs.get_def(type)["cost"])
+	pay(RoomDefs.cost_of(type))
 	_place_room(type, level, col)
 	log_event("Построен новый отсек: %s." % RoomDefs.name_of(type).to_lower(), "good")
 	resources_changed.emit()
 	rooms_changed.emit()
+	return true
+
+
+## Пустая строка — улучшить можно, иначе причина отказа.
+func upgrade_error(room: RoomData) -> String:
+	if room.tier >= RoomDefs.MAX_TIER:
+		return "Максимальный уровень"
+	if room.tier + 1 > ResearchSystem.max_tier():
+		return "Нужно исследование: %s" % ResearchDefs.name_of("reinforced")
+	if room.broken:
+		return "Сначала почините отсек"
+	var missing := missing_resource(RoomDefs.upgrade_cost(room.type, room.tier + 1))
+	if missing != "":
+		return "Не хватает: %s" % ResourceDefs.name_of(missing).to_lower()
+	return ""
+
+
+func upgrade_room(room: RoomData) -> bool:
+	if upgrade_error(room) != "":
+		return false
+	pay(RoomDefs.upgrade_cost(room.type, room.tier + 1))
+	room.tier += 1
+	room.condition = 100.0
+	log_event("Отсек улучшен: %s." % room.title(), "good")
+	rooms_changed.emit()
+	return true
+
+
+## Переключает продукт комнаты (мастерская: металл или доски).
+func set_room_mode(room: RoomData, new_mode: String) -> void:
+	if room.get_def().has("modes") and (room.get_def()["modes"] as Dictionary).has(new_mode):
+		room.mode = new_mode
+		rooms_changed.emit()
+		resources_changed.emit()
+
+
+## Ставит украшение в слот (платит цену) или убирает ("" — пусто).
+func set_decor(room: RoomData, slot: int, decor_id: String) -> bool:
+	if slot < 0 or slot >= DecorDefs.SLOTS:
+		return false
+	if decor_id != "":
+		if not DecorDefs.exists(decor_id) or decor_error(decor_id) != "":
+			return false
+		pay(DecorDefs.INFO[decor_id]["cost"])
+	room.decor[slot] = decor_id
+	rooms_changed.emit()
+	return true
+
+
+func decor_error(decor_id: String) -> String:
+	var research := String(DecorDefs.INFO[decor_id].get("research", ""))
+	if research != "" and not ResearchSystem.has(research):
+		return "Нужно исследование: %s" % ResearchDefs.name_of(research)
+	var missing := missing_resource(DecorDefs.INFO[decor_id]["cost"])
+	if missing != "":
+		return "Не хватает: %s" % ResourceDefs.name_of(missing).to_lower()
+	return ""
+
+
+func set_paint(room: RoomData, paint_id: String) -> void:
+	if DecorDefs.PAINTS.has(paint_id):
+		room.paint = paint_id
+		rooms_changed.emit()
+
+
+## Уют убежища от украшений (с потолком).
+func comfort() -> int:
+	var total := 0
+	for room in rooms:
+		total += room.comfort()
+	return mini(total, DecorDefs.COMFORT_CAP)
+
+
+func craft_error(item_id: String) -> String:
+	var recipe: Dictionary = ItemDefs.RECIPES.get(item_id, {})
+	if recipe.is_empty():
+		return "Это не изготовить"
+	if not ResearchSystem.has(String(recipe["research"])):
+		return "Нужно исследование: %s" % ResearchDefs.name_of(String(recipe["research"]))
+	var missing := missing_resource(recipe["cost"])
+	if missing != "":
+		return "Не хватает: %s" % ResourceDefs.name_of(missing).to_lower()
+	return ""
+
+
+## Изготавливает предмет на общий склад.
+func craft(item_id: String) -> bool:
+	if craft_error(item_id) != "":
+		return false
+	pay(ItemDefs.RECIPES[item_id]["cost"])
+	storage_add(item_id)
 	return true
 
 
@@ -271,7 +419,7 @@ func room_has_free_slot(room_id: int) -> bool:
 	var room := get_room(room_id)
 	if room == null:
 		return false
-	return workers_of(room_id).size() < int(room.get_def()["slots"])
+	return workers_of(room_id).size() < RoomDefs.slots_of(room.type, room.tier)
 
 
 ## Назначает выжившего на работу. room_id = -1 снимает с работы.
@@ -328,6 +476,15 @@ func to_dict() -> Dictionary:
 		"storage": storage.duplicate(),
 		"expeditions": expeditions.duplicate(true),
 		"chronicle": chronicle.duplicate(true),
+		"research_done": research_done.duplicate(),
+		"research_current": research_current,
+		"research_progress": snappedf(research_progress, 0.01),
+		"radio_progress": snappedf(radio_progress, 0.01),
+		"radio_heard": radio_heard.duplicate(),
+		"radio_log": radio_log.duplicate(true),
+		"radio_pending": radio_pending,
+		"locations": locations.duplicate(),
+		"visited": visited.duplicate(),
 		"next_survivor_id": next_survivor_id,
 		"next_room_id": next_room_id,
 	}
@@ -341,6 +498,10 @@ func from_dict(d: Dictionary) -> void:
 	var saved_res: Dictionary = d.get("resources", {})
 	for id in ResourceDefs.IDS:
 		resources[id] = maxi(int(saved_res.get(id, 0)), 0)
+	# Сохранения до версии 3 не знали дерева, бетона и медикаментов — выдаём стартовый запас.
+	for id in ResourceDefs.ADDED_V3:
+		if not saved_res.has(id):
+			resources[id] = int(ResourceDefs.START[id])
 	for entry: Dictionary in d.get("rooms", []):
 		var room := RoomData.from_dict(entry)
 		if RoomDefs.exists(room.type):
@@ -354,14 +515,38 @@ func from_dict(d: Dictionary) -> void:
 	for entry: Dictionary in d.get("expeditions", []):
 		var sid := int(entry.get("survivor_id", 0))
 		if get_survivor(sid) != null:
+			var place := String(entry.get("location", "outskirts"))
 			expeditions.append({
 				"survivor_id": sid,
 				"days_left": int(entry.get("days_left", 1)),
 				"total_days": int(entry.get("total_days", 1)),
+				"location": place if LocationDefs.exists(place) else "outskirts",
 			})
 	for entry: Dictionary in d.get("chronicle", []):
 		chronicle.append({"day": int(entry.get("day", 1)), "text": String(entry.get("text", "")),
 			"kind": String(entry.get("kind", "info"))})
+	for id in d.get("research_done", []):
+		if ResearchDefs.exists(String(id)) and not research_done.has(String(id)):
+			research_done.append(String(id))
+	var current := String(d.get("research_current", ""))
+	research_current = current if ResearchDefs.exists(current) else ""
+	research_progress = maxf(float(d.get("research_progress", 0.0)), 0.0)
+	radio_progress = maxf(float(d.get("radio_progress", 0.0)), 0.0)
+	for id in d.get("radio_heard", []):
+		radio_heard.append(String(id))
+	for entry: Dictionary in d.get("radio_log", []):
+		radio_log.append({"day": int(entry.get("day", 1)), "title": String(entry.get("title", "")),
+			"text": String(entry.get("text", ""))})
+	radio_pending = String(d.get("radio_pending", ""))
+	var saved_places: Array = d.get("locations", ["outskirts"])
+	locations.clear()
+	for id in saved_places:
+		if LocationDefs.exists(String(id)) and not locations.has(String(id)):
+			locations.append(String(id))
+	if not locations.has("outskirts"):
+		locations.insert(0, "outskirts")
+	for id in d.get("visited", []):
+		visited.append(String(id))
 	next_survivor_id = int(d.get("next_survivor_id", 1))
 	next_room_id = int(d.get("next_room_id", 1))
 	# Защита от повреждённых сохранений: счётчики и ссылки должны быть согласованы.

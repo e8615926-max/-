@@ -9,6 +9,7 @@ var _list: VBoxContainer
 var _footer: VBoxContainer
 var _selected_id: int = -1
 var _days: int = 1
+var _location: String = "outskirts"
 
 
 func _init() -> void:
@@ -48,7 +49,10 @@ func _refresh() -> void:
 		var portrait := UI.texture(SurvivorSprites.get_portrait(s.appearance, 3))
 		portrait.custom_minimum_size = Vector2(44, 60)
 		row.add_child(portrait)
-		row.add_child(UI.label(s.full_name(), 20))
+		var where := UI.vbox(2)
+		where.add_child(UI.label(s.full_name(), 20))
+		where.add_child(UI.label(LocationDefs.name_of(String(e.get("location", "outskirts"))), 15, UITheme.TEXT_DIM))
+		row.add_child(where)
 		var bar := UI.bar(total - left, 0.0, total, UITheme.TEAL, Vector2(160, 18))
 		bar.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		row.add_child(bar)
@@ -66,9 +70,19 @@ func _refresh() -> void:
 	for s in candidates:
 		_list.add_child(_candidate_button(s))
 
+	_list.add_child(UI.section_title("Куда идти"))
+	if not GameState.locations.has(_location):
+		_location = "outskirts"
+	for id in GameState.locations:
+		_list.add_child(_location_button(id))
+	if GameState.locations.size() == 1:
+		_list.add_child(UI.wrap_label("Новые места подскажет эфир — постройте радиорубку.", 15, UITheme.TEXT_DIM))
+	var range_days := ExpeditionSystem.days_range(_location)
+	_days = clampi(_days, range_days[0], range_days[1])
+
 	var days_row := UI.hbox(8)
 	days_row.add_child(UI.label("Дней:", 17, UITheme.TEXT_DIM))
-	for d in range(ExpeditionSystem.MIN_DAYS, ExpeditionSystem.MAX_DAYS + 1):
+	for d in range(range_days[0], range_days[1] + 1):
 		var b := UI.button(str(d), 72, 56)
 		if d == _days:
 			b.add_theme_stylebox_override("normal", UITheme.button_box(UITheme.ACCENT_DARK, UITheme.ACCENT, true))
@@ -78,7 +92,7 @@ func _refresh() -> void:
 			_refresh())
 		days_row.add_child(b)
 	days_row.add_child(UI.spacer())
-	var supplies := ExpeditionSystem.supplies_for(_days)
+	var supplies := ExpeditionSystem.supplies_for(_days, _location)
 	days_row.add_child(UI.label("Припасы:", 17, UITheme.TEXT_DIM))
 	for res: String in supplies:
 		days_row.add_child(UI.icon(ResourceDefs.INFO[res]["icon"], 2))
@@ -88,12 +102,12 @@ func _refresh() -> void:
 
 	var selected := GameState.get_survivor(_selected_id)
 	if selected != null and not selected.on_expedition:
-		var risk := ExpeditionSystem.danger_of(selected, _days)
+		var risk := ExpeditionSystem.danger_of(selected, _days, _location)
 		var odds := UI.label("%s: риск ранения %d%%, шанс находки %d%%" % [selected.first_name,
 			roundi(risk * 100.0), roundi(ExpeditionSystem.find_chance(selected, _days) * 100.0)],
 			17, UITheme.BAD if risk >= 0.4 else UITheme.TEAL)
 		_footer.add_child(odds)
-	var error := ExpeditionSystem.start_error(selected, _days)
+	var error := ExpeditionSystem.start_error(selected, _days, _location)
 	var send := UI.accent_button("Отправить в экспедицию" if error == "" else error, 0, 68)
 	send.disabled = error != ""
 	send.pressed.connect(_send)
@@ -127,6 +141,38 @@ func _candidate_button(s: SurvivorData) -> Button:
 	return card
 
 
+func _location_button(id: String) -> Button:
+	var place: Dictionary = LocationDefs.INFO[id]
+	var card := UI.button("", 0, 84)
+	UI.pass_scroll(card)
+	if id == _location:
+		card.add_theme_stylebox_override("normal", UITheme.button_box(UITheme.ACCENT_DARK, UITheme.ACCENT, true))
+	card.pressed.connect(func() -> void:
+		_location = id
+		_refresh())
+	var box := UI.vbox(2)
+	box.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT, Control.PRESET_MODE_MINSIZE, 10)
+	box.alignment = BoxContainer.ALIGNMENT_CENTER
+	var title := UI.hbox(10)
+	title.add_child(UI.label(String(place["name"]), 20))
+	var danger := float(place["danger"])
+	var danger_text := "безопасно" if danger < 0.8 else ("рискованно" if danger <= 1.2 else "опасно")
+	title.add_child(UI.label(danger_text, 15, UITheme.GOOD if danger < 0.8 else (UITheme.ACCENT if danger <= 1.2 else UITheme.BAD)))
+	if place.has("illness"):
+		title.add_child(UI.label("риск: %s" % IllnessDefs.name_of(String(place["illness"]["id"])).to_lower(), 15, UITheme.BAD))
+	if not GameState.visited.has(id) and id != "outskirts":
+		title.add_child(UI.label("ещё не были", 15, UITheme.TEAL))
+	box.add_child(title)
+	var loot := UI.hbox(6)
+	loot.add_child(UI.label(String(place["desc"]), 15, UITheme.TEXT_DIM))
+	for res: String in place["loot"]:
+		loot.add_child(UI.icon(ResourceDefs.INFO[res]["icon"], 2))
+	box.add_child(loot)
+	card.add_child(box)
+	UI.ignore_mouse(box)
+	return card
+
+
 func _send() -> void:
 	var s := GameState.get_survivor(_selected_id)
 	if s == null:
@@ -134,5 +180,5 @@ func _send() -> void:
 	var first_name := s.first_name
 	var days := _days
 	_selected_id = -1
-	if ExpeditionSystem.start(s.id, days):
-		message.emit("%s уходит на поверхность на %d дн." % [first_name, days])
+	if ExpeditionSystem.start(s.id, days, _location):
+		message.emit("%s уходит: %s, %d дн." % [first_name, LocationDefs.name_of(_location), days])

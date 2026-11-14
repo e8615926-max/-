@@ -68,8 +68,12 @@ static func use_item(s: SurvivorData, index: int) -> bool:
 	var use: Dictionary = ItemDefs.get_def(item_id)["use"]
 	if use.has("health"):
 		s.change_health(float(use["health"]))
+		# Аптечка обрабатывает рану: заражение отступает.
+		s.cure("infection")
 		if s.health >= s.max_health * 0.6:
 			s.set_condition("wounded", false)
+	if use.has("cure"):
+		s.cure_worst()
 	if use.has("mood"):
 		s.change_mood(float(use["mood"]))
 	s.inventory.remove_at(index)

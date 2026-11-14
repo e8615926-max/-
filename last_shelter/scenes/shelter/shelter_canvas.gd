@@ -55,7 +55,7 @@ func _draw() -> void:
 			var room := GameState.room_at(level, col)
 			if room != null:
 				var powered := not unpowered.has(room.id) and not room.broken
-				RoomPainter.paint(self, room.type, o, _time, powered)
+				RoomPainter.paint(self, room.type, o, _time, powered, room.tier, room.decor, room.paint)
 				_draw_condition(room, o)
 				_draw_slab(o)
 				if room.broken:

@@ -2,7 +2,7 @@ class_name DayReportPanel
 extends BasePanel
 ## Итоги прошедшего дня: изменение ресурсов и события.
 
-const KIND_COLORS := {"good": UITheme.GOOD, "bad": UITheme.BAD, "info": UITheme.TEXT}
+const KIND_COLORS := {"good": UITheme.GOOD, "bad": UITheme.BAD, "info": UITheme.TEXT, "story": UITheme.TEAL}
 
 
 func _init(report: Dictionary) -> void:

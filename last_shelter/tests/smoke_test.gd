@@ -33,6 +33,13 @@ func _ready() -> void:
 	_test_time()
 	_test_events()
 	_test_chronicle()
+	_test_migration_v2()
+	_test_resources_and_costs()
+	_test_upgrades()
+	_test_medicine()
+	_test_research()
+	_test_radio_and_locations()
+	_test_decor_and_crafting()
 	_test_long_run()
 	_test_balance()
 	await _test_scenes()
@@ -135,8 +142,9 @@ func _test_building() -> void:
 	_check(not GameState.can_build_at(2, 3), "нельзя строить без соседа слева")
 	_check(GameState.can_build_at(2, 0) and GameState.can_build_at(0, 3), "можно строить у шахты и рядом с комнатой")
 	var metal := GameState.get_resource("metal")
+	var wood := GameState.get_resource("wood")
 	_check(GameState.build_room("storage", 2, 0), "постройка склада")
-	_check(GameState.get_resource("metal") == metal - 40, "металл списан")
+	_check(GameState.get_resource("metal") == metal - 20 and GameState.get_resource("wood") == wood - 20, "металл и дерево списаны")
 	_check(GameState.get_cap("food") == 200, "склад увеличил вместимость")
 	GameState.resources["metal"] = 5
 	_check(not GameState.build_room("medbay", 0, 3), "без металла строить нельзя")
@@ -246,7 +254,7 @@ func _test_save_load() -> void:
 	GameState.minute = 800.0
 	GameState.rooms[1].condition = 42.5
 	GameState.rooms[1].broken = true
-	anna.set_condition("sick", true)
+	anna.add_illness("flu", 4.0)
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 2
 	var found := FamilySystem.make_relative(anna, rng)
@@ -515,7 +523,7 @@ func _test_time() -> void:
 	_check(TimeSystem.activity(anna, 480.0) == "idle", "лентяй приходит на смену позже")
 	anna.traits = ["loner"]
 	_check(TimeSystem.activity(anna, 1200.0) == "rest", "одиночка вечером отдыхает в стороне")
-	anna.set_condition("sick", true)
+	anna.add_illness("cold", 3.0)
 	_check(TimeSystem.activity(anna, 600.0) == "heal", "больной лечится, а не работает")
 	_check(TimeSystem.clock_text(605.0) == "10:05", "часы показывают время")
 	GameState.minute = 1300.0
@@ -530,11 +538,12 @@ func _event_stage() -> void:
 	GameState.new_game()
 	GameState.rng.seed = 31
 	GameState.day = 5
-	GameState.resources["metal"] = 400
+	for res in ResourceDefs.MATERIALS:
+		GameState.resources[res] = 400
 	GameState.build_room("kitchen", 0, 3)
 	GameState.build_room("workshop", 1, 1)
 	GameState.build_room("quarters", 2, 0)
-	GameState.resources = {"food": 60, "water": 60, "metal": 100, "power": 50}
+	GameState.resources = {"food": 60, "water": 60, "power": 50, "medicine": 10, "metal": 100, "wood": 50, "concrete": 50}
 	var anna := GameState.survivors[0]
 	var viktor := GameState.survivors[1]
 	var lazy := SurvivorFactory.create_random(GameState.rng)
@@ -592,9 +601,9 @@ func _test_events() -> void:
 	var leak := EventSystem.build("pipe_leak", GameState.rng)
 	_check(not EventSystem.choice_view(leak, 0)["enabled"], "без металла нельзя заварить трубу")
 	_check(not EventSystem.resolve(leak, 0, GameState.rng)["ok"], "недоступный вариант не применяется")
-	GameState.storage.erase("medkit")
+	GameState.resources["medicine"] = 0
 	var sick := EventSystem.build("sickness", GameState.rng)
-	_check(not EventSystem.choice_view(sick, 0)["enabled"], "без аптечки не вылечить")
+	_check(not EventSystem.choice_view(sick, 0)["enabled"], "без медикаментов сразу не вылечить")
 	var repair_choice: Dictionary = EventDefs.INFO["pipe_leak"]["choices"][1]
 	var weak := SurvivorData.new()
 	var strong := SurvivorData.new()
@@ -642,6 +651,266 @@ func _test_chronicle() -> void:
 	GameState.resources["metal"] = 100
 	GameState.build_room("kitchen", 0, 3)
 	_check(String(GameState.chronicle[-1]["text"]).contains("кухня"), "постройка попадает в летопись")
+
+
+func _test_migration_v2() -> void:
+	var fixture := FileAccess.get_file_as_string("res://tests/fixtures/save_v2.json")
+	_check(fixture != "", "есть образец сохранения версии 2")
+	var f := FileAccess.open(SAVE_PATH, FileAccess.WRITE)
+	f.store_string(fixture)
+	f.close()
+	GameState.reset()
+	_check(SaveManager.load_game(), "сохранение версии 2 загружается")
+	_check(GameState.day == 3 and GameState.survivors.size() == 4, "день и жители на месте")
+	var anna := GameState.survivors[0]
+	_check(anna.has_illness("cold") and not anna.has_condition("sick"), "старая «болезнь» стала простудой")
+	for res in ResourceDefs.ADDED_V3:
+		_check(GameState.get_resource(res) == int(ResourceDefs.START[res]), "старая игра получила стартовый запас: %s" % res)
+	var water := GameState.first_room_of_type("water")
+	_check(water.broken and water.tier == 1 and water.decor == ["", ""], "комнаты перенесены с поломками, уровень 1")
+	_check(GameState.expeditions.size() == 1 and GameState.expeditions[0]["location"] == "outskirts", "вылазка идёт в окрестности")
+	_check(GameState.locations == ["outskirts"] and GameState.research_done.is_empty(), "места и исследования по умолчанию")
+	_check(GameState.first_room_of_type("kitchen") != null and not GameState.chronicle.is_empty(), "кухня и летопись сохранились")
+	var snapshot := JSON.stringify(GameState.to_dict())
+	SaveManager.save_game()
+	GameState.reset()
+	_check(SaveManager.load_game() and JSON.stringify(GameState.to_dict()) == snapshot, "пересохранение в версии 3 без потерь")
+
+
+func _test_resources_and_costs() -> void:
+	GameState.new_game()
+	for res in ResourceDefs.IDS:
+		_check(GameState.get_resource(res) == int(ResourceDefs.START[res]), "стартовый запас: %s" % res)
+		_check(PixelIcons.has_icon(ResourceDefs.INFO[res]["icon"]), "есть иконка ресурса %s" % res)
+	for type in RoomDefs.BUILD_ORDER:
+		_check(RoomPainter.WALLS.has(type), "нарисована комната %s" % type)
+	GameState.resources["concrete"] = 0
+	_check(GameState.build_error("generator", 2, 0).contains("бетон"), "без бетона генератор не построить")
+	_check(GameState.build_error("pharmacy", 2, 0).contains("Фармакология"), "аптека закрыта до исследования")
+	GameState.resources["concrete"] = 100
+	GameState.resources["metal"] = 200
+	_check(GameState.build_room("cement", 2, 0), "бетонный цех строится")
+	var cement := GameState.first_room_of_type("cement")
+	var viktor := GameState.survivors[1]
+	GameState.assign(viktor.id, cement.id)
+	var eco := DaySystem.compute_economy()
+	var idle_water := -2 * GameState.survivors_in_shelter().size()
+	_check(int(eco["delta"]["concrete"]) > 0 and int(eco["delta"]["water"]) == idle_water - 1, "цех делает бетон и тратит воду")
+	GameState.build_room("workshop", 1, 1)
+	var workshop := GameState.first_room_of_type("workshop")
+	GameState.assign(viktor.id, workshop.id)
+	_check(int(DaySystem.compute_economy()["delta"]["metal"]) > 0, "мастерская по умолчанию даёт металл")
+	GameState.set_room_mode(workshop, "wood")
+	var wood_eco := DaySystem.compute_economy()
+	_check(int(wood_eco["delta"]["wood"]) > 0 and int(wood_eco["delta"]["metal"]) == 0, "в режиме «доски» мастерская даёт дерево")
+
+
+func _test_upgrades() -> void:
+	GameState.new_game()
+	for res in ResourceDefs.MATERIALS:
+		GameState.resources[res] = 300
+	var quarters := GameState.first_room_of_type("quarters")
+	var farm := GameState.first_room_of_type("farm")
+	var anna := GameState.survivors[0]
+	GameState.assign(anna.id, farm.id)
+	var before := DaySystem.room_output(farm)
+	_check(GameState.upgrade_room(farm) and farm.tier == 2, "ферма улучшается до II")
+	_check(DaySystem.room_output(farm) > before and farm.title() == "Ферма II", "улучшенная ферма даёт больше")
+	_check(GameState.upgrade_error(farm).contains("Армированные"), "третий уровень закрыт до исследования")
+	var beds := GameState.bed_capacity()
+	GameState.upgrade_room(quarters)
+	_check(GameState.bed_capacity() == beds + 2, "улучшенный жилой отсек даёт больше мест")
+	GameState.research_done.append("reinforced")
+	_check(GameState.upgrade_room(farm) and farm.tier == 3, "после исследования доступен уровень III")
+	_check(RoomDefs.slots_of("farm", 3) == 3 and GameState.room_has_free_slot(farm.id), "на III уровне лишнее рабочее место")
+	var wear_low := MaintenanceSystem.daily_wear(farm, GameState.workers_of(farm.id), true)
+	farm.tier = 1
+	_check(MaintenanceSystem.daily_wear(farm, GameState.workers_of(farm.id), true) > wear_low, "улучшенное оборудование изнашивается медленнее")
+	farm.tier = 3
+	_check(GameState.upgrade_error(farm) == "Максимальный уровень", "выше III не улучшить")
+	GameState.resources["concrete"] = 0
+	_check(not GameState.upgrade_room(quarters), "без ресурсов не улучшить")
+
+
+func _test_medicine() -> void:
+	GameState.new_game()
+	GameState.rng.seed = 13
+	var anna := GameState.survivors[0]
+	var viktor := GameState.survivors[1]
+	anna.add_illness("flu", 6.0)
+	_check(anna.is_ill() and anna.illness_work_factor() < 1.0, "больной работает хуже")
+	var lines: Array[Dictionary] = []
+	var none: Array[int] = []
+	var health := anna.health
+	MedicalSystem.daily(lines, none, false, GameState.rng)
+	_check(anna.health < health and anna.illnesses[0]["days"] < 6.0, "без медпункта грипп вредит, но проходит сам")
+	anna.illnesses.clear()
+	anna.add_illness("infection", 5.0)
+	MedicalSystem.daily(lines, none, false, GameState.rng)
+	_check(is_equal_approx(float(anna.illnesses[0]["days"]), 5.0), "заражение без лекарств не проходит")
+	for res in ResourceDefs.MATERIALS:
+		GameState.resources[res] = 300
+	GameState.build_room("medbay", 2, 0)
+	var medbay := GameState.first_room_of_type("medbay")
+	var medicine := GameState.get_resource("medicine")
+	var weak := MedicalSystem.treatment_power()
+	GameState.assign(anna.id, -1)
+	GameState.assign(viktor.id, medbay.id)
+	viktor.skills["medicine"]["level"] = 2
+	var skill2 := MedicalSystem.treatment_power()
+	viktor.skills["medicine"]["level"] = 8
+	_check(MedicalSystem.treatment_power() > skill2 and skill2 > weak, "навык врача ускоряет лечение")
+	viktor.illnesses.clear()
+	MedicalSystem.daily(lines, none, false, GameState.rng)
+	_check(GameState.get_resource("medicine") == medicine - 1 and float(anna.illnesses[0]["days"]) < 5.0, "в медпункте лечат за медикаменты")
+	for _i in 6:
+		MedicalSystem.daily(lines, none, false, GameState.rng)
+	_check(not anna.has_illness("infection"), "с лечением заражение проходит")
+	GameState.resources["medicine"] = 0
+	anna.add_illness("radiation", 9.0)
+	MedicalSystem.daily(lines, none, false, GameState.rng)
+	_check(is_equal_approx(float(anna.illnesses[0]["days"]), 9.0), "без медикаментов лучевая болезнь не лечится")
+	anna.illnesses.clear()
+	anna.inventory = ["pills"]
+	anna.add_illness("flu", 5.0)
+	_check(InventorySystem.use_item(anna, 0) and not anna.is_ill(), "таблетки лечат болезнь")
+	# Заразность
+	for i in 4:
+		GameState.add_survivor(SurvivorFactory.create_random(GameState.rng))
+	for s in GameState.survivors:
+		s.illnesses.clear()
+	anna.add_illness("flu", 8.0)
+	var spread := false
+	for _i in 10:
+		MedicalSystem._spread(GameState.survivors_in_shelter(), lines, GameState.rng)
+		for s in GameState.survivors:
+			if s != anna and s.is_ill():
+				spread = true
+	_check(spread, "грипп заразен")
+	var shortage := false
+	GameState.research_done.clear()
+	for _i in 20:
+		MedicalSystem.daily(lines, none, true, GameState.rng)
+		for s in GameState.survivors:
+			if s.has_illness("dysentery"):
+				shortage = true
+	_check(shortage, "при нехватке воды бывает дизентерия")
+
+
+func _test_research() -> void:
+	GameState.new_game()
+	for res in ResourceDefs.IDS:
+		GameState.resources[res] = 100
+	_check(ResearchSystem.start_error("field_medicine").contains("Фармакология"), "у технологий есть зависимости")
+	var water := GameState.get_resource("water")
+	_check(ResearchSystem.start("hydroponics") and GameState.get_resource("water") == water - 10, "исследование стоит ресурсов")
+	_check(ResearchSystem.start_error("filtration").contains("занята"), "одновременно идёт одно исследование")
+	_check(is_equal_approx(ResearchSystem.points_per_day(), 0.0), "без лаборатории очков нет")
+	GameState.build_room("lab", 2, 0)
+	var lab := GameState.first_room_of_type("lab")
+	var anna := GameState.survivors[0]
+	GameState.assign(anna.id, lab.id)
+	_check(ResearchSystem.points_per_day() > 0.0, "учёный в лаборатории даёт очки")
+	var farm := GameState.first_room_of_type("farm")
+	var viktor := GameState.survivors[1]
+	GameState.assign(viktor.id, farm.id)
+	var food := DaySystem.room_output(farm)
+	var lines: Array[Dictionary] = []
+	for _i in 30:
+		ResearchSystem.daily(lines, [])
+		if ResearchSystem.has("hydroponics"):
+			break
+	_check(ResearchSystem.has("hydroponics") and GameState.research_current == "", "исследование завершается со временем")
+	_check(DaySystem.room_output(farm) > food, "гидропоника увеличивает урожай")
+	_check(not lines.is_empty() and lines[-1].get("log", false), "открытие записано в летопись")
+	ResearchSystem.start("pharmacology")
+	ResearchSystem.cancel()
+	_check(GameState.research_current == "" and not ResearchSystem.has("pharmacology"), "исследование можно отменить")
+	for id in ResearchDefs.ORDER:
+		for req: String in ResearchDefs.INFO[id]["requires"]:
+			_check(ResearchDefs.exists(req), "зависимость %s существует" % req)
+
+
+func _test_radio_and_locations() -> void:
+	GameState.new_game()
+	GameState.rng.seed = 17
+	for res in ResourceDefs.IDS:
+		GameState.resources[res] = 100
+	_check(GameState.locations == ["outskirts"], "в начале известны только окрестности")
+	_check(ExpeditionSystem.start_error(GameState.survivors[1], 2, "hospital").contains("не найдено"), "в неизвестное место не пойти")
+	GameState.build_room("radio", 2, 0)
+	var radio := GameState.first_room_of_type("radio")
+	var anna := GameState.survivors[0]
+	GameState.assign(anna.id, radio.id)
+	_check(RadioSystem.signal_per_day() > 0.0, "радист ловит сигнал")
+	var lines: Array[Dictionary] = []
+	GameState.day = 30
+	for _i in 120:
+		RadioSystem.daily(lines, [], GameState.rng)
+	_check(GameState.radio_heard.size() >= 5, "сюжетные передачи приходят по порядку (%d)" % GameState.radio_heard.size())
+	_check(GameState.radio_heard[0] == "numbers" and GameState.locations.has("hospital") and GameState.locations.has("north_shelter"),
+		"передачи открывают места для вылазок")
+	_check(GameState.radio_pending == "military" and not GameState.locations.has("science_town"), "шифровку не прочесть без дешифровки")
+	GameState.research_done.append("radio_decoding")
+	RadioSystem.daily(lines, [], GameState.rng)
+	_check(GameState.radio_heard.has("military") and GameState.locations.has("science_town"), "после дешифровки открывается научный городок")
+	var story := 0
+	for line in lines:
+		if line["kind"] == "story":
+			story += 1
+	_check(story >= 5 and GameState.radio_log.size() >= 6, "передачи попадают в журнал и итоги дня")
+	# Вылазка в больницу: лекарства, находка о Катастрофе и встреча
+	GameState.day = 31
+	var viktor := GameState.survivors[1]
+	viktor.health = viktor.max_health
+	GameState.resources["medicine"] = 20
+	var medicine := GameState.get_resource("medicine")
+	var people := GameState.population()
+	_check(ExpeditionSystem.start(viktor.id, 2, "hospital"), "отправка в больницу")
+	lines.clear()
+	ExpeditionSystem.tick(lines)
+	ExpeditionSystem.tick(lines)
+	_check(GameState.get_resource("medicine") > medicine, "из больницы приносят медикаменты")
+	_check(GameState.visited.has("hospital") and GameState.population() == people + 1, "первая вылазка — находка и новый житель")
+	var clue := false
+	for line in lines:
+		clue = clue or (line["kind"] == "story" and String(line["text"]).contains("журнале"))
+	_check(clue, "в больнице находят улику о Катастрофе")
+	_check(ExpeditionSystem.supplies_for(2, "north_shelter").has("medicine"), "в «Северное» несут лекарства")
+	GameState.research_done.append("scouting")
+	_check(ExpeditionSystem.days_range("outskirts")[1] == 4, "картография удлиняет вылазки")
+
+
+func _test_decor_and_crafting() -> void:
+	GameState.new_game()
+	for res in ResourceDefs.IDS:
+		GameState.resources[res] = 100
+	var quarters := GameState.first_room_of_type("quarters")
+	_check(GameState.comfort() == 0, "без украшений уюта нет")
+	var wood := GameState.get_resource("wood")
+	_check(GameState.set_decor(quarters, 0, "painting") and GameState.get_resource("wood") == wood - 6, "картина ставится за дерево")
+	_check(GameState.comfort() == 2 and quarters.decor[0] == "painting", "украшение даёт уют")
+	_check(not GameState.set_decor(quarters, 1, "aquarium") and GameState.decor_error("aquarium").contains("Уют"), "аквариум закрыт до исследования")
+	GameState.set_paint(quarters, "warm")
+	_check(quarters.paint == "warm", "стены можно перекрасить")
+	var anna := GameState.survivors[0]
+	anna.mood = 50.0
+	var people := GameState.survivors_in_shelter()
+	var empty: Array[int] = []
+	DaySystem._update_mood(anna, people, empty, false, false, 1)
+	var with_decor := anna.mood
+	GameState.set_decor(quarters, 0, "")
+	anna.mood = 50.0
+	DaySystem._update_mood(anna, people, empty, false, false, 1)
+	_check(with_decor > anna.mood, "уют поднимает настроение")
+	for id in DecorDefs.ORDER:
+		_check(DecorDefs.INFO[id].has("cost") and int(DecorDefs.INFO[id]["comfort"]) > 0, "украшение %s описано" % id)
+	_check(not GameState.craft("armor"), "без исследований ничего не изготовить")
+	GameState.research_done.append_array(["toolmaking", "armor"])
+	var metal := GameState.get_resource("metal")
+	_check(GameState.craft("armor") and GameState.storage_count("armor") == 1 and GameState.get_resource("metal") == metal - 25, "бронежилет изготовлен")
+	for item_id: String in ItemDefs.RECIPES:
+		_check(ItemDefs.exists(item_id) and ResearchDefs.exists(String(ItemDefs.RECIPES[item_id]["research"])), "рецепт %s корректен" % item_id)
 
 
 func _test_long_run() -> void:
@@ -705,6 +974,11 @@ func _bot_manage() -> void:
 	for room in GameState.rooms:
 		if room.broken or (room.can_break() and room.condition < 45.0):
 			MaintenanceSystem.repair(room)
+	# Не хватает досок — мастерская пилит доски, иначе перерабатывает лом.
+	var workshop := GameState.first_room_of_type("workshop")
+	if workshop != null:
+		var need_wood := GameState.get_resource("wood") < 25 and GameState.get_resource("metal") >= 40
+		GameState.set_room_mode(workshop, "wood" if need_wood else "metal")
 	var people := GameState.survivors_in_shelter()
 	# Мастерская нужна, когда в ней есть кому работать.
 	if GameState.first_room_of_type("workshop") == null and people.size() >= 3 and GameState.get_resource("metal") >= 70:

@@ -21,8 +21,10 @@ var appearance: Dictionary = {}
 var health: float = 100.0
 var max_health: float = 100.0
 var mood: float = 70.0
-## Временные состояния: "hungry", "thirsty", "wounded", "sick"
+## Временные состояния: "hungry", "thirsty", "wounded"
 var conditions: Array = []
+## Болезни: [{"id": см. IllnessDefs, "days": сколько ещё болеть}]
+var illnesses: Array = []
 
 ## skill_id -> {"level": int, "xp": int}
 var skills: Dictionary = {}
@@ -85,6 +87,55 @@ func set_condition(cond: String, on: bool) -> void:
 		conditions.append(cond)
 	elif not on:
 		conditions.erase(cond)
+
+
+# --- Болезни ---------------------------------------------------------------
+
+func is_ill() -> bool:
+	return not illnesses.is_empty()
+
+
+func has_illness(illness_id: String) -> bool:
+	for entry: Dictionary in illnesses:
+		if entry["id"] == illness_id:
+			return true
+	return false
+
+
+## Заболеть. Повторная та же болезнь только продлевает срок.
+func add_illness(illness_id: String, days: float) -> void:
+	for entry: Dictionary in illnesses:
+		if entry["id"] == illness_id:
+			entry["days"] = maxf(float(entry["days"]), days)
+			return
+	illnesses.append({"id": illness_id, "days": days})
+
+
+func cure(illness_id: String) -> void:
+	for i in range(illnesses.size() - 1, -1, -1):
+		if illnesses[i]["id"] == illness_id:
+			illnesses.remove_at(i)
+
+
+## Излечивает самую тяжёлую болезнь (сначала те, что без лекарств не проходят).
+func cure_worst() -> String:
+	if illnesses.is_empty():
+		return ""
+	var worst: Dictionary = illnesses[0]
+	for entry: Dictionary in illnesses:
+		if IllnessDefs.needs_medicine(entry["id"]) and not IllnessDefs.needs_medicine(worst["id"]):
+			worst = entry
+	var cured := String(worst["id"])
+	cure(cured)
+	return cured
+
+
+## Множитель работы от болезней.
+func illness_work_factor() -> float:
+	var factor := 1.0
+	for entry: Dictionary in illnesses:
+		factor *= float(IllnessDefs.INFO[entry["id"]]["work"])
+	return factor
 
 
 # --- Навыки ---------------------------------------------------------------
@@ -212,6 +263,7 @@ func to_dict() -> Dictionary:
 		"max_health": max_health,
 		"mood": mood,
 		"conditions": conditions.duplicate(),
+		"illnesses": illnesses.duplicate(true),
 		"skills": skills.duplicate(true),
 		"traits": traits.duplicate(),
 		"interests": interests.duplicate(),
@@ -245,7 +297,14 @@ static func from_dict(d: Dictionary) -> SurvivorData:
 	s.health = clampf(float(d.get("health", 100.0)), 0.0, s.max_health)
 	s.mood = clampf(float(d.get("mood", 70.0)), 0.0, 100.0)
 	for cond in d.get("conditions", []):
-		s.conditions.append(String(cond))
+		# В версии 2 болезнь была одним состоянием «sick» — теперь это простуда.
+		if String(cond) == "sick":
+			s.add_illness("cold", 3.0)
+		else:
+			s.conditions.append(String(cond))
+	for entry in d.get("illnesses", []):
+		if entry is Dictionary and IllnessDefs.exists(String(entry.get("id", ""))):
+			s.add_illness(String(entry["id"]), maxf(float(entry.get("days", 1.0)), 0.5))
 	var saved_skills: Dictionary = d.get("skills", {})
 	for skill_id in SkillDefs.IDS:
 		if saved_skills.has(skill_id):

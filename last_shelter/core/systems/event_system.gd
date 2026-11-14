@@ -116,7 +116,7 @@ static func _fits_actor(s: SurvivorData, rule: String) -> bool:
 		"any":
 			return true
 		"healthy":
-			return not s.has_condition("sick") and not s.has_condition("wounded")
+			return not s.is_ill() and not s.has_condition("wounded")
 		"lazy_worker":
 			var room := GameState.get_room(s.room_id)
 			return s.has_trait("lazy") and room != null and not room.broken
@@ -358,11 +358,17 @@ static func _apply_effects(effects: Array, ev: Dictionary, helper: SurvivorData,
 			"xp":
 				for s in _targets(String(e["target"]), ev, helper):
 					s.add_skill_xp(String(e["skill"]), int(e["amount"]))
+			"illness":
+				for s in _targets(String(e["target"]), ev, helper):
+					var illness := String(e["id"])
+					if illness == "common":
+						illness = "flu" if rng.randf() < 0.35 else "cold"
+					s.add_illness(illness, IllnessDefs.roll_days(illness, rng))
 			"spread_sickness":
 				var sick: PackedStringArray = []
 				for s in GameState.survivors_in_shelter():
-					if not s.has_condition("sick") and rng.randf() < float(e["chance"]):
-						s.set_condition("sick", true)
+					if not s.is_ill() and rng.randf() < float(e["chance"]):
+						s.add_illness("cold", IllnessDefs.roll_days("cold", rng))
 						sick.append(s.first_name)
 				if not sick.is_empty():
 					notes.append("Заболели ещё: %s." % ", ".join(sick))

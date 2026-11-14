@@ -30,7 +30,8 @@ static func daily_wear(room: RoomData, workers: Array[SurvivorData], powered: bo
 		best_engineering = maxi(best_engineering, s.effective_skill("engineering"))
 	# Толковый инженер в смене бережёт технику.
 	wear *= clampf(1.15 - best_engineering * 0.05, 0.6, 1.1)
-	return wear
+	# Улучшенное оборудование надёжнее, утепление бережёт технику.
+	return wear * (1.0 - 0.15 * (room.tier - 1)) * ResearchSystem.wear_mult()
 
 
 static func has_repairer() -> bool:

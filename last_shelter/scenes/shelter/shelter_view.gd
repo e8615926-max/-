@@ -1,7 +1,7 @@
 class_name ShelterView
 extends Control
-## Вид убежища сбоку: масштабирует пиксельный мир под экран, показывает
-## комнаты и жителей и превращает касания в события «нажата комната / ячейка».
+## Вид убежища сбоку: показывает пиксельный мир в крупном масштабе, двигается пальцем
+## (или колёсиком мыши) и превращает касания в события «нажата комната / ячейка».
 
 signal room_tapped(room_id: int)
 signal slot_tapped(level: int, col: int)
@@ -19,6 +19,9 @@ var _label_layer: Control
 var _actors: Dictionary = {}
 var _scale: int = 3
 var _press_pos: Vector2 = Vector2.INF
+var _dragging: bool = false
+## Был ли вид уже расставлен (чтобы при изменении размера не сбрасывать прокрутку).
+var _placed: bool = false
 var _routine_timer: float = 0.0
 var _bubble_timer: float = 0.0
 
@@ -70,17 +73,37 @@ func get_build_type() -> String:
 
 # --- Раскладка ------------------------------------------------------------
 
+## Масштаб не меньше ×3, чтобы комнаты и жители были крупными; лишнее прокручивается.
 func _layout() -> void:
 	var fit := minf(size.x / ShelterLayout.WORLD_W, size.y / ShelterLayout.WORLD_H)
-	_scale = clampi(floori(fit), 1, 8)
+	_scale = clampi(maxi(floori(fit), 3), 1, 8)
 	_world.scale = Vector2(_scale, _scale)
-	var world_px := Vector2(ShelterLayout.WORLD_W, ShelterLayout.WORLD_H) * _scale
-	_world.position = ((size - world_px) * 0.5).floor()
+	if not _placed:
+		_placed = true
+		_world.position = Vector2.ZERO
+	_set_world_position(_world.position)
 	_refresh_labels()
 
 
+## Ставит мир, не давая увести его за края; если мир меньше вида — по центру.
+func _set_world_position(pos: Vector2) -> void:
+	var world_px := Vector2(ShelterLayout.WORLD_W, ShelterLayout.WORLD_H) * _scale
+	for axis in 2:
+		if world_px[axis] <= size[axis]:
+			pos[axis] = floorf((size[axis] - world_px[axis]) * 0.5)
+		else:
+			pos[axis] = clampf(pos[axis], size[axis] - world_px[axis], 0.0)
+	_world.position = pos.floor()
+	_label_layer.position = _world.position
+
+
+func scroll_by(offset: Vector2) -> void:
+	_set_world_position(_world.position + offset)
+
+
+## Положение точки мира в слое подписей (он двигается вместе с миром).
 func _world_to_local(p: Vector2) -> Vector2:
-	return _world.position + p * _scale
+	return p * _scale
 
 
 # --- Обновление содержимого -------------------------------------------------
@@ -191,7 +214,7 @@ func _refresh_labels() -> void:
 		child.queue_free()
 	for room in GameState.rooms:
 		var def := room.get_def()
-		var text := room.display_name()
+		var text := room.title()
 		var slots := int(def["slots"])
 		if slots > 0:
 			text += "  %d/%d" % [GameState.workers_of(room.id).size(), slots]
@@ -213,16 +236,36 @@ func _refresh_labels() -> void:
 # --- Ввод -----------------------------------------------------------------
 
 func _gui_input(event: InputEvent) -> void:
+	if event is InputEventMouseMotion:
+		var mm := event as InputEventMouseMotion
+		if _press_pos != Vector2.INF and (mm.button_mask & MOUSE_BUTTON_MASK_LEFT) != 0:
+			if not _dragging and _press_pos.distance_to(mm.position) > TAP_SLOP:
+				_dragging = true
+			if _dragging:
+				scroll_by(mm.relative)
+				accept_event()
+		return
 	if not event is InputEventMouseButton:
 		return
 	var mb := event as InputEventMouseButton
+	if mb.pressed and mb.button_index in [MOUSE_BUTTON_WHEEL_UP, MOUSE_BUTTON_WHEEL_DOWN]:
+		var step := 48.0 if mb.button_index == MOUSE_BUTTON_WHEEL_UP else -48.0
+		if mb.shift_pressed:
+			scroll_by(Vector2(step, 0))
+		else:
+			scroll_by(Vector2(0, step))
+		accept_event()
+		return
 	if mb.button_index != MOUSE_BUTTON_LEFT:
 		return
 	if mb.pressed:
 		_press_pos = mb.position
+		_dragging = false
 		return
 	# Срабатываем на отпускание, если палец почти не сдвинулся.
-	if _press_pos == Vector2.INF or _press_pos.distance_to(mb.position) > TAP_SLOP:
+	var was_drag := _dragging
+	_dragging = false
+	if was_drag or _press_pos == Vector2.INF or _press_pos.distance_to(mb.position) > TAP_SLOP:
 		_press_pos = Vector2.INF
 		return
 	_press_pos = Vector2.INF

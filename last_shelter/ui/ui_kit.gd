@@ -98,6 +98,18 @@ class RelationBar extends Control:
 		draw_rect(Rect2(mid - 1, 0, 2, size.y), UITheme.TEXT_DIM)
 
 
+## Цена строкой иконок; то, чего не хватает, — красным.
+static func cost_row(cost: Dictionary, font_size: int = 18) -> HBoxContainer:
+	var row := hbox(6)
+	for res in ResourceDefs.IDS:
+		var amount := int(cost.get(res, 0))
+		if amount <= 0:
+			continue
+		row.add_child(icon(ResourceDefs.INFO[res]["icon"], 2))
+		row.add_child(label(str(amount), font_size, UITheme.TEXT if GameState.can_afford(res, amount) else UITheme.BAD))
+	return row
+
+
 static func spacer() -> Control:
 	var c := Control.new()
 	c.size_flags_horizontal = Control.SIZE_EXPAND_FILL
