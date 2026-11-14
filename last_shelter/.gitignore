@@ -1,0 +1,10 @@
+# Godot 4
+.godot/
+*.translation
+
+# Сборки Android
+build/
+android/
+*.apk
+*.aab
+*.keystore
