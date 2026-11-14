@@ -7,6 +7,10 @@ signal room_tapped(room_id: int)
 signal slot_tapped(level: int, col: int)
 
 const TAP_SLOP := 16.0
+## Где стоит житель, ожидающий в шахте лифта.
+const SHAFT_STAND_X := ShelterLayout.SHAFT_X + 3.0
+const ROUTINE_INTERVAL := 0.25
+const BUBBLE_INTERVAL := 2.2
 
 var _world: Node2D
 var _canvas: ShelterCanvas
@@ -15,6 +19,8 @@ var _label_layer: Control
 var _actors: Dictionary = {}
 var _scale: int = 3
 var _press_pos: Vector2 = Vector2.INF
+var _routine_timer: float = 0.0
+var _bubble_timer: float = 0.0
 
 
 func _init() -> void:
@@ -37,8 +43,20 @@ func _ready() -> void:
 	GameState.rooms_changed.connect(_refresh)
 	GameState.survivors_changed.connect(_refresh)
 	GameState.resources_changed.connect(_refresh_power)
+	GameState.time_changed.connect(_update_routines)
 	_layout()
 	_refresh()
+
+
+func _process(delta: float) -> void:
+	_routine_timer += delta
+	_bubble_timer += delta
+	if _routine_timer >= ROUTINE_INTERVAL:
+		_routine_timer = 0.0
+		_update_routines()
+	if _bubble_timer >= BUBBLE_INTERVAL:
+		_bubble_timer = 0.0
+		_update_bubbles()
 
 
 func set_build_type(type: String) -> void:
@@ -79,37 +97,93 @@ func _refresh_power() -> void:
 	if unpowered != _canvas.unpowered:
 		_canvas.unpowered = unpowered
 		_canvas.queue_redraw()
+	_refresh_labels()
 
 
 func _refresh_actors() -> void:
 	var alive := {}
 	for s in GameState.survivors:
 		alive[s.id] = true
-		var actor: SurvivorActor = _actors.get(s.id)
-		if actor == null:
-			actor = SurvivorActor.new()
+		if not _actors.has(s.id):
+			var actor := SurvivorActor.new()
 			actor.setup(s)
 			_actor_layer.add_child(actor)
 			_actors[s.id] = actor
-		actor.visible = not s.on_expedition
-		if s.on_expedition:
-			actor.set_zone("away", 0.0, 0.0, 0.0)
-			continue
-		# Без работы жители отдыхают в жилом отсеке (или у лифта, если его нет).
-		var room := GameState.get_room(s.room_id)
-		if room == null:
-			room = GameState.first_room_of_type("quarters")
-		if room != null:
-			var o := ShelterLayout.room_origin(room.level, room.col)
-			actor.set_zone("room%d" % room.id, o.x + 4.0,
-				o.x + ShelterLayout.ROOM_W - 4.0 - SurvivorSprites.FRAME_W, o.y + RoomPainter.FLOOR_Y)
-		else:
-			actor.set_zone("shaft", ShelterLayout.SHAFT_X + 3.0, ShelterLayout.SHAFT_X + 3.0,
-				float(ShelterLayout.SURFACE_Y + RoomPainter.FLOOR_Y))
 	for id: int in _actors.keys():
 		if not alive.has(id):
 			(_actors[id] as SurvivorActor).queue_free()
 			_actors.erase(id)
+	_update_routines()
+
+
+## Распорядок дня: каждый житель идёт туда, где по времени должен быть.
+func _update_routines() -> void:
+	var minute := GameState.minute
+	for s in GameState.survivors:
+		var actor: SurvivorActor = _actors.get(s.id)
+		if actor == null:
+			continue
+		actor.visible = not s.on_expedition
+		if s.on_expedition:
+			continue
+		var act := TimeSystem.activity(s, minute)
+		var room := TimeSystem.place_for(s, act)
+		if room != null:
+			var o := ShelterLayout.room_origin(room.level, room.col)
+			actor.go_to("room%d" % room.id, o.x + 4.0, o.x + ShelterLayout.ROOM_W - 4.0 - SurvivorSprites.FRAME_W,
+				o.y + RoomPainter.FLOOR_Y, SHAFT_STAND_X)
+		else:
+			actor.go_to("shaft", SHAFT_STAND_X, SHAFT_STAND_X,
+				float(ShelterLayout.SURFACE_Y + RoomPainter.FLOOR_Y), SHAFT_STAND_X)
+		actor.set_resting(act == "sleep" or act == "heal")
+		if act == "sleep":
+			if not actor.has_lasting_bubble():
+				actor.show_bubble("zzz", 0.0)
+		elif actor.has_lasting_bubble():
+			actor.hide_bubble()
+	# Ночью свет в убежище приглушён — и жители тоже в полутьме.
+	_actor_layer.modulate = Color(0.62, 0.62, 0.78) if GameState.is_night() else Color.WHITE
+
+
+## Пузыри: кто ест, а кто болтает — сердечко с друзьями, молния с недругами.
+func _update_bubbles() -> void:
+	if GameState.is_night():
+		return
+	var minute := GameState.minute
+	var groups := {}
+	for s in GameState.survivors_in_shelter():
+		var actor: SurvivorActor = _actors.get(s.id)
+		if actor == null or actor.is_traveling():
+			continue
+		var act := TimeSystem.activity(s, minute)
+		if act == "eat" and randf() < 0.35:
+			actor.show_bubble("eat", 1.6)
+		elif act == "social":
+			var room := TimeSystem.place_for(s, act)
+			if room != null:
+				if not groups.has(room.id):
+					groups[room.id] = []
+				(groups[room.id] as Array).append(s)
+	for room_id: int in groups:
+		var group: Array = groups[room_id]
+		if group.size() < 2:
+			continue
+		for s: SurvivorData in group:
+			if randf() > 0.5:
+				continue
+			var partner: SurvivorData = null
+			var strongest := -1.0
+			for other: SurvivorData in group:
+				if other != s and absf(RelationshipSystem.mutual(s, other)) > strongest:
+					strongest = absf(RelationshipSystem.mutual(s, other))
+					partner = other
+			var m := RelationshipSystem.mutual(s, partner)
+			var icon := "chat"
+			if m >= 40.0 or FamilySystem.is_family(s, partner):
+				icon = "heart"
+			elif m <= -30.0:
+				icon = "angry"
+			(_actors[s.id] as SurvivorActor).show_bubble(icon, 1.8)
 
 
 func _refresh_labels() -> void:
@@ -121,10 +195,12 @@ func _refresh_labels() -> void:
 		var slots := int(def["slots"])
 		if slots > 0:
 			text += "  %d/%d" % [GameState.workers_of(room.id).size(), slots]
+		if room.broken:
+			text += "  · сломано"
 		var label := Label.new()
 		label.text = text
 		label.add_theme_font_size_override("font_size", clampi(_scale * 4 + 1, 9, 22))
-		label.add_theme_color_override("font_color", UITheme.TEXT_DIM)
+		label.add_theme_color_override("font_color", UITheme.BAD if room.broken else UITheme.TEXT_DIM)
 		label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		# Подпись лежит на перекрытии под комнатой и не закрывает графику.
 		label.clip_text = true

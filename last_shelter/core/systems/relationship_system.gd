@@ -1,7 +1,8 @@
 class_name RelationshipSystem
 extends RefCounted
 ## Отношения между выжившими. У каждого своё отношение к другому (-100..100),
-## которое меняется каждый день в зависимости от характера, настроения и совместной работы.
+## которое меняется каждый день: общие увлечения, характер, родство, настроение
+## и совместная работа. Отношения влияют на работу, настроение и события.
 
 const LEVEL_NAMES: Array[String] = ["Вражда", "Неприязнь", "Нейтрально", "Приятели", "Дружба"]
 const LEVEL_COLORS: Array[Color] = [
@@ -9,6 +10,10 @@ const LEVEL_COLORS: Array[Color] = [
 ]
 const FRIEND_LEVEL := 4
 const ENEMY_LEVEL := 0
+## Ниже этого пара может поссориться (событие «Ссора»).
+const RIVALRY := -35.0
+## Выше этого пара может провести вечер за разговором.
+const FRIENDSHIP := 30.0
 
 
 ## Индекс уровня отношений 0..4 по числовому значению.
@@ -37,15 +42,19 @@ static func mutual(a: SurvivorData, b: SurvivorData) -> float:
 	return (a.get_relation(b.id) + b.get_relation(a.id)) * 0.5
 
 
-## Насколько двое подходят друг другу (примерно от −0.8 до 1.1):
-## каждое общее увлечение сближает, «Душа компании» помогает, «Ворчун» мешает.
+## Насколько двое подходят друг другу (примерно от −0.8 до 1.5): общие увлечения,
+## доброта и общительность сближают, ворчливость мешает, родным проще всего.
 static func compatibility(a: SurvivorData, b: SurvivorData) -> float:
 	var value := -0.15 + 0.3 * shared_interests(a, b).size()
 	for s: SurvivorData in [a, b]:
 		if s.has_trait("sociable"):
 			value += 0.25
+		if s.has_trait("kind"):
+			value += 0.15
 		if s.has_trait("grumpy"):
 			value -= 0.3
+	if FamilySystem.is_family(a, b):
+		value += 0.4
 	return value
 
 
@@ -71,13 +80,51 @@ static func count_at_level(s: SurvivorData, others: Array[SurvivorData], level: 
 	return count
 
 
-## Ежедневное общение всех, кто сейчас в убежище. Добавляет заметные события в lines.
+## Как коллеги по смене влияют на работу: друзья и родные помогают, враги мешают.
+static func teamwork_factor(s: SurvivorData, room_id: int) -> float:
+	var factor := 1.0
+	for other in GameState.workers_of(room_id):
+		if other.id == s.id:
+			continue
+		var m := mutual(s, other)
+		if FamilySystem.is_family(s, other) or m >= 60.0:
+			factor += 0.1
+		elif m <= -60.0:
+			factor -= 0.15
+	return clampf(factor, 0.6, 1.3)
+
+
+## Самая враждебная пара (если хуже порога ссоры), иначе пустой массив.
+static func worst_pair(people: Array[SurvivorData]) -> Array[SurvivorData]:
+	var result: Array[SurvivorData] = []
+	var worst := RIVALRY
+	for i in people.size():
+		for j in range(i + 1, people.size()):
+			var m := mutual(people[i], people[j])
+			if m <= worst:
+				worst = m
+				result = [people[i], people[j]]
+	return result
+
+
+## Все пары, которые неплохо ладят.
+static func friendly_pairs(people: Array[SurvivorData]) -> Array:
+	var result: Array = []
+	for i in people.size():
+		for j in range(i + 1, people.size()):
+			if mutual(people[i], people[j]) >= FRIENDSHIP:
+				result.append([people[i], people[j]])
+	return result
+
+
+## Ежедневное общение всех, кто сейчас в убежище. Заметные события попадают в lines.
 static func daily_update(lines: Array[Dictionary]) -> void:
 	var rng := GameState.rng
 	var people := GameState.survivors_in_shelter()
 	for i in people.size():
 		for j in range(i + 1, people.size()):
 			_interact(people[i], people[j], rng, lines)
+	FamilySystem.try_form_couples(lines, rng)
 
 
 static func _interact(a: SurvivorData, b: SurvivorData, rng: RandomNumberGenerator, lines: Array[Dictionary]) -> void:
@@ -86,7 +133,7 @@ static func _interact(a: SurvivorData, b: SurvivorData, rng: RandomNumberGenerat
 		return
 
 	var before := level_of(mutual(a, b))
-	# Тон встречи: основу задают общие увлечения и характер, настроение добавляет
+	# Тон встречи: основу задают совместимость и родство, настроение добавляет
 	# сиюминутный фон, а сложившиеся отношения тянут в ту же сторону.
 	var tone := rng.randf_range(-1.0, 1.0) + compatibility(a, b)
 	tone += ((a.mood + b.mood) * 0.5 - 50.0) / 100.0
@@ -112,12 +159,12 @@ static func _interact(a: SurvivorData, b: SurvivorData, rng: RandomNumberGenerat
 		if not shared.is_empty():
 			reason = " Их сблизило общее увлечение: %s." % InterestDefs.name_of(shared[0]).to_lower()
 		match after:
-			4: lines.append({"text": "%s стали друзьями.%s" % [pair, reason], "kind": "good"})
+			4: lines.append({"text": "%s стали друзьями.%s" % [pair, reason], "kind": "good", "log": true})
 			3: lines.append({"text": "%s нашли общий язык.%s" % [pair, reason], "kind": "good"})
 			_: lines.append({"text": "%s помирились." % pair, "kind": "info"})
 	else:
 		match after:
-			0: lines.append({"text": "%s теперь враждуют." % pair, "kind": "bad"})
+			0: lines.append({"text": "%s теперь враждуют." % pair, "kind": "bad", "log": true})
 			1: lines.append({"text": "%s поссорились." % pair, "kind": "bad"})
 			_: lines.append({"text": "%s охладели друг к другу." % pair, "kind": "info"})
 

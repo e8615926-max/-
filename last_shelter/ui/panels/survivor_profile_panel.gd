@@ -106,11 +106,13 @@ func _build_side(s: SurvivorData) -> void:
 	frame.add_child(portrait)
 	_side.add_child(frame)
 
-	_side.add_child(UI.wrap_label(s.background, 16))
+	_side.add_child(UI.wrap_label(s.profession_name(), 16))
 	_side.add_child(_mini_stat("health", s.health, s.max_health, UITheme.BAD))
 	_side.add_child(_mini_stat("mood", s.mood, 100.0, UITheme.ACCENT))
 	var where := UI.wrap_label(SurvivorsPanel.location_text(s), 16, UITheme.TEAL)
 	_side.add_child(where)
+	if not s.on_expedition:
+		_side.add_child(UI.wrap_label("Сейчас: %s" % TimeSystem.activity_text(s, GameState.minute), 16, UITheme.TEXT_DIM))
 
 
 func _mini_stat(icon_name: String, value: float, max_value: float, color: Color) -> HBoxContainer:
@@ -135,9 +137,27 @@ func _build_general(s: SurvivorData) -> void:
 	_info_row(grid, "Имя", s.full_name())
 	_info_row(grid, "Пол", "Женский" if s.gender == "f" else "Мужской")
 	_info_row(grid, "Возраст", "%d" % s.age)
-	_info_row(grid, "Прошлое", s.background)
+	_info_row(grid, "Профессия", s.profession_name())
+	var spec := ProfessionDefs.spec_text(s.profession)
+	if spec != "":
+		_info_row(grid, "Специализация", spec)
 	_info_row(grid, "Увлечения", InterestDefs.list_text(s.interests) if not s.interests.is_empty() else "—")
 	_info_row(grid, "В убежище", "с %d-го дня (%d дн.)" % [s.joined_day, GameState.day - s.joined_day + 1])
+
+	if s.bio != "":
+		_body.add_child(UI.section_title("История"))
+		_body.add_child(UI.wrap_label(s.bio, 18, UITheme.TEXT))
+
+	var relatives: Array[SurvivorData] = []
+	for other_id: int in s.family:
+		var other := GameState.get_survivor(other_id)
+		if other != null:
+			relatives.append(other)
+	if not relatives.is_empty():
+		_body.add_child(UI.section_title("Семья"))
+		for other in relatives:
+			var where := "в экспедиции" if other.on_expedition else "в убежище"
+			_body.add_child(UI.label("%s — %s (%s)" % [FamilySystem.label(s, other), other.full_name(), where], 18, UITheme.TEAL))
 
 	_body.add_child(UI.section_title("Работа"))
 	if s.on_expedition:
@@ -190,6 +210,8 @@ func _build_health(s: SurvivorData) -> void:
 		notes.append(["Голод: вчера не хватило еды. Здоровье падает.", UITheme.BAD])
 	if s.has_condition("thirsty"):
 		notes.append(["Жажда: вчера не хватило воды. Здоровье падает.", UITheme.BAD])
+	if s.has_condition("sick"):
+		notes.append(["Болезнь: работает на 30% хуже и слабеет. Проходит сама, в медпункте быстрее.", UITheme.BAD])
 	if s.has_condition("wounded"):
 		notes.append(["Ранение: получено в экспедиции. Помогут медпункт или аптечка.", UITheme.BAD])
 	if s.mood < 30.0:
@@ -335,7 +357,7 @@ func _build_skills(s: SurvivorData) -> void:
 		var card := UI.card(UITheme.PANEL_LIGHT, 10)
 		var box := UI.vbox(2)
 		card.add_child(box)
-		box.add_child(UI.label(TraitDefs.name_of(trait_id), 20, UITheme.ACCENT))
+		box.add_child(UI.label(s.trait_name(trait_id), 20, UITheme.ACCENT))
 		box.add_child(UI.wrap_label(TraitDefs.get_desc(trait_id), 16))
 		_body.add_child(card)
 
@@ -379,6 +401,9 @@ func _relation_card(s: SurvivorData, other: SurvivorData) -> Button:
 	info.alignment = BoxContainer.ALIGNMENT_CENTER
 	var top := UI.hbox(10)
 	top.add_child(UI.label(other.full_name(), 20))
+	var kin := FamilySystem.label(s, other)
+	if kin != "":
+		top.add_child(UI.label(kin, 18, UITheme.ACCENT))
 	top.add_child(UI.label(RelationshipSystem.level_name(mine), 18, RelationshipSystem.level_color(mine)))
 	top.add_child(UI.spacer())
 	top.add_child(UI.label(UI.signed(roundi(mine)), 18, RelationshipSystem.level_color(mine)))

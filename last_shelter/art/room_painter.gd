@@ -19,6 +19,7 @@ const WALLS := {
 	"workshop": Color("3f3a2e"),
 	"medbay": Color("56686a"),
 	"storage": Color("3a332c"),
+	"kitchen": Color("3e4842"),
 }
 
 
@@ -58,6 +59,7 @@ static func paint(ci: CanvasItem, type: String, o: Vector2, t: float = 0.0, powe
 		"workshop": _workshop(ci, o, t, powered)
 		"medbay": _medbay(ci, o)
 		"storage": _storage(ci, o)
+		"kitchen": _kitchen(ci, o, t, powered)
 
 
 static func _bunk(ci: CanvasItem, o: Vector2, x: float, top: Color, bottom: Color) -> void:
@@ -269,3 +271,49 @@ static func _storage(ci: CanvasItem, o: Vector2) -> void:
 	_crate(ci, o, 49, 25, 10, 9)
 	_crate(ci, o, 50, 17, 8, 8)
 	_r(ci, o, 52, 20, 4, 2, Color("e8b04a"))
+
+
+static func _kitchen(ci: CanvasItem, o: Vector2, t: float, powered: bool) -> void:
+	# Кафель над плитой
+	for i in 5:
+		for j in 2:
+			_r(ci, o, 5 + i * 5, 13 + j * 4, 4, 3, Color("6a7a74") if (i + j) % 2 == 0 else Color("56665f"))
+	# Плита с духовкой
+	_r(ci, o, 5, 22, 25, 12, Color("6a6a72"))
+	_r(ci, o, 5, 22, 25, 1, Color("9a9aa2"))
+	_r(ci, o, 8, 26, 19, 6, Color("2a2a30"))
+	_r(ci, o, 9, 27, 17, 4, Color("e07a30") if powered else Color("3a2a20"))
+	_r(ci, o, 9, 27, 17, 1, Color("ffd080") if powered else Color("3a2a20"))
+	# Кастрюля и сковорода
+	_r(ci, o, 7, 17, 8, 5, Color("b0b0b8"))
+	_r(ci, o, 7, 17, 8, 1, Color("d0d0d8"))
+	_r(ci, o, 6, 18, 1, 2, Color("8a8a92"))
+	_r(ci, o, 15, 18, 1, 2, Color("8a8a92"))
+	_r(ci, o, 18, 19, 9, 3, Color("4a4a52"))
+	_r(ci, o, 19, 19, 7, 1, Color("d97b3a"))
+	_r(ci, o, 27, 20, 3, 1, Color("4a4a52"))
+	# Пар
+	if powered:
+		for k in 3:
+			var rise := fmod(t * 6.0 + k * 3.5, 10.0)
+			_r(ci, o, 9 + k * 2 + (int(rise) % 2), 15 - rise, 1, 1, Color(1, 1, 1, maxf(0.55 - rise * 0.05, 0.05)))
+	# Полка с банками
+	_r(ci, o, 36, 11, 22, 1, Color("8a6a4a"))
+	_r(ci, o, 37, 7, 3, 4, Color("c8503c"))
+	_r(ci, o, 41, 6, 3, 5, Color("e8b04a"))
+	_r(ci, o, 45, 8, 3, 3, Color("6fae4e"))
+	_r(ci, o, 50, 6, 4, 5, Color("d9c8a0"))
+	_r(ci, o, 55, 8, 2, 3, Color("4fa3d8"))
+	# Стол с мисками и табуреты
+	_r(ci, o, 35, 24, 23, 2, Color("8a6a4a"))
+	_r(ci, o, 35, 24, 23, 1, Color("a8875e"))
+	_r(ci, o, 37, 26, 2, 8, Color("5a4a3a"))
+	_r(ci, o, 54, 26, 2, 8, Color("5a4a3a"))
+	_r(ci, o, 39, 22, 5, 2, Color("efe6d0"))
+	_r(ci, o, 40, 22, 3, 1, Color("d97b3a"))
+	_r(ci, o, 49, 22, 5, 2, Color("efe6d0"))
+	_r(ci, o, 50, 22, 3, 1, Color("6fae4e"))
+	_r(ci, o, 41, 29, 4, 1, Color("6a5a4a"))
+	_r(ci, o, 42, 30, 2, 4, Color("5a4a3a"))
+	_r(ci, o, 48, 29, 4, 1, Color("6a5a4a"))
+	_r(ci, o, 49, 30, 2, 4, Color("5a4a3a"))

@@ -1,6 +1,6 @@
 extends Control
 ## Игровая сцена: собирает вид убежища, верхнюю и нижнюю панели,
-## управляет всплывающими окнами, режимом стройки и сменой дня.
+## ведёт часы и события дня, управляет окнами, режимом стройки и сменой дня.
 
 const MAIN_MENU := "res://scenes/main_menu/main_menu.tscn"
 
@@ -15,6 +15,8 @@ var _toast: Label
 var _toast_tween: Tween
 var _fade: ColorRect
 var _busy: bool = false
+var _speed_index: int = 0
+var _night_tween: Tween
 
 
 func _ready() -> void:
@@ -26,6 +28,28 @@ func _ready() -> void:
 	_build_ui()
 	if GameState.day == 1 and GameState.workers_count() == 0:
 		_show_toast("Нажмите на комнату, чтобы назначить работников", 5.0)
+	if GameState.is_night():
+		_start_night_pulse()
+
+
+## Часы идут, пока не открыто ни одно окно; в назначенную минуту случается событие.
+func _process(delta: float) -> void:
+	if _busy or _has_panel() or GameState.survivors.is_empty():
+		return
+	if GameState.minute >= TimeSystem.NIGHT_START:
+		return
+	var before := GameState.minute
+	GameState.advance_clock(delta * TimeSystem.MINUTES_PER_SECOND * TimeSystem.SPEEDS[_speed_index])
+	var when := GameState.event_minute
+	if when >= 0 and before < when and GameState.minute >= when:
+		GameState.event_minute = -1
+		var ev := EventSystem.roll(GameState.rng)
+		if not ev.is_empty():
+			_cancel_build()
+			_show_event(ev)
+	if GameState.minute >= TimeSystem.NIGHT_START:
+		_show_toast("Ночь. Жители легли спать — нажмите «Следующий день».", 4.0)
+		_start_night_pulse()
 
 
 func _exit_tree() -> void:
@@ -49,6 +73,8 @@ func _build_ui() -> void:
 	_top.set_anchors_preset(Control.PRESET_TOP_WIDE)
 	_top.menu_pressed.connect(_open_pause)
 	_top.survivors_pressed.connect(_open_survivors)
+	_top.chronicle_pressed.connect(_open_chronicle)
+	_top.speed_pressed.connect(_toggle_speed)
 	add_child(_top)
 
 	_bottom = BottomBar.new()
@@ -156,9 +182,28 @@ func _open_expeditions() -> void:
 	_open(panel)
 
 
+func _open_chronicle() -> void:
+	_cancel_build()
+	_open(ChroniclePanel.new())
+
+
+func _show_event(ev: Dictionary) -> void:
+	if ev.is_empty():
+		return
+	var panel := EventPanel.new(ev)
+	panel.resolved.connect(func(_result: Dictionary) -> void: SaveManager.save_game())
+	_open(panel)
+
+
+func _toggle_speed() -> void:
+	_speed_index = (_speed_index + 1) % TimeSystem.SPEEDS.size()
+	_top.set_speed(TimeSystem.SPEEDS[_speed_index])
+
+
 func _open_pause() -> void:
 	_cancel_build()
 	var panel := PausePanel.new()
+	panel.chronicle_requested.connect(_open_chronicle)
 	panel.save_requested.connect(func() -> void:
 		_show_toast("Игра сохранена" if SaveManager.save_game() else "Не удалось сохранить игру")
 		panel.close())
@@ -236,12 +281,33 @@ func _next_day() -> void:
 
 func _resolve_day() -> void:
 	var report := DaySystem.advance()
+	_stop_night_pulse()
 	if not report["game_over"]:
 		SaveManager.save_game()
 	var panel := DayReportPanel.new(report)
 	if report["game_over"]:
 		panel.closed.connect(_show_game_over.bind(int(report["day"])), CONNECT_DEFERRED)
+	elif not (report["event"] as Dictionary).is_empty():
+		# Событие, до которого не дошли днём, случается утром.
+		panel.closed.connect(_show_event.bind(report["event"]), CONNECT_DEFERRED)
 	_open(panel)
+
+
+## Ночью кнопка «Следующий день» мягко мигает.
+func _start_night_pulse() -> void:
+	if _night_tween != null and _night_tween.is_valid():
+		return
+	var button := _bottom.get_button("next_day")
+	_night_tween = create_tween().set_loops()
+	_night_tween.tween_property(button, "self_modulate", Color(1.35, 1.25, 1.0), 0.6)
+	_night_tween.tween_property(button, "self_modulate", Color.WHITE, 0.6)
+
+
+func _stop_night_pulse() -> void:
+	if _night_tween != null and _night_tween.is_valid():
+		_night_tween.kill()
+	_night_tween = null
+	_bottom.get_button("next_day").self_modulate = Color.WHITE
 
 
 func _show_game_over(days: int) -> void:

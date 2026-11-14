@@ -11,14 +11,17 @@ var last_name: String = ""
 ## "m" или "f"
 var gender: String = "m"
 var age: int = 30
-var background: String = ""
+## Профессия до Катастрофы (см. ProfessionDefs).
+var profession: String = "drifter"
+## Короткая биография.
+var bio: String = ""
 ## Индексы палитр и причёски: skin, hair_style, hair_color, shirt, pants
 var appearance: Dictionary = {}
 
 var health: float = 100.0
 var max_health: float = 100.0
 var mood: float = 70.0
-## Временные состояния: "hungry", "thirsty", "wounded"
+## Временные состояния: "hungry", "thirsty", "wounded", "sick"
 var conditions: Array = []
 
 ## skill_id -> {"level": int, "xp": int}
@@ -34,6 +37,8 @@ var equipment: Dictionary = {"weapon": "", "outfit": "", "tool": ""}
 
 ## id другого выжившего -> отношение от -100 до 100
 var relationships: Dictionary = {}
+## id другого выжившего -> кем он приходится: "sibling", "parent", "child", "partner"
+var family: Dictionary = {}
 
 ## Рабочее место (id комнаты) или -1.
 var room_id: int = -1
@@ -55,8 +60,20 @@ func by_gender(masculine: String, feminine: String) -> String:
 	return feminine if gender == "f" else masculine
 
 
+func profession_name() -> String:
+	return ProfessionDefs.name_for(profession, gender)
+
+
+func is_adult() -> bool:
+	return age >= 18
+
+
 func has_trait(trait_id: String) -> bool:
 	return traits.has(trait_id)
+
+
+func trait_name(trait_id: String) -> String:
+	return TraitDefs.name_for(trait_id, gender)
 
 
 func has_condition(cond: String) -> bool:
@@ -94,7 +111,22 @@ func effective_skill(skill_id: String) -> int:
 	return skill_level(skill_id) + equipment_bonus(skill_id)
 
 
-## Добавляет опыт. Возвращает true, если уровень вырос.
+## Множитель опыта от черт и профессии.
+func xp_multiplier() -> float:
+	var mult := 1.0
+	if has_trait("curious"):
+		mult *= 1.2
+	if profession == "student":
+		mult *= 1.25
+	return mult
+
+
+## Опыт за работу, вылазки и события — с учётом черт и профессии.
+func add_skill_xp(skill_id: String, amount: int) -> bool:
+	return add_xp(skill_id, roundi(amount * xp_multiplier()))
+
+
+## Добавляет опыт как есть. Возвращает true, если уровень вырос.
 func add_xp(skill_id: String, amount: int) -> bool:
 	var entry: Dictionary = skills[skill_id]
 	var level := int(entry["level"])
@@ -164,13 +196,17 @@ func to_dict() -> Dictionary:
 	var rel := {}
 	for other_id: int in relationships:
 		rel[str(other_id)] = relationships[other_id]
+	var fam := {}
+	for other_id: int in family:
+		fam[str(other_id)] = family[other_id]
 	return {
 		"id": id,
 		"first_name": first_name,
 		"last_name": last_name,
 		"gender": gender,
 		"age": age,
-		"background": background,
+		"profession": profession,
+		"bio": bio,
 		"appearance": appearance.duplicate(),
 		"health": health,
 		"max_health": max_health,
@@ -182,6 +218,7 @@ func to_dict() -> Dictionary:
 		"inventory": inventory.duplicate(),
 		"equipment": equipment.duplicate(),
 		"relationships": rel,
+		"family": fam,
 		"room_id": room_id,
 		"on_expedition": on_expedition,
 		"joined_day": joined_day,
@@ -195,7 +232,12 @@ static func from_dict(d: Dictionary) -> SurvivorData:
 	s.last_name = String(d.get("last_name", ""))
 	s.gender = String(d.get("gender", "m"))
 	s.age = int(d.get("age", 30))
-	s.background = String(d.get("background", ""))
+	# Сохранения версии 1 хранили профессию строкой «прошлого».
+	var prof := String(d.get("profession", ""))
+	if prof == "":
+		prof = ProfessionDefs.from_legacy(String(d.get("background", "")))
+	s.profession = prof if ProfessionDefs.exists(prof) else "drifter"
+	s.bio = String(d.get("bio", ""))
 	var app: Dictionary = d.get("appearance", {})
 	for key: String in app:
 		s.appearance[key] = int(app[key])
@@ -213,7 +255,7 @@ static func from_dict(d: Dictionary) -> SurvivorData:
 				"xp": int(entry.get("xp", 0)),
 			}
 	for trait_id in d.get("traits", []):
-		if TraitDefs.INFO.has(trait_id):
+		if TraitDefs.exists(String(trait_id)):
 			s.traits.append(String(trait_id))
 	for interest in d.get("interests", []):
 		if InterestDefs.exists(String(interest)):
@@ -228,6 +270,10 @@ static func from_dict(d: Dictionary) -> SurvivorData:
 	var rel: Dictionary = d.get("relationships", {})
 	for key: String in rel:
 		s.relationships[int(key)] = float(rel[key])
+	var fam: Dictionary = d.get("family", {})
+	for key: String in fam:
+		if FamilySystem.RELATIONS.has(String(fam[key])):
+			s.family[int(key)] = String(fam[key])
 	s.room_id = int(d.get("room_id", -1))
 	s.on_expedition = bool(d.get("on_expedition", false))
 	s.joined_day = int(d.get("joined_day", 1))

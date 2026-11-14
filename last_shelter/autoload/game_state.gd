@@ -1,7 +1,7 @@
 extends Node
 ## Глобальное состояние текущей игры (автозагрузка GameState).
 ## Хранит данные и даёт базовые операции над ними; правила хода дня,
-## экспедиций и отношений вынесены в core/systems.
+## экспедиций, отношений и событий вынесены в core/systems.
 
 signal resources_changed
 signal day_changed
@@ -9,11 +9,20 @@ signal survivors_changed
 signal rooms_changed
 signal storage_changed
 signal expeditions_changed
+signal time_changed
+signal chronicle_changed
+
+## Сколько записей хранит летопись.
+const CHRONICLE_MAX := 300
 
 ## true, пока открыта игровая сцена (нужно для автосохранения).
 var active: bool = false
 
 var day: int = 1
+## Время суток в минутах от полуночи (06:00 = 360).
+var minute: float = TimeSystem.DAY_START
+## Когда сегодня случится событие (минута) или -1.
+var event_minute: int = -1
 var resources: Dictionary = {"food": 0, "water": 0, "metal": 0, "power": 0}
 var survivors: Array[SurvivorData] = []
 var rooms: Array[RoomData] = []
@@ -21,6 +30,8 @@ var rooms: Array[RoomData] = []
 var storage: Dictionary = {}
 ## Активные экспедиции: {"survivor_id", "days_left", "total_days"}
 var expeditions: Array[Dictionary] = []
+## Летопись убежища: {"day", "text", "kind"}
+var chronicle: Array[Dictionary] = []
 
 var next_survivor_id: int = 1
 var next_room_id: int = 1
@@ -35,11 +46,14 @@ func _ready() -> void:
 
 func reset() -> void:
 	day = 1
+	minute = TimeSystem.DAY_START
+	event_minute = -1
 	resources = {"food": 0, "water": 0, "metal": 0, "power": 0}
 	survivors.clear()
 	rooms.clear()
 	storage.clear()
 	expeditions.clear()
+	chronicle.clear()
 	next_survivor_id = 1
 	next_room_id = 1
 
@@ -54,6 +68,9 @@ func new_game() -> void:
 	for s in SurvivorFactory.create_starters():
 		add_survivor(s)
 	storage = {"knife": 1, "medkit": 1, "chocolate": 1, "trowel": 1}
+	event_minute = EventSystem.schedule(rng)
+	log_event("Гермодверь закрылась. В убежище двое: %s и %s." % [
+		survivors[0].full_name(), survivors[1].full_name()], "info")
 	emit_all()
 
 
@@ -64,6 +81,29 @@ func emit_all() -> void:
 	storage_changed.emit()
 	expeditions_changed.emit()
 	day_changed.emit()
+	time_changed.emit()
+	chronicle_changed.emit()
+
+
+# --- Время и летопись ---------------------------------------------------------
+
+## Двигает часы вперёд (не дальше отбоя). Сигнал — раз в 10 игровых минут.
+func advance_clock(minutes: float) -> void:
+	var before := floori(minute / 10.0)
+	minute = minf(minute + minutes, TimeSystem.NIGHT_START)
+	if floori(minute / 10.0) != before:
+		time_changed.emit()
+
+
+func is_night() -> bool:
+	return TimeSystem.is_night(minute)
+
+
+func log_event(text: String, kind: String = "info") -> void:
+	chronicle.append({"day": day, "text": text, "kind": kind})
+	if chronicle.size() > CHRONICLE_MAX:
+		chronicle = chronicle.slice(chronicle.size() - CHRONICLE_MAX)
+	chronicle_changed.emit()
 
 
 # --- Ресурсы --------------------------------------------------------------
@@ -139,6 +179,7 @@ func remove_survivor(id: int) -> void:
 	survivors.erase(s)
 	for other in survivors:
 		other.relationships.erase(id)
+		other.family.erase(id)
 	for i in range(expeditions.size() - 1, -1, -1):
 		if int(expeditions[i]["survivor_id"]) == id:
 			expeditions.remove_at(i)
@@ -193,6 +234,7 @@ func build_room(type: String, level: int, col: int) -> bool:
 		return false
 	resources["metal"] = get_resource("metal") - int(RoomDefs.get_def(type)["cost"])
 	_place_room(type, level, col)
+	log_event("Построен новый отсек: %s." % RoomDefs.name_of(type).to_lower(), "good")
 	resources_changed.emit()
 	rooms_changed.emit()
 	return true
@@ -278,11 +320,14 @@ func to_dict() -> Dictionary:
 		rooms_out.append(room.to_dict())
 	return {
 		"day": day,
+		"minute": roundi(minute),
+		"event_minute": event_minute,
 		"resources": resources.duplicate(),
 		"survivors": survivors_out,
 		"rooms": rooms_out,
 		"storage": storage.duplicate(),
 		"expeditions": expeditions.duplicate(true),
+		"chronicle": chronicle.duplicate(true),
 		"next_survivor_id": next_survivor_id,
 		"next_room_id": next_room_id,
 	}
@@ -291,6 +336,8 @@ func to_dict() -> Dictionary:
 func from_dict(d: Dictionary) -> void:
 	reset()
 	day = maxi(int(d.get("day", 1)), 1)
+	minute = clampf(float(d.get("minute", TimeSystem.DAY_START)), TimeSystem.DAY_START, TimeSystem.NIGHT_START)
+	event_minute = int(d.get("event_minute", -1))
 	var saved_res: Dictionary = d.get("resources", {})
 	for id in ResourceDefs.IDS:
 		resources[id] = maxi(int(saved_res.get(id, 0)), 0)
@@ -312,6 +359,9 @@ func from_dict(d: Dictionary) -> void:
 				"days_left": int(entry.get("days_left", 1)),
 				"total_days": int(entry.get("total_days", 1)),
 			})
+	for entry: Dictionary in d.get("chronicle", []):
+		chronicle.append({"day": int(entry.get("day", 1)), "text": String(entry.get("text", "")),
+			"kind": String(entry.get("kind", "info"))})
 	next_survivor_id = int(d.get("next_survivor_id", 1))
 	next_room_id = int(d.get("next_room_id", 1))
 	# Защита от повреждённых сохранений: счётчики и ссылки должны быть согласованы.
@@ -324,6 +374,13 @@ func from_dict(d: Dictionary) -> void:
 			if int(e["survivor_id"]) == s.id:
 				away = true
 		s.on_expedition = away
+		for other_id: int in s.family.keys():
+			if get_survivor(other_id) == null:
+				s.family.erase(other_id)
+		# Сохранения версии 1 не знали биографий.
+		SurvivorFactory.ensure_bio(s)
 	for room in rooms:
 		next_room_id = maxi(next_room_id, room.id + 1)
+	if chronicle.is_empty():
+		log_event("Летопись убежища начата на %d-й день." % day, "info")
 	emit_all()

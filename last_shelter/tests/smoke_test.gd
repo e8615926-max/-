@@ -25,6 +25,14 @@ func _ready() -> void:
 	_test_relationships()
 	_test_expedition()
 	_test_save_load()
+	_test_migration_v1()
+	_test_traits_and_professions()
+	_test_kitchen()
+	_test_maintenance()
+	_test_families()
+	_test_time()
+	_test_events()
+	_test_chronicle()
 	_test_long_run()
 	_test_balance()
 	await _test_scenes()
@@ -82,6 +90,9 @@ func _test_new_game() -> void:
 	_check(a.id != b.id and a.id > 0, "уникальные идентификаторы")
 	_check(a.relationships.has(b.id) and b.relationships.has(a.id), "стартовые выжившие знакомы")
 	_check(a.full_name() != "" and not a.appearance.is_empty(), "у выжившего есть имя и внешность")
+	_check(a.profession == "doctor" and b.profession == "engineer", "у стартовых жителей есть профессии")
+	_check(a.bio == SurvivorFactory.ANNA_BIO and b.bio != "", "у стартовых жителей есть биографии")
+	_check(GameState.minute == TimeSystem.DAY_START, "игра начинается утром")
 
 
 func _test_assignment_and_economy() -> void:
@@ -232,6 +243,15 @@ func _test_save_load() -> void:
 	ExpeditionSystem.start(GameState.survivors[1].id, 3)
 	DaySystem.advance()
 	anna.add_xp("farming", 7)
+	GameState.minute = 800.0
+	GameState.rooms[1].condition = 42.5
+	GameState.rooms[1].broken = true
+	anna.set_condition("sick", true)
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 2
+	var found := FamilySystem.make_relative(anna, rng)
+	GameState.add_survivor(found["survivor"])
+	FamilySystem.link(anna, found["survivor"], found["rel"])
 	var snapshot := JSON.stringify(GameState.to_dict())
 	_check(SaveManager.save_game(), "сохранение записано")
 	_check(SaveManager.has_save(), "файл сохранения существует")
@@ -244,12 +264,384 @@ func _test_save_load() -> void:
 	_check(loaded.interests == ["books", "chess"], "увлечения восстановлены")
 	_check(GameState.survivors[1].on_expedition and GameState.expeditions.size() == 1, "экспедиция восстановлена")
 	_check(loaded.room_id == GameState.first_room_of_type("farm").id, "рабочее место восстановлено")
+	_check(not loaded.family.is_empty() and GameState.rooms[1].broken and is_equal_approx(GameState.minute, 800.0),
+		"семья, поломки и время суток восстановлены")
 
 	# Повреждённый файл не должен ронять игру.
 	var f := FileAccess.open(SAVE_PATH, FileAccess.WRITE)
 	f.store_string("{ это не json")
 	f.close()
 	_check(not SaveManager.load_game(), "повреждённое сохранение отклонено")
+
+
+func _test_migration_v1() -> void:
+	var fixture := FileAccess.get_file_as_string("res://tests/fixtures/save_v1.json")
+	_check(fixture != "", "есть образец сохранения версии 1")
+	var f := FileAccess.open(SAVE_PATH, FileAccess.WRITE)
+	f.store_string(fixture)
+	f.close()
+	GameState.reset()
+	_check(SaveManager.load_game(), "сохранение версии 1 загружается")
+	_check(GameState.day == 4 and GameState.survivors.size() == 3, "день и жители из старого сохранения на месте")
+	var anna := GameState.survivors[0]
+	var viktor := GameState.survivors[1]
+	var third := GameState.survivors[2]
+	_check(anna.profession == "doctor" and viktor.profession == "engineer" and third.profession == "soldier",
+		"профессии перенесены из старого поля «прошлое»")
+	_check(anna.bio == SurvivorFactory.ANNA_BIO and viktor.bio == SurvivorFactory.VIKTOR_BIO and third.bio != "",
+		"у всех жителей появились биографии")
+	_check(third.on_expedition and GameState.expeditions.size() == 1, "экспедиция из старого сохранения продолжается")
+	_check(anna.equipment["weapon"] == "knife", "экипировка сохранилась")
+	_check(GameState.minute == TimeSystem.DAY_START, "старое сохранение продолжается с утра")
+	var rooms_ok := true
+	for room in GameState.rooms:
+		rooms_ok = rooms_ok and is_equal_approx(room.condition, 100.0) and not room.broken
+	_check(rooms_ok, "комнаты старого сохранения исправны")
+	_check(not GameState.chronicle.is_empty(), "для старого сохранения начата летопись")
+	var snapshot := JSON.stringify(GameState.to_dict())
+	_check(SaveManager.save_game(), "старая игра пересохраняется")
+	GameState.reset()
+	_check(SaveManager.load_game() and JSON.stringify(GameState.to_dict()) == snapshot, "после пересохранения состояние то же")
+	var saved: Dictionary = JSON.parse_string(FileAccess.get_file_as_string(SAVE_PATH))
+	_check(int(saved["version"]) == SaveManager.VERSION, "пересохранено в новой версии")
+
+
+func _test_traits_and_professions() -> void:
+	GameState.new_game()
+	var farm := GameState.first_room_of_type("farm")
+	var a := GameState.survivors[0]
+	var b := GameState.survivors[1]
+	for s: SurvivorData in [a, b]:
+		s.traits = []
+		s.profession = "drifter"
+		s.skills["farming"]["level"] = 3
+		s.equipment = {"weapon": "", "outfit": "", "tool": ""}
+		s.mood = 60.0
+	a.relationships[b.id] = 0.0
+	b.relationships[a.id] = 0.0
+	var base := DaySystem.worker_output(a, farm)
+	a.traits = ["hardworker"]
+	var hard := DaySystem.worker_output(a, farm)
+	a.traits = ["lazy"]
+	var lazy := DaySystem.worker_output(a, farm)
+	_check(hard > base and lazy < base, "трудяга работает лучше, лентяй хуже")
+	a.traits = []
+	a.profession = "agronomist"
+	_check(is_equal_approx(DaySystem.worker_output(a, farm), base * ProfessionDefs.SPEC_BONUS), "агроном на ферме — специалист")
+	a.profession = "drifter"
+	GameState.assign(a.id, farm.id)
+	GameState.assign(b.id, farm.id)
+	a.relationships[b.id] = 80.0
+	b.relationships[a.id] = 80.0
+	var friends := DaySystem.worker_output(a, farm)
+	a.relationships[b.id] = -80.0
+	b.relationships[a.id] = -80.0
+	var enemies := DaySystem.worker_output(a, farm)
+	_check(friends > base and enemies < base, "друзья в смене помогают, враги мешают")
+	a.traits = ["frugal"]
+	var frugal := DaySystem.food_need(a)
+	a.traits = ["glutton"]
+	var glutton := DaySystem.food_need(a)
+	_check(frugal < DaySystem.FOOD_PER_SURVIVOR and glutton > DaySystem.FOOD_PER_SURVIVOR, "экономный ест меньше, обжора больше")
+	a.traits = ["curious"]
+	_check(is_equal_approx(a.xp_multiplier(), 1.2), "любознательный учится быстрее")
+	a.traits = []
+	a.profession = "student"
+	_check(a.xp_multiplier() > 1.0, "студент учится быстрее")
+	var scout := SurvivorData.new()
+	var plain := ExpeditionSystem.danger_of(scout, 2)
+	scout.profession = "soldier"
+	_check(ExpeditionSystem.danger_of(scout, 2) < plain, "бывшему военному в вылазках безопаснее")
+	scout.profession = "drifter"
+	scout.traits = ["nervous"]
+	_check(ExpeditionSystem.danger_of(scout, 2) > plain, "нервному в вылазках опаснее")
+	scout.traits = []
+	scout.profession = "courier"
+	_check(ExpeditionSystem.find_chance(scout, 2) > ExpeditionSystem.find_chance(SurvivorData.new(), 2), "курьер чаще находит вещи")
+	for id in ProfessionDefs.RANDOM_POOL:
+		_check(BioDefs.BEFORE.has(id) and ProfessionDefs.name_for(id, "f") != "", "профессия %s описана" % id)
+	for id: String in TraitDefs.ids():
+		_check(TraitDefs.name_for(id, "f") != "" and TraitDefs.get_desc(id) != "", "черта %s описана" % id)
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 3
+	for _i in 30:
+		var n := SurvivorFactory.create_random(rng)
+		_check(n.bio.length() > 40 and not n.bio.contains("{") and not n.bio.contains("|"), "биография собрана: " + n.bio)
+		var conflict := n.traits.size() == 2 and TraitDefs.conflicts(n.traits[0], n.traits[1])
+		_check(not conflict, "у новичка нет противоречивых черт")
+
+
+func _test_kitchen() -> void:
+	GameState.new_game()
+	GameState.resources["metal"] = 200
+	_check(GameState.build_room("kitchen", 0, 3), "кухню можно построить")
+	var kitchen := GameState.first_room_of_type("kitchen")
+	var before: Dictionary = DaySystem.compute_economy()["delta"]
+	_check(not DaySystem.compute_economy()["kitchen_fed"], "пустая кухня не кормит")
+	var cook := GameState.survivors[1]
+	GameState.assign(cook.id, kitchen.id)
+	var eco := DaySystem.compute_economy()
+	_check(int(eco["delta"]["food"]) > int(before["food"]), "повар экономит еду")
+	_check(eco["kitchen_fed"] and int((eco["outputs"] as Dictionary).get(kitchen.id, 0)) > 0, "кухня кормит горячим")
+	var plain_saving := DaySystem.kitchen_savings(kitchen)
+	cook.profession = "cook"
+	_check(DaySystem.kitchen_savings(kitchen) > plain_saving, "профессиональный повар экономит больше")
+	_check(TimeSystem.place_for(cook, "eat") == kitchen, "есть ходят на кухню")
+
+
+func _test_maintenance() -> void:
+	GameState.new_game()
+	var gen := GameState.first_room_of_type("generator")
+	var viktor := GameState.survivors[1]
+	GameState.assign(viktor.id, gen.id)
+	viktor.traits = []
+	var w_normal := MaintenanceSystem.daily_wear(gen, GameState.workers_of(gen.id), true)
+	viktor.traits = ["clumsy"]
+	var w_clumsy := MaintenanceSystem.daily_wear(gen, GameState.workers_of(gen.id), true)
+	viktor.traits = ["handy"]
+	var w_handy := MaintenanceSystem.daily_wear(gen, GameState.workers_of(gen.id), true)
+	_check(w_clumsy > w_normal and w_handy < w_normal, "неуклюжий изнашивает технику, мастер бережёт")
+	viktor.traits = ["hardworker"]
+	var condition := gen.condition
+	DaySystem.advance()
+	_check(gen.condition < condition, "оборудование изнашивается за день")
+	gen.condition = 1.0
+	var lines: Array[Dictionary] = []
+	var empty: Array[int] = []
+	for _i in 30:
+		if gen.broken:
+			break
+		MaintenanceSystem.tick(lines, empty)
+	_check(gen.broken and not lines.is_empty(), "изношенная комната ломается, об этом сообщают")
+	var eco := DaySystem.compute_economy()
+	_check((eco["broken"] as Array).has(gen.id) and not (eco["outputs"] as Dictionary).has(gen.id), "сломанный генератор не работает")
+	GameState.resources["metal"] = 0
+	_check(MaintenanceSystem.repair_error(gen) != "" and not MaintenanceSystem.repair(gen), "без металла не починить")
+	GameState.resources["metal"] = 100
+	var cost := MaintenanceSystem.repair_cost(gen)
+	_check(MaintenanceSystem.repair(gen) and not gen.broken and gen.condition >= MaintenanceSystem.REPAIRED_CONDITION,
+		"ремонт возвращает комнату в строй")
+	_check(GameState.get_resource("metal") == 100 - cost, "ремонт стоит металла")
+	gen.condition = 50.0
+	var service := MaintenanceSystem.repair_cost(gen)
+	viktor.profession = "mechanic"
+	_check(MaintenanceSystem.repair_cost(gen) < service, "с автомехаником ремонт дешевле")
+	_check(not GameState.first_room_of_type("quarters").can_break(), "жилой отсек не ломается")
+
+
+## Настроение Виктора после гибели человека: родного или чужого.
+func _mood_after_loss(linked: bool) -> float:
+	GameState.new_game()
+	GameState.rng.seed = 99
+	var viktor := GameState.survivors[1]
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 4
+	var found := FamilySystem.make_relative(viktor, rng)
+	var relative: SurvivorData = found["survivor"]
+	GameState.add_survivor(relative)
+	if linked:
+		FamilySystem.link(viktor, relative, found["rel"], false)
+	viktor.relationships[relative.id] = 0.0
+	relative.relationships[viktor.id] = 0.0
+	relative.health = 1.0
+	GameState.resources["food"] = 0
+	DaySystem.advance()
+	_check(GameState.get_survivor(relative.id) == null and viktor.family.is_empty(), "погибший удалён и из семьи")
+	return viktor.mood
+
+
+func _test_families() -> void:
+	GameState.new_game()
+	var viktor := GameState.survivors[1]
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 21
+	var seen := {}
+	for _i in 40:
+		var found := FamilySystem.make_relative(viktor, rng)
+		if found.is_empty():
+			continue
+		var n: SurvivorData = found["survivor"]
+		var rel := String(found["rel"])
+		seen[rel] = true
+		_check(n.last_name == SurvivorFactory.surname_for("Орлов", n.gender), "фамилия родственника: " + n.full_name())
+		if rel == "parent":
+			_check(n.age > viktor.age, "родитель старше")
+		elif rel == "child":
+			_check(n.age < viktor.age and n.age >= 16, "ребёнок младше, но взрослый")
+		_check(n.bio.begins_with("Узнав, что"), "в биографии родственника есть история поиска")
+	_check(seen.has("sibling") and seen.has("child") and seen.has("parent"), "находятся братья и сёстры, родители и дети")
+	var found := FamilySystem.make_relative(viktor, rng)
+	var relative: SurvivorData = found["survivor"]
+	GameState.add_survivor(relative)
+	FamilySystem.link(viktor, relative, found["rel"])
+	_check(FamilySystem.relation(relative, viktor.id) == FamilySystem.inverse(found["rel"]), "родство записано в обе стороны")
+	_check(viktor.get_relation(relative.id) > 30.0, "родные сразу близки")
+	_check(FamilySystem.label(viktor, relative) != "", "видно, кем приходится родственник")
+	_check(RelationshipSystem.compatibility(viktor, relative) > RelationshipSystem.compatibility(viktor, GameState.survivors[0]) - 0.5,
+		"родство повышает совместимость")
+	var with_family := _mood_after_loss(true)
+	var stranger := _mood_after_loss(false)
+	_check(with_family < stranger - 15.0, "гибель родного человека бьёт сильнее (%d против %d)" % [roundi(with_family), roundi(stranger)])
+
+	GameState.new_game()
+	var a := GameState.survivors[0]
+	var b := GameState.survivors[1]
+	a.relationships[b.id] = 95.0
+	b.relationships[a.id] = 95.0
+	GameState.rng.seed = 5
+	var lines: Array[Dictionary] = []
+	for _i in 200:
+		FamilySystem.try_form_couples(lines, GameState.rng)
+		if FamilySystem.has_partner(a):
+			break
+	_check(FamilySystem.relation(a, b.id) == "partner" and FamilySystem.relation(b, a.id) == "partner", "близкие друзья становятся парой")
+	_check(not lines.is_empty() and lines[0].get("log", false), "новая пара попадает в летопись")
+
+
+func _test_time() -> void:
+	GameState.new_game()
+	var anna := GameState.survivors[0]
+	var farm := GameState.first_room_of_type("farm")
+	GameState.assign(anna.id, farm.id)
+	anna.traits = []
+	_check(TimeSystem.activity(anna, 400.0) == "eat", "в 06:40 завтрак")
+	_check(TimeSystem.activity(anna, 600.0) == "work", "в 10:00 работа")
+	_check(TimeSystem.activity(anna, 750.0) == "eat", "в 12:30 обед")
+	_check(TimeSystem.activity(anna, 1200.0) == "social", "вечером общение")
+	_check(TimeSystem.activity(anna, 1320.0) == "sleep", "в 22:00 сон")
+	_check(TimeSystem.place_for(anna, "work") == farm, "работать идут в свою комнату")
+	_check(TimeSystem.place_for(anna, "sleep").type == "quarters", "спать идут в жилой отсек")
+	anna.traits = ["lazy"]
+	_check(TimeSystem.activity(anna, 480.0) == "idle", "лентяй приходит на смену позже")
+	anna.traits = ["loner"]
+	_check(TimeSystem.activity(anna, 1200.0) == "rest", "одиночка вечером отдыхает в стороне")
+	anna.set_condition("sick", true)
+	_check(TimeSystem.activity(anna, 600.0) == "heal", "больной лечится, а не работает")
+	_check(TimeSystem.clock_text(605.0) == "10:05", "часы показывают время")
+	GameState.minute = 1300.0
+	GameState.advance_clock(100.0)
+	_check(GameState.minute == TimeSystem.NIGHT_START and GameState.is_night(), "часы останавливаются на отбое")
+	DaySystem.advance()
+	_check(GameState.minute == TimeSystem.DAY_START and not GameState.is_night(), "новый день начинается утром")
+
+
+## Убежище, в котором возможны все события.
+func _event_stage() -> void:
+	GameState.new_game()
+	GameState.rng.seed = 31
+	GameState.day = 5
+	GameState.resources["metal"] = 400
+	GameState.build_room("kitchen", 0, 3)
+	GameState.build_room("workshop", 1, 1)
+	GameState.build_room("quarters", 2, 0)
+	GameState.resources = {"food": 60, "water": 60, "metal": 100, "power": 50}
+	var anna := GameState.survivors[0]
+	var viktor := GameState.survivors[1]
+	var lazy := SurvivorFactory.create_random(GameState.rng)
+	lazy.traits = ["lazy"]
+	GameState.add_survivor(lazy)
+	GameState.assign(lazy.id, GameState.first_room_of_type("farm").id)
+	var nervous := SurvivorFactory.create_random(GameState.rng)
+	nervous.traits = ["nervous"]
+	GameState.add_survivor(nervous)
+	lazy.relationships[nervous.id] = -70.0
+	nervous.relationships[lazy.id] = -70.0
+	anna.relationships[viktor.id] = 70.0
+	viktor.relationships[anna.id] = 70.0
+	GameState.storage = {"medkit": 2, "chocolate": 2}
+
+
+func _state_valid() -> bool:
+	for res in ResourceDefs.IDS:
+		if GameState.get_resource(res) < 0 or GameState.get_resource(res) > GameState.get_cap(res):
+			return false
+	for s in GameState.survivors:
+		if s.health < 0.0 or s.health > s.max_health or s.mood < 0.0 or s.mood > 100.0:
+			return false
+		for other_id: int in s.family:
+			if GameState.get_survivor(other_id) == null:
+				return false
+	for room in GameState.rooms:
+		if room.condition < 0.0 or room.condition > 100.0:
+			return false
+	return true
+
+
+func _test_events() -> void:
+	for id: String in EventDefs.ids():
+		_event_stage()
+		var ev := EventSystem.build(id, GameState.rng)
+		_check(not ev.is_empty(), "событие «%s» возможно" % id)
+		if ev.is_empty():
+			continue
+		_check(not String(ev["text"]).contains("{"), "текст события заполнен: %s" % ev["text"])
+		for i in EventSystem.choices_of(ev).size():
+			_event_stage()
+			var fresh := EventSystem.build(id, GameState.rng)
+			var view := EventSystem.choice_view(fresh, i)
+			_check(view["enabled"], "вариант %d события «%s» доступен" % [i, id])
+			var log_size := GameState.chronicle.size()
+			var result := EventSystem.resolve(fresh, i, GameState.rng)
+			_check(result["ok"] and String(result["text"]) != "" and not String(result["text"]).contains("{"),
+				"итог %s/%d: %s" % [id, i, result["text"]])
+			_check(GameState.chronicle.size() == log_size + 1, "итог «%s» записан в летопись" % id)
+			_check(_state_valid(), "после «%s» состояние корректно" % id)
+
+	_event_stage()
+	GameState.resources["metal"] = 0
+	var leak := EventSystem.build("pipe_leak", GameState.rng)
+	_check(not EventSystem.choice_view(leak, 0)["enabled"], "без металла нельзя заварить трубу")
+	_check(not EventSystem.resolve(leak, 0, GameState.rng)["ok"], "недоступный вариант не применяется")
+	GameState.storage.erase("medkit")
+	var sick := EventSystem.build("sickness", GameState.rng)
+	_check(not EventSystem.choice_view(sick, 0)["enabled"], "без аптечки не вылечить")
+	var repair_choice: Dictionary = EventDefs.INFO["pipe_leak"]["choices"][1]
+	var weak := SurvivorData.new()
+	var strong := SurvivorData.new()
+	strong.skills["engineering"]["level"] = 8
+	_check(EventSystem.success_chance(repair_choice, strong) > EventSystem.success_chance(repair_choice, weak), "шанс успеха растёт с навыком")
+	var mediate: Dictionary = EventDefs.INFO["argument"]["choices"][0]
+	var kind := SurvivorData.new()
+	kind.traits = ["kind"]
+	_check(EventSystem.success_chance(mediate, kind) > EventSystem.success_chance(mediate, SurvivorData.new()), "добрые лучше мирят")
+
+	_event_stage()
+	var rel_ev := EventSystem.build("relative_arrival", GameState.rng)
+	var host := GameState.get_survivor(int(rel_ev["ctx"]["a"]))
+	var before := GameState.population()
+	EventSystem.resolve(rel_ev, 0, GameState.rng)
+	_check(GameState.population() == before + 1 and not host.family.is_empty(), "родственник поселился и связан с семьёй")
+
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 8
+	var scheduled := 0
+	var in_range := true
+	for _i in 200:
+		var m := EventSystem.schedule(rng)
+		if m >= 0:
+			scheduled += 1
+			in_range = in_range and m >= EventSystem.EARLIEST and m <= EventSystem.LATEST
+	_check(scheduled > 80 and scheduled < 160 and in_range, "события случаются примерно в 60% дней и в дневное время")
+	_event_stage()
+	var kinds := {}
+	for _i in 80:
+		var ev := EventSystem.roll(GameState.rng)
+		if not ev.is_empty():
+			kinds[ev["id"]] = true
+	_check(kinds.size() >= 8, "случайный выбор даёт разные события (%d)" % kinds.size())
+
+
+func _test_chronicle() -> void:
+	GameState.new_game()
+	_check(GameState.chronicle.size() == 1, "новая игра открывает летопись")
+	for i in GameState.CHRONICLE_MAX + 20:
+		GameState.log_event("запись %d" % i)
+	_check(GameState.chronicle.size() == GameState.CHRONICLE_MAX, "летопись не растёт бесконечно")
+	_check(String(GameState.chronicle[-1]["text"]) == "запись %d" % (GameState.CHRONICLE_MAX + 19), "свежие записи остаются")
+	GameState.new_game()
+	GameState.resources["metal"] = 100
+	GameState.build_room("kitchen", 0, 3)
+	_check(String(GameState.chronicle[-1]["text"]).contains("кухня"), "постройка попадает в летопись")
 
 
 func _test_long_run() -> void:
@@ -290,15 +682,14 @@ func _test_long_run() -> void:
 func _test_balance() -> void:
 	# «Разумный игрок»: ставит людей туда, где ресурс кончится раньше всего,
 	# и строит то, чего не хватает. Убежище должно жить и расти.
-	for seed_value in [11, 2024, 777]:
+	for seed_value in [11, 2024, 777, 5, 42]:
 		GameState.new_game()
 		GameState.rng.seed = seed_value
 		var shortages := 0
 		for _day in 60:
-			_bot_assign()
-			if not GameState.has_free_bed():
-				_bot_build("quarters")
+			_bot_manage()
 			var report := DaySystem.advance()
+			_bot_answer(report["event"])
 			for line: Dictionary in report["lines"]:
 				if String(line["text"]).contains("не хватило"):
 					shortages += 1
@@ -308,6 +699,37 @@ func _test_balance() -> void:
 			seed_value, GameState.day, GameState.population(), GameState.rooms.size(), str(GameState.resources)])
 		_check(GameState.population() >= 3, "при разумной игре убежище растёт (сид %d)" % seed_value)
 		_check(shortages == 0, "при разумной игре нет голода и жажды (сид %d)" % seed_value)
+
+
+func _bot_manage() -> void:
+	for room in GameState.rooms:
+		if room.broken or (room.can_break() and room.condition < 45.0):
+			MaintenanceSystem.repair(room)
+	var people := GameState.survivors_in_shelter()
+	# Мастерская нужна, когда в ней есть кому работать.
+	if GameState.first_room_of_type("workshop") == null and people.size() >= 3 and GameState.get_resource("metal") >= 70:
+		_bot_build("workshop")
+	# Мало металла — лучший разведчик идёт на поверхность.
+	if GameState.get_resource("metal") < 20 and people.size() >= 3 and GameState.expeditions.is_empty():
+		var scout: SurvivorData = null
+		for s in people:
+			if s.health >= 60.0 and (scout == null or s.effective_skill("scavenging") > scout.effective_skill("scavenging")):
+				scout = s
+		if scout != null:
+			ExpeditionSystem.start(scout.id, 2)
+	_bot_assign()
+	if not GameState.has_free_bed():
+		_bot_build("quarters")
+
+
+## Отвечает на событие первым доступным вариантом.
+func _bot_answer(ev: Dictionary) -> void:
+	if ev.is_empty():
+		return
+	for i in EventSystem.choices_of(ev).size():
+		if EventSystem.choice_view(ev, i)["enabled"]:
+			EventSystem.resolve(ev, i, GameState.rng)
+			return
 
 
 func _bot_room_with_slot(type: String) -> RoomData:
@@ -333,9 +755,11 @@ func _bot_assign() -> void:
 		var delta: Dictionary = DaySystem.compute_economy()["delta"]
 		var need := ""
 		var worst := INF
-		for res in ["food", "water", "power"]:
+		for res in ["food", "water", "power", "metal"]:
 			var change := int(delta[res])
 			if change >= 1:
+				continue
+			if res == "metal" and GameState.get_resource("metal") >= 15:
 				continue
 			var days_left := float(GameState.get_resource(res)) / float(1 - change)
 			if days_left < worst:
@@ -347,8 +771,6 @@ func _bot_assign() -> void:
 			if room == null and _bot_build(PRODUCER[need]):
 				room = _bot_room_with_slot(PRODUCER[need])
 		if room == null:
-			room = _bot_room_with_slot("workshop")
-		if room == null and GameState.get_resource("metal") >= 110 and _bot_build("workshop"):
 			room = _bot_room_with_slot("workshop")
 		if room == null:
 			for type in ["farm", "water", "generator"]:

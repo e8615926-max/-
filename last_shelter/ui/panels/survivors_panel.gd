@@ -56,9 +56,12 @@ func _make_card(s: SurvivorData) -> Button:
 	info.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	info.alignment = BoxContainer.ALIGNMENT_CENTER
 	info.add_child(UI.label(s.full_name(), 22))
-	info.add_child(UI.label("%s, %d" % [s.background, s.age], 16, UITheme.TEXT_DIM))
+	info.add_child(UI.label("%s, %d" % [s.profession_name(), s.age], 16, UITheme.TEXT_DIM))
 	var where_color := UITheme.TEAL if (s.on_expedition or s.room_id != -1) else UITheme.ACCENT
-	info.add_child(UI.label(location_text(s), 16, where_color))
+	var where := location_text(s)
+	if not s.on_expedition:
+		where += "  ·  сейчас %s" % TimeSystem.activity_text(s, GameState.minute)
+	info.add_child(UI.label(where, 16, where_color))
 	row.add_child(info)
 
 	var stats := UI.vbox(10)

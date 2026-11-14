@@ -1,6 +1,6 @@
 class_name SurvivorFactory
 extends RefCounted
-## Создание выживших: двое стартовых и случайные новички.
+## Создание выживших: двое стартовых, случайные новички и их биографии.
 
 const MALE_NAMES: Array[String] = [
 	"Виктор", "Алексей", "Дмитрий", "Игорь", "Максим", "Олег",
@@ -16,20 +16,8 @@ const SURNAMES: Array[String] = [
 	"Лебедев", "Кузнецов", "Воронин", "Савин", "Белов", "Тихонов",
 ]
 
-const BACKGROUNDS: Array[Dictionary] = [
-	{"title": "Бывший врач скорой помощи", "skills": {"medicine": 4, "science": 2}},
-	{"title": "Инженер-энергетик", "skills": {"engineering": 4, "science": 1}},
-	{"title": "Агроном", "skills": {"farming": 4, "science": 1}},
-	{"title": "Школьный учитель химии", "skills": {"science": 4, "medicine": 1}},
-	{"title": "Автомеханик", "skills": {"engineering": 3, "scavenging": 2}},
-	{"title": "Бывший военный", "skills": {"combat": 4, "scavenging": 2}},
-	{"title": "Охотник", "skills": {"scavenging": 3, "combat": 3}},
-	{"title": "Фермер", "skills": {"farming": 3, "engineering": 2}},
-	{"title": "Медсестра", "skills": {"medicine": 3, "farming": 1}},
-	{"title": "Курьер", "skills": {"scavenging": 4}},
-	{"title": "Студент", "skills": {"science": 2, "scavenging": 1}},
-	{"title": "Повар", "skills": {"farming": 2, "medicine": 1}},
-]
+const ANNA_BIO := "До Катастрофы работала врачом скорой помощи в городе Новоград. В ту ночь была на вызове на окраине и видела, как небо над городом стало зелёным. Ведёт дневник и записывает всё, что помнит о прежней жизни."
+const VIKTOR_BIO := "Двадцать лет обслуживал подстанции под Новоградом. За час до Катастрофы на всех щитах разом сработала аварийная защита, и он до сих пор хочет понять почему. Любит шахматы и не любит проигрывать."
 
 
 static func create_starters() -> Array[SurvivorData]:
@@ -38,12 +26,13 @@ static func create_starters() -> Array[SurvivorData]:
 	anna.last_name = "Волкова"
 	anna.gender = "f"
 	anna.age = 34
-	anna.background = "Бывший врач скорой помощи"
+	anna.profession = "doctor"
+	anna.bio = ANNA_BIO
 	anna.appearance = {"skin": 0, "hair_style": 1, "hair_color": 4, "shirt": 5, "pants": 0}
 	anna.skills["medicine"]["level"] = 4
 	anna.skills["science"]["level"] = 3
 	anna.skills["farming"]["level"] = 2
-	anna.traits = ["optimist"]
+	anna.traits = ["optimist", "kind"]
 	anna.interests = ["books", "chess"]
 	anna.mood = 75.0
 	anna.inventory = ["medkit"]
@@ -54,7 +43,8 @@ static func create_starters() -> Array[SurvivorData]:
 	viktor.last_name = "Орлов"
 	viktor.gender = "m"
 	viktor.age = 41
-	viktor.background = "Инженер-энергетик"
+	viktor.profession = "engineer"
+	viktor.bio = VIKTOR_BIO
 	viktor.appearance = {"skin": 1, "hair_style": 0, "hair_color": 0, "shirt": 7, "pants": 1}
 	viktor.skills["engineering"]["level"] = 4
 	viktor.skills["scavenging"]["level"] = 2
@@ -71,17 +61,15 @@ static func create_random(rng: RandomNumberGenerator) -> SurvivorData:
 	var s := SurvivorData.new()
 	s.gender = "f" if rng.randf() < 0.5 else "m"
 	var surname: String = SURNAMES[rng.randi() % SURNAMES.size()]
+	s.last_name = surname_for(surname, s.gender)
 	if s.gender == "f":
 		s.first_name = FEMALE_NAMES[rng.randi() % FEMALE_NAMES.size()]
-		s.last_name = surname + "а"
 	else:
 		s.first_name = MALE_NAMES[rng.randi() % MALE_NAMES.size()]
-		s.last_name = surname
 	s.age = rng.randi_range(19, 58)
 
-	var bg: Dictionary = BACKGROUNDS[rng.randi() % BACKGROUNDS.size()]
-	s.background = bg["title"]
-	var bonus: Dictionary = bg["skills"]
+	s.profession = ProfessionDefs.RANDOM_POOL[rng.randi() % ProfessionDefs.RANDOM_POOL.size()]
+	var bonus := ProfessionDefs.skills_of(s.profession)
 	for skill_id: String in bonus:
 		s.skills[skill_id]["level"] = int(bonus[skill_id])
 	for _i in 2:
@@ -91,7 +79,7 @@ static func create_random(rng: RandomNumberGenerator) -> SurvivorData:
 	var pool := TraitDefs.ids()
 	var count := 1 if rng.randf() < 0.6 else 2
 	var guard := 0
-	while s.traits.size() < count and guard < 30:
+	while s.traits.size() < count and guard < 40:
 		guard += 1
 		var candidate: String = pool[rng.randi() % pool.size()]
 		if s.traits.has(candidate):
@@ -120,4 +108,41 @@ static func create_random(rng: RandomNumberGenerator) -> SurvivorData:
 		"shirt": rng.randi() % SurvivorSprites.SHIRT.size(),
 		"pants": rng.randi() % SurvivorSprites.PANTS.size(),
 	}
+	s.bio = make_bio(s, rng)
 	return s
+
+
+## Биография из трёх частей: жизнь до Катастрофы, та ночь и личная черточка.
+static func make_bio(s: SurvivorData, rng: RandomNumberGenerator) -> String:
+	var city: String = BioDefs.CITIES[rng.randi() % BioDefs.CITIES.size()]
+	var before := String(BioDefs.BEFORE.get(s.profession, BioDefs.BEFORE["drifter"])).replace("{city}", city)
+	var night: String = BioDefs.NIGHT[rng.randi() % BioDefs.NIGHT.size()]
+	var personal: String = BioDefs.PERSONAL[rng.randi() % BioDefs.PERSONAL.size()]
+	return BioDefs.gendered("%s %s %s" % [before, night, personal], s.gender)
+
+
+## Биография для старых сохранений, где её ещё не было. Всегда одна и та же для одного жителя.
+static func ensure_bio(s: SurvivorData) -> void:
+	if s.bio != "":
+		return
+	if s.first_name == "Анна" and s.last_name == "Волкова":
+		s.bio = ANNA_BIO
+		return
+	if s.first_name == "Виктор" and s.last_name == "Орлов":
+		s.bio = VIKTOR_BIO
+		return
+	var rng := RandomNumberGenerator.new()
+	rng.seed = hash(s.full_name()) + s.id
+	s.bio = make_bio(s, rng)
+
+
+## Фамилия в форме нужного пола: «Орлов» → «Орлова».
+static func surname_for(base: String, gender: String) -> String:
+	return base + "а" if gender == "f" else base
+
+
+## Мужская форма фамилии выжившего.
+static func surname_base(s: SurvivorData) -> String:
+	if s.gender == "f" and s.last_name.ends_with("а"):
+		return s.last_name.substr(0, s.last_name.length() - 1)
+	return s.last_name

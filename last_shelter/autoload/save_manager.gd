@@ -1,10 +1,13 @@
 extends Node
 ## Локальные сохранения (автозагрузка SaveManager).
-## Один слот, JSON в user:// — работает без сети и без разрешений Android.
+## Один слот, JSON в user:// — работает без сети и без разрешений Android;
+## в браузере Godot хранит user:// в IndexedDB.
+## Версия 2 добавила время суток, летопись, состояние комнат, профессии, биографии
+## и семьи; сохранения версии 1 загружаются с разумными значениями по умолчанию.
 
 const SAVE_PATH := "user://savegame.json"
 const TEMP_PATH := "user://savegame.tmp"
-const VERSION := 1
+const VERSION := 2
 
 
 func has_save() -> bool:
@@ -54,6 +57,9 @@ func delete_save() -> void:
 
 func _notification(what: int) -> void:
 	# Android может выгрузить приложение без предупреждения — сохраняемся при сворачивании.
-	if what == NOTIFICATION_APPLICATION_PAUSED or what == NOTIFICATION_WM_CLOSE_REQUEST:
-		if GameState.active and not GameState.survivors.is_empty():
-			save_game()
+	# В браузере вкладку могут закрыть в любой момент — сохраняемся, когда она теряет фокус.
+	var leaving := what == NOTIFICATION_APPLICATION_PAUSED or what == NOTIFICATION_WM_CLOSE_REQUEST
+	if what == NOTIFICATION_APPLICATION_FOCUS_OUT and OS.has_feature("web"):
+		leaving = true
+	if leaving and GameState.active and not GameState.survivors.is_empty():
+		save_game()

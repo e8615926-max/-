@@ -3,14 +3,25 @@ extends RefCounted
 ## Рисует поверхность над убежищем: закатное небо, руины города и вход в бункер.
 ## Используется видом убежища и фоном главного меню.
 
-const SKY_BANDS := [
-	[Color("171425"), 1.0],
-	[Color("241a30"), 0.62],
-	[Color("3d2438"), 0.40],
-	[Color("6a3238"), 0.24],
-	[Color("a04e38"), 0.12],
-	[Color("d07a3c"), 0.05],
+## Доли высоты неба для шести полос (от зенита к горизонту).
+const SKY_STOPS: Array[float] = [1.0, 0.62, 0.40, 0.24, 0.12, 0.05]
+## Палитры неба по времени суток, от зенита к горизонту.
+const SKY_PALETTES := {
+	"night": [Color("0a0c18"), Color("0f1226"), Color("151a33"), Color("1b2140"), Color("222848"), Color("2a2f4c")],
+	"dawn": [Color("1d2342"), Color("39385a"), Color("6b4f66"), Color("b0705a"), Color("e09a5c"), Color("f0c070")],
+	"day": [Color("33495f"), Color("41586e"), Color("53697c"), Color("6c7f8c"), Color("8a979c"), Color("a6aca8")],
+	"dusk": [Color("171425"), Color("241a30"), Color("3d2438"), Color("6a3238"), Color("a04e38"), Color("d07a3c")],
+}
+## Опорные точки суток [минута, палитра]; между ними цвета плавно смешиваются.
+const SKY_KEYS := [
+	[0.0, "night"], [330.0, "night"], [390.0, "dawn"], [510.0, "day"], [1020.0, "day"],
+	[1140.0, "dusk"], [1260.0, "dusk"], [1320.0, "night"], [1440.0, "night"],
 ]
+const DARKNESS := {"night": 1.0, "dusk": 0.55, "dawn": 0.45, "day": 0.0}
+const SUN_RISE := 360.0
+const SUN_SET := 1290.0
+## Фон главного меню — вечер.
+const MENU_MINUTE := 1200.0
 const RUINS_FAR := Color("2a1c2c")
 const RUINS_NEAR := Color("170f18")
 const GROUND := Color("4a3e2c")
@@ -18,26 +29,80 @@ const GROUND_DARK := Color("33281c")
 const DIRT := Color("2b2019")
 
 
-## Небо и руины от x0 до x1; земля находится на высоте ground_y, небо занимает sky_h пикселей.
-static func paint_sky(ci: CanvasItem, x0: float, x1: float, ground_y: float, sky_h: float, t: float) -> void:
-	ci.draw_rect(Rect2(x0, ground_y - sky_h - 2000.0, x1 - x0, 2000.0), SKY_BANDS[0][0])
-	for band: Array in SKY_BANDS:
-		var h := sky_h * float(band[1])
-		ci.draw_rect(Rect2(x0, ground_y - h, x1 - x0, h), band[0])
-	# Звёзды
-	var rng := RandomNumberGenerator.new()
-	rng.seed = 77
-	for i in 40:
-		var sx := rng.randf_range(x0, x1)
-		var sy := ground_y - sky_h * rng.randf_range(0.45, 1.0)
-		var phase := rng.randf() * 10.0
-		if sin(t * 0.8 + phase) > -0.5:
-			ci.draw_rect(Rect2(floorf(sx), floorf(sy), 1, 1), Color(1, 0.95, 0.85, 0.7))
-	# Солнце у горизонта
-	var sun_x := floorf(lerpf(x0, x1, 0.72))
-	ci.draw_rect(Rect2(sun_x - 5, ground_y - 9, 10, 9), Color("f0b060"))
-	ci.draw_rect(Rect2(sun_x - 7, ground_y - 6, 14, 6), Color("f0b060"))
-	ci.draw_rect(Rect2(sun_x - 3, ground_y - 11, 6, 2), Color("f0b060"))
+## Между какими палитрами сейчас время суток: [палитра А, палитра Б, доля от А к Б].
+static func _sky_segment(minute: float) -> Array:
+	var m := fposmod(minute, 1440.0)
+	for i in SKY_KEYS.size() - 1:
+		var a: Array = SKY_KEYS[i]
+		var b: Array = SKY_KEYS[i + 1]
+		if m >= float(a[0]) and m <= float(b[0]):
+			var span := float(b[0]) - float(a[0])
+			return [String(a[1]), String(b[1]), 0.0 if span <= 0.0 else (m - float(a[0])) / span]
+	return ["night", "night", 0.0]
+
+
+## Цвета полос неба в эту минуту.
+static func sky_colors(minute: float) -> Array[Color]:
+	var seg := _sky_segment(minute)
+	var pa: Array = SKY_PALETTES[seg[0]]
+	var pb: Array = SKY_PALETTES[seg[1]]
+	var result: Array[Color] = []
+	for i in pa.size():
+		result.append((pa[i] as Color).lerp(pb[i], float(seg[2])))
+	return result
+
+
+## Насколько темно снаружи: 0 — день, 1 — ночь.
+static func darkness(minute: float) -> float:
+	var seg := _sky_segment(minute)
+	return lerpf(float(DARKNESS[seg[0]]), float(DARKNESS[seg[1]]), float(seg[2]))
+
+
+## Небо и руины от x0 до x1; земля на высоте ground_y, небо занимает sky_h пикселей.
+## minute — время суток; солнце и луна ходят над видимым участком [view_from, view_to].
+static func paint_sky(ci: CanvasItem, x0: float, x1: float, ground_y: float, sky_h: float, t: float,
+		minute: float = MENU_MINUTE, view_from: float = NAN, view_to: float = NAN) -> void:
+	if is_nan(view_from):
+		view_from = x0
+	if is_nan(view_to):
+		view_to = x1
+	var colors := sky_colors(minute)
+	ci.draw_rect(Rect2(x0, ground_y - sky_h - 2000.0, x1 - x0, 2000.0), colors[0])
+	for i in colors.size():
+		var h := sky_h * SKY_STOPS[i]
+		ci.draw_rect(Rect2(x0, ground_y - h, x1 - x0, h), colors[i])
+	# Звёзды проступают в сумерках и ярче всего ночью.
+	var dark := darkness(minute)
+	if dark > 0.3:
+		var alpha := 0.75 * clampf((dark - 0.3) / 0.5, 0.0, 1.0)
+		var rng := RandomNumberGenerator.new()
+		rng.seed = 77
+		for i in 40:
+			var sx := rng.randf_range(x0, x1)
+			var sy := ground_y - sky_h * rng.randf_range(0.45, 1.0)
+			var phase := rng.randf() * 10.0
+			if sin(t * 0.8 + phase) > -0.5:
+				ci.draw_rect(Rect2(floorf(sx), floorf(sy), 1, 1), Color(1, 0.95, 0.85, alpha))
+	var width := view_to - view_from
+	if minute >= SUN_RISE and minute <= SUN_SET:
+		# Солнце: низкое и золотое на рассвете и закате, высокое и бледное днём.
+		var p := (minute - SUN_RISE) / (SUN_SET - SUN_RISE)
+		var arc := sin(p * PI)
+		var sun_x := floorf(lerpf(view_from + width * 0.1, view_to - width * 0.1, p))
+		var sun_y := floorf(ground_y - sky_h * (0.1 + 0.55 * arc))
+		var sun := Color("f0b060").lerp(Color("f2e8c0"), arc)
+		ci.draw_rect(Rect2(sun_x - 5, sun_y, 10, 9), sun)
+		ci.draw_rect(Rect2(sun_x - 7, sun_y + 3, 14, 3), sun)
+		ci.draw_rect(Rect2(sun_x - 3, sun_y - 2, 6, 2), sun)
+		ci.draw_rect(Rect2(sun_x - 3, sun_y + 9, 6, 2), sun)
+	elif dark > 0.6:
+		# Месяц
+		var mx := floorf(view_from + width * 0.72)
+		var my := floorf(ground_y - sky_h * 0.55)
+		ci.draw_rect(Rect2(mx, my, 6, 6), Color("e8e4d0"))
+		ci.draw_rect(Rect2(mx + 1, my - 1, 4, 8), Color("e8e4d0"))
+		ci.draw_rect(Rect2(mx - 1, my + 1, 8, 4), Color("e8e4d0"))
+		ci.draw_rect(Rect2(mx + 3, my - 1, 4, 6), colors[0])
 	# Дальние и ближние руины
 	_ruins(ci, x0, x1, ground_y, 31, RUINS_FAR, 10.0, 26.0, 9.0)
 	_ruins(ci, x0, x1, ground_y, 12, RUINS_NEAR, 4.0, 15.0, 13.0)

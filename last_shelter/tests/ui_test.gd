@@ -39,6 +39,7 @@ func _run() -> void:
 	await _test_survivors()
 	await _test_build_and_rooms()
 	await _test_storage_and_expedition()
+	await _test_time_and_events()
 	await _test_next_day_and_save()
 	await _test_touch_scroll()
 	await _test_restart_and_game_over()
@@ -60,6 +61,7 @@ func _test_new_game() -> void:
 	await _shot("01_menu")
 	await _click(_button("Новая игра"), "кнопка «Новая игра»")
 	_check(await _wait_scene("Game"), "«Новая игра» открывает убежище")
+	_calm()
 	_check(GameState.day == 1 and GameState.survivors.size() == 2, "новая игра: день 1, двое выживших")
 	_check(SaveManager.has_save(), "новая игра сразу сохраняется")
 	await _shot("02_game")
@@ -76,6 +78,7 @@ func _test_survivors() -> void:
 	_check(profile != null and profile.survivor_id == anna.id, "карточка открывает профиль")
 	if profile == null:
 		return
+	_check(_label_exact(anna.bio) != null, "в профиле видна биография")
 	for tab: Array in SurvivorProfilePanel.TABS:
 		await _click(_button(tab[1]), "вкладка «%s»" % tab[1])
 		_check(profile.get("_tab") == tab[0], "вкладка «%s» переключается" % tab[1])
@@ -168,6 +171,7 @@ func _test_next_day_and_save() -> void:
 	_check(GameState.day == 2 and _panel(DayReportPanel) != null, "«Следующий день» завершает день и показывает итоги")
 	await _shot("10_report")
 	await _click(_button("Начать день 2"), "закрыть итоги дня")
+	_calm()
 	_check(_panel(BasePanel) == null, "итоги дня закрываются")
 
 	await _click(_menu_button(), "кнопка меню")
@@ -185,9 +189,70 @@ func _test_next_day_and_save() -> void:
 	_check(await _wait_scene("MainMenu"), "выход в главное меню")
 	await _click(_button("Продолжить"), "продолжить")
 	_check(await _wait_scene("Game"), "«Продолжить» открывает убежище")
+	_calm()
 	var viktor := GameState.get_survivor(viktor_id)
 	_check(GameState.day == 2 and viktor != null and viktor.on_expedition,
 		"сохранение загружено: день 2, Виктор в экспедиции")
+
+
+func _test_time_and_events() -> void:
+	var game := get_tree().current_scene
+	await _click(_button("×1"), "кнопка скорости")
+	_check(_button("×3") != null, "скорость времени переключается на ×3")
+
+	await _click(_button_prefix("День "), "кнопка дня")
+	var chronicle := _panel(ChroniclePanel)
+	_check(chronicle != null, "кнопка дня открывает летопись")
+	_check(_label_prefix("Гермодверь закрылась") != null, "в летописи записано начало")
+	await _shot("12_chronicle")
+	if chronicle != null:
+		await _click(chronicle.get("_close_button") as Control, "закрыть летопись")
+
+	# Событие в назначенный час.
+	GameState.event_minute = int(GameState.minute) + 3
+	var panel: Node = null
+	for _i in 180:
+		await get_tree().process_frame
+		panel = _panel(EventPanel)
+		if panel != null:
+			break
+	_check(panel != null, "в назначенный час случается событие")
+	if panel != null:
+		await _shot("13_event")
+		var choices := _find_all(func(n: Node) -> bool:
+			return n is Button and (n as Button).text == "" and not (n as Button).disabled, panel)
+		var log_size := GameState.chronicle.size()
+		await _click(choices[0] as Control if not choices.is_empty() else null, "вариант решения")
+		_check(GameState.chronicle.size() == log_size + 1, "итог события записан в летопись")
+		await _shot("14_event_result")
+		await _click(_button("Продолжить"), "продолжить после события")
+		_check(_panel(EventPanel) == null, "окно события закрывается после выбора")
+	_calm()
+
+	# Поломка и ремонт из окна комнаты.
+	var farm := GameState.first_room_of_type("farm")
+	farm.broken = true
+	farm.condition = 20.0
+	GameState.resources["metal"] = 80
+	GameState.rooms_changed.emit()
+	await _frames(3)
+	await _tap(_slot_center(game.get("_shelter") as ShelterView, farm.level, farm.col))
+	_check(_panel(RoomPanel) != null, "окно сломанной комнаты открывается")
+	await _shot("15_broken_room")
+	await _click(_button_prefix("Починить"), "кнопка ремонта")
+	_check(not farm.broken and GameState.get_resource("metal") < 80, "ремонт чинит отсек за металл")
+	await _tap(OUTSIDE)
+
+	# Ночь: часы доходят до отбоя и останавливаются.
+	GameState.minute = TimeSystem.NIGHT_START - 5.0
+	for _i in 180:
+		await get_tree().process_frame
+		if GameState.is_night():
+			break
+	_check(GameState.is_night() and GameState.minute == TimeSystem.NIGHT_START, "наступает ночь, часы встают на отбое")
+	await _frames(30)
+	await _shot("16_night")
+	await _click(_button("×3"), "вернуть скорость ×1")
 
 
 func _test_touch_scroll() -> void:
@@ -238,6 +303,7 @@ func _test_restart_and_game_over() -> void:
 	await _click(_button("Новая игра"), "новая игра")
 	await _click(_button("Начать заново"), "начать заново")
 	_check(await _wait_scene("Game") and GameState.day == 1, "«Начать заново» начинает новую игру")
+	_calm()
 
 	# Конец игры: все погибают от голода и жажды.
 	for s in GameState.survivors:
@@ -305,6 +371,26 @@ func _key(keycode: Key) -> void:
 
 
 # --- Поиск элементов --------------------------------------------------------------
+
+## Тест не должен зависеть от случайных событий: убираем запланированное на сегодня.
+func _calm() -> void:
+	GameState.event_minute = -1
+
+
+func _button_prefix(prefix: String) -> Button:
+	var found := _find_all(func(n: Node) -> bool: return n is Button and (n as Button).text.begins_with(prefix))
+	return found[0] if not found.is_empty() else null
+
+
+func _label_prefix(prefix: String) -> Label:
+	var found := _find_all(func(n: Node) -> bool: return n is Label and (n as Label).text.begins_with(prefix))
+	return found[0] if not found.is_empty() else null
+
+
+func _label_exact(text: String) -> Label:
+	var found := _find_all(func(n: Node) -> bool: return n is Label and (n as Label).text == text)
+	return found[0] if not found.is_empty() else null
+
 
 func _find_all(filter: Callable, root: Node = null) -> Array:
 	var out: Array = []

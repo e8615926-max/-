@@ -55,9 +55,11 @@ func _ready() -> void:
 		var fresh := UI.accent_button("Новая игра", 0, 72)
 		fresh.pressed.connect(_new_game)
 		column.add_child(fresh)
-	var quit := UI.button("Выход", 0, 72)
-	quit.pressed.connect(func() -> void: get_tree().quit())
-	column.add_child(quit)
+	# В браузере выходить некуда: остановка движка оставила бы чёрный экран.
+	if not OS.has_feature("web"):
+		var quit := UI.button("Выход", 0, 72)
+		quit.pressed.connect(func() -> void: get_tree().quit())
+		column.add_child(quit)
 
 	var version := UI.label("v%s" % ProjectSettings.get_setting("application/config/version", "0.1.0"), 14, UITheme.TEXT_DIM)
 	version.set_anchors_preset(Control.PRESET_BOTTOM_RIGHT)

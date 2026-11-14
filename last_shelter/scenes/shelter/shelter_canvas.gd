@@ -40,23 +40,32 @@ func _draw() -> void:
 	var x0 := -900.0
 	var x1 := ShelterLayout.WORLD_W + 900.0
 	var ground := float(ShelterLayout.SURFACE_Y) - 4.0
-	SurfacePainter.paint_sky(self, x0, x1, ground, 70.0, _time)
+	SurfacePainter.paint_sky(self, x0, x1, ground, 40.0, _time, GameState.minute,
+		-10.0, ShelterLayout.WORLD_W + 10.0)
 	SurfacePainter.paint_ground(self, x0, x1, ground, 700.0)
 	for i in _specks.size():
 		draw_rect(_specks[i], _speck_colors[i])
 	SurfacePainter.paint_entrance(self, ShelterLayout.SHAFT_X - 2.0, ground, _time)
 	_draw_shaft()
 
+	var night := GameState.is_night()
 	for level in ShelterLayout.LEVELS:
 		for col in ShelterLayout.COLS:
 			var o := ShelterLayout.room_origin(level, col)
 			var room := GameState.room_at(level, col)
 			if room != null:
-				var powered := not unpowered.has(room.id)
+				var powered := not unpowered.has(room.id) and not room.broken
 				RoomPainter.paint(self, room.type, o, _time, powered)
+				_draw_condition(room, o)
 				_draw_slab(o)
-				if not powered:
+				if room.broken:
+					_draw_broken(o)
+				elif unpowered.has(room.id):
 					_draw_no_power(o)
+				if night:
+					var alpha := 0.32 if room.type == "quarters" else 0.45
+					draw_rect(Rect2(o.x + 2, o.y + 2, ShelterLayout.ROOM_W - 4, ShelterLayout.ROOM_H - 4),
+						Color(0.02, 0.03, 0.08, alpha))
 			elif build_type != "" and GameState.can_build_at(level, col):
 				_draw_build_slot(o)
 
@@ -91,6 +100,34 @@ func _draw_slab(o: Vector2) -> void:
 	draw_rect(Rect2(o.x, y + ShelterLayout.SLAB_H - 1, ShelterLayout.ROOM_W, 1), Color("0f0e11"))
 	draw_rect(Rect2(o.x, y, 1, ShelterLayout.SLAB_H), Color("0f0e11"))
 	draw_rect(Rect2(o.x + ShelterLayout.ROOM_W - 1, y, 1, ShelterLayout.SLAB_H), Color("0f0e11"))
+
+
+## Полоска состояния оборудования на полу — когда пора подумать о ремонте.
+func _draw_condition(room: RoomData, o: Vector2) -> void:
+	if not room.can_break() or (room.condition >= 70.0 and not room.broken):
+		return
+	var w := ShelterLayout.ROOM_W - 8.0
+	var color := Color("e0655a") if room.condition < MaintenanceSystem.BREAK_THRESHOLD else Color("e8b04a")
+	draw_rect(Rect2(o.x + 4, o.y + RoomPainter.FLOOR_Y + 2, w, 1), Color("17161a"))
+	draw_rect(Rect2(o.x + 4, o.y + RoomPainter.FLOOR_Y + 2, roundf(w * room.condition / 100.0), 1), color)
+
+
+## Сломанная комната: темно, дым, искры и предупреждающая табличка.
+func _draw_broken(o: Vector2) -> void:
+	draw_rect(Rect2(o.x + 2, o.y + 2, ShelterLayout.ROOM_W - 4, ShelterLayout.ROOM_H - 4), Color(0, 0, 0, 0.4))
+	for k in 3:
+		var rise := fmod(_time * 5.0 + k * 6.0, 18.0)
+		draw_rect(Rect2(o.x + 26 + k * 5 + (int(rise) % 3), o.y + 30 - rise, 3, 2),
+			Color(0.55, 0.55, 0.6, maxf(0.5 - rise * 0.025, 0.05)))
+	if int(_time * 6.0) % 3 == 0:
+		draw_rect(Rect2(o.x + 20, o.y + 22, 1, 1), Color("fff0a0"))
+		draw_rect(Rect2(o.x + 23, o.y + 20, 1, 1), Color("ffb040"))
+		draw_rect(Rect2(o.x + 41, o.y + 24, 1, 1), Color("ffb040"))
+	var bx := o.x + ShelterLayout.ROOM_W - 12.0
+	var by := o.y + 5.0
+	draw_rect(Rect2(bx, by, 7, 9), Color("e8b04a"))
+	draw_rect(Rect2(bx + 3, by + 1, 1, 5), Color("1a1614"))
+	draw_rect(Rect2(bx + 3, by + 7, 1, 1), Color("1a1614"))
 
 
 func _draw_no_power(o: Vector2) -> void:

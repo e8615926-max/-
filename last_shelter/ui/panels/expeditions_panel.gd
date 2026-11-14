@@ -87,6 +87,12 @@ func _refresh() -> void:
 	_footer.add_child(days_row)
 
 	var selected := GameState.get_survivor(_selected_id)
+	if selected != null and not selected.on_expedition:
+		var risk := ExpeditionSystem.danger_of(selected, _days)
+		var odds := UI.label("%s: риск ранения %d%%, шанс находки %d%%" % [selected.first_name,
+			roundi(risk * 100.0), roundi(ExpeditionSystem.find_chance(selected, _days) * 100.0)],
+			17, UITheme.BAD if risk >= 0.4 else UITheme.TEAL)
+		_footer.add_child(odds)
 	var error := ExpeditionSystem.start_error(selected, _days)
 	var send := UI.accent_button("Отправить в экспедицию" if error == "" else error, 0, 68)
 	send.disabled = error != ""

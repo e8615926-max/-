@@ -322,6 +322,96 @@ const ICONS := {
 		"..........",
 		"..........",
 	],
+	"night": [
+		"...YYYY...",
+		"..YYY.....",
+		".YYY......",
+		".YY.......",
+		".YY.......",
+		".YY.......",
+		".YYY......",
+		"..YYY.....",
+		"...YYYYY..",
+		"....YYY...",
+	],
+	"chronicle": [
+		"tttttttt..",
+		"tTTTTTTTt.",
+		"tTKKKKKTt.",
+		"tTTTTTTTt.",
+		"tTKKKKTTt.",
+		"tTTTTTTTt.",
+		"tTKKKKKTt.",
+		"tTTTTTTTt.",
+		"tttttttt..",
+		"WWWWWWWW..",
+	],
+	"speed": [
+		"..........",
+		"W...W.....",
+		"WW..WW....",
+		"WWW.WWW...",
+		"WWWWWWWW..",
+		"WWWWWWWW..",
+		"WWW.WWW...",
+		"WW..WW....",
+		"W...W.....",
+		"..........",
+	],
+}
+
+## «Пузыри» над головами жителей, 8×8: сон, еда, дружба, болтовня, ссора.
+const BUBBLES := {
+	"zzz": [
+		"WWWW....",
+		"..W.....",
+		".W......",
+		"WWWW....",
+		"....WWW.",
+		".....W..",
+		"....W...",
+		"....WWW.",
+	],
+	"eat": [
+		".W..W...",
+		"..W..W..",
+		".W..W...",
+		"........",
+		"TTTTTTTT",
+		"TTTTTTTT",
+		".TTTTTT.",
+		"..tttt..",
+	],
+	"heart": [
+		".RR..RR.",
+		"RRRRRRRR",
+		"RWRRRRRR",
+		"RRRRRRRR",
+		".RRRRRR.",
+		"..RRRR..",
+		"...RR...",
+		"........",
+	],
+	"chat": [
+		".WWWWWW.",
+		"WWWWWWWW",
+		"WWKWKWKW",
+		"WWWWWWWW",
+		".WWWWWW.",
+		"..WW....",
+		".W......",
+		"........",
+	],
+	"angry": [
+		"...RR...",
+		"..RR....",
+		".RRRRR..",
+		"...RR...",
+		"..RR....",
+		".RR.....",
+		"RR......",
+		"........",
+	],
 }
 
 static var _cache: Dictionary = {}
@@ -337,6 +427,14 @@ static func get_icon(icon_name: String, scale: int = 1) -> Texture2D:
 	if not _cache.has(key):
 		var rows: Array = ICONS.get(icon_name, ICONS["empty_slot"])
 		_cache[key] = PixelArt.make(rows, PALETTE, false, scale)
+	return _cache[key]
+
+
+## Пузырь с тёмным контуром, чтобы читался на любом фоне.
+static func get_bubble(bubble_name: String) -> Texture2D:
+	var key := "bubble_" + bubble_name
+	if not _cache.has(key):
+		_cache[key] = PixelArt.make(BUBBLES.get(bubble_name, BUBBLES["chat"]), PALETTE, true, 1)
 	return _cache[key]
 
 
