@@ -302,6 +302,21 @@ func _test_stage3() -> void:
 	await _frames(3)
 	_check(world.position != before and _panel(BasePanel) == null, "вид двигается пальцем, комната при этом не открывается")
 	await _shot("19_panned")
+	# Приближение: целое число пикселей экрана на пиксель рисунка — картинка не мылится.
+	var zoom := shelter.get_zoom()
+	await _click(_button("+"), "кнопка приближения")
+	await _click(_button("+"), "кнопка приближения")
+	var device := get_viewport().get_final_transform().get_scale().x
+	var art_px := world.scale.x * device
+	_check(shelter.get_zoom() == zoom + 2 and is_equal_approx(art_px, roundf(art_px)), "приближение по целым пикселям (%.2f)" % art_px)
+	var screen_origin := (world.get_global_transform().origin) * device
+	_check(is_equal_approx(screen_origin.x, roundf(screen_origin.x)) and is_equal_approx(screen_origin.y, roundf(screen_origin.y)), "мир стоит ровно на пикселях экрана")
+	await _shot("21_zoomed_in")
+	for _i in 6:
+		await _click(_button("−"), "кнопка отдаления")
+	_check(shelter.get_zoom() < zoom, "можно отдалить и увидеть всё убежище")
+	await _shot("22_zoomed_out")
+	shelter.zoom_by(zoom - shelter.get_zoom(), Vector2.ZERO)
 	shelter.scroll_by(Vector2(10000, 10000))
 	await _frames(2)
 	# Место вылазки
