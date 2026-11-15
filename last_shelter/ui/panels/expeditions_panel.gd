@@ -75,8 +75,8 @@ func _refresh() -> void:
 		_location = "outskirts"
 	for id in GameState.locations:
 		_list.add_child(_location_button(id))
-	if GameState.locations.size() == 1:
-		_list.add_child(UI.wrap_label("Новые места подскажет эфир — постройте радиорубку.", 15, UITheme.TEXT_DIM))
+	if GameState.locations.size() < LocationDefs.INFO.size():
+		_list.add_child(UI.wrap_label("Новые места открывают первые вылазки в уже известные места и передачи в эфире (нужна радиорубка).", 15, UITheme.TEXT_DIM))
 	var range_days := ExpeditionSystem.days_range(_location)
 	_days = clampi(_days, range_days[0], range_days[1])
 
@@ -160,8 +160,19 @@ func _location_button(id: String) -> Button:
 	title.add_child(UI.label(danger_text, 15, UITheme.GOOD if danger < 0.8 else (UITheme.ACCENT if danger <= 1.2 else UITheme.BAD)))
 	if place.has("illness"):
 		title.add_child(UI.label("риск: %s" % IllnessDefs.name_of(String(place["illness"]["id"])).to_lower(), 15, UITheme.BAD))
-	if not GameState.visited.has(id) and id != "outskirts":
+	if not GameState.visited.has(id):
 		title.add_child(UI.label("ещё не были", 15, UITheme.TEAL))
+	else:
+		var visits := int(GameState.location_visits.get(id, 0))
+		if visits > 0:
+			title.add_child(UI.label("вылазок: %d" % visits, 15, UITheme.TEXT_DIM))
+		var left := ExpeditionSystem.loot_left(id)
+		if left < 0.99:
+			title.add_child(UI.label("обобрано на %d%%" % roundi((1.0 - left) * 100.0), 15, UITheme.ACCENT))
+	var docs: Array = place.get("docs", [])
+	if not docs.is_empty():
+		var found := docs.size() - DocumentSystem.remaining(id).size()
+		title.add_child(UI.label("находки %d/%d" % [found, docs.size()], 15, UITheme.TEAL if found < docs.size() else UITheme.TEXT_DIM))
 	box.add_child(title)
 	var loot := UI.hbox(6)
 	loot.add_child(UI.label(String(place["desc"]), 15, UITheme.TEXT_DIM))
@@ -181,4 +192,5 @@ func _send() -> void:
 	var days := _days
 	_selected_id = -1
 	if ExpeditionSystem.start(s.id, days, _location):
+		SoundManager.play("confirm")
 		message.emit("%s уходит: %s, %d дн." % [first_name, LocationDefs.name_of(_location), days])

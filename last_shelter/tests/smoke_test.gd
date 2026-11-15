@@ -40,6 +40,13 @@ func _ready() -> void:
 	_test_research()
 	_test_radio_and_locations()
 	_test_decor_and_crafting()
+	_test_locations_v4()
+	_test_documents()
+	_test_encounters()
+	_test_trade()
+	_test_shelters()
+	_test_migration_v3()
+	_test_sound()
 	_test_long_run()
 	_test_balance()
 	await _test_scenes()
@@ -537,7 +544,7 @@ func _test_time() -> void:
 func _event_stage() -> void:
 	GameState.new_game()
 	GameState.rng.seed = 31
-	GameState.day = 5
+	GameState.day = 10
 	for res in ResourceDefs.MATERIALS:
 		GameState.resources[res] = 400
 	GameState.build_room("kitchen", 0, 3)
@@ -558,6 +565,27 @@ func _event_stage() -> void:
 	anna.relationships[viktor.id] = 70.0
 	viktor.relationships[anna.id] = 70.0
 	GameState.storage = {"medkit": 2, "chocolate": 2}
+	# Известны все места и общины; один житель в пути — для встреч в вылазках.
+	for id: String in LocationDefs.INFO:
+		if not GameState.locations.has(id):
+			GameState.locations.append(id)
+	var traveller := SurvivorFactory.create_random(GameState.rng)
+	traveller.skills["combat"]["level"] = 3
+	GameState.add_survivor(traveller)
+	traveller.on_expedition = true
+	GameState.expeditions.append({"survivor_id": traveller.id, "days_left": 3, "total_days": 3, "location": "factory"})
+
+
+## Событие для проверки: встречам в пути нужен путник и подходящее место.
+func _build_test_event(id: String) -> Dictionary:
+	var def: Dictionary = EventDefs.INFO[id]
+	if String(def["category"]) != "expedition":
+		return EventSystem.build(id, GameState.rng)
+	var needs: Dictionary = def["needs"]
+	var loc := String((needs["locations"] as Array)[0]) if needs.has("locations") else "factory"
+	var trip: Dictionary = GameState.expeditions[-1]
+	trip["location"] = loc
+	return EventSystem.build(id, GameState.rng, {"a": int(trip["survivor_id"]), "loc": loc})
 
 
 func _state_valid() -> bool:
@@ -579,14 +607,14 @@ func _state_valid() -> bool:
 func _test_events() -> void:
 	for id: String in EventDefs.ids():
 		_event_stage()
-		var ev := EventSystem.build(id, GameState.rng)
+		var ev := _build_test_event(id)
 		_check(not ev.is_empty(), "событие «%s» возможно" % id)
 		if ev.is_empty():
 			continue
 		_check(not String(ev["text"]).contains("{"), "текст события заполнен: %s" % ev["text"])
 		for i in EventSystem.choices_of(ev).size():
 			_event_stage()
-			var fresh := EventSystem.build(id, GameState.rng)
+			var fresh := _build_test_event(id)
 			var view := EventSystem.choice_view(fresh, i)
 			_check(view["enabled"], "вариант %d события «%s» доступен" % [i, id])
 			var log_size := GameState.chronicle.size()
@@ -669,7 +697,7 @@ func _test_migration_v2() -> void:
 	var water := GameState.first_room_of_type("water")
 	_check(water.broken and water.tier == 1 and water.decor == ["", ""], "комнаты перенесены с поломками, уровень 1")
 	_check(GameState.expeditions.size() == 1 and GameState.expeditions[0]["location"] == "outskirts", "вылазка идёт в окрестности")
-	_check(GameState.locations == ["outskirts"] and GameState.research_done.is_empty(), "места и исследования по умолчанию")
+	_check(GameState.locations == ["outskirts", "houses"] and GameState.research_done.is_empty(), "места и исследования по умолчанию")
 	_check(GameState.first_room_of_type("kitchen") != null and not GameState.chronicle.is_empty(), "кухня и летопись сохранились")
 	var snapshot := JSON.stringify(GameState.to_dict())
 	SaveManager.save_game()
@@ -836,7 +864,7 @@ func _test_radio_and_locations() -> void:
 	GameState.rng.seed = 17
 	for res in ResourceDefs.IDS:
 		GameState.resources[res] = 100
-	_check(GameState.locations == ["outskirts"], "в начале известны только окрестности")
+	_check(GameState.locations == ["outskirts", "houses"], "в начале известны окрестности и дома")
 	_check(ExpeditionSystem.start_error(GameState.survivors[1], 2, "hospital").contains("не найдено"), "в неизвестное место не пойти")
 	GameState.build_room("radio", 2, 0)
 	var radio := GameState.first_room_of_type("radio")
@@ -959,6 +987,7 @@ func _test_balance() -> void:
 			_bot_manage()
 			var report := DaySystem.advance()
 			_bot_answer(report["event"])
+			_bot_answer(report["encounter"])
 			for line: Dictionary in report["lines"]:
 				if String(line["text"]).contains("не хватило"):
 					shortages += 1
@@ -1058,6 +1087,382 @@ func _bot_assign() -> void:
 			return a.effective_skill(skill) > b.effective_skill(skill))
 		GameState.assign(free[0].id, room.id)
 		free.remove_at(0)
+
+
+# --- Этап 4: внешний мир ---------------------------------------------------------
+
+func _trip(s: SurvivorData, days: int, location: String) -> Array[Dictionary]:
+	s.health = s.max_health
+	var lines: Array[Dictionary] = []
+	_check(ExpeditionSystem.start(s.id, days, location), "вылазка: %s" % location)
+	for _i in days:
+		ExpeditionSystem.tick(lines)
+	return lines
+
+
+func _test_locations_v4() -> void:
+	GameState.new_game()
+	GameState.rng.seed = 404
+	for res in ResourceDefs.IDS:
+		GameState.resources[res] = 100
+	for id: String in LocationDefs.INFO:
+		var place: Dictionary = LocationDefs.INFO[id]
+		for doc: String in place.get("docs", []):
+			_check(DocumentDefs.exists(doc), "находка %s существует" % doc)
+		for item: String in place["items"]:
+			_check(ItemDefs.exists(item) and PixelIcons.has_icon("item_" + item), "предмет %s из места %s есть и нарисован" % [item, id])
+		for revealed: String in place.get("reveals", []):
+			_check(LocationDefs.exists(revealed), "открываемое место %s существует" % revealed)
+		if place.has("shelter"):
+			_check(ShelterDefs.INFO.has(String(place["shelter"])), "община места %s существует" % id)
+	for id: String in ShelterDefs.INFO:
+		_check(LocationDefs.exists(String(ShelterDefs.INFO[id]["location"])), "место общины %s существует" % id)
+	var viktor := GameState.survivors[1]
+	var lines := _trip(viktor, 1, "outskirts")
+	_check(GameState.locations.has("factory"), "первая вылазка в окрестности открывает завод")
+	_check(int(GameState.location_visits["outskirts"]) == 1 and ExpeditionSystem.loot_left("outskirts") < 1.0, "место считает вылазки и беднеет")
+	var revealed := false
+	for line in lines:
+		revealed = revealed or String(line["text"]).contains("Завод")
+	_check(revealed, "игроку сообщают о новом месте")
+	_trip(viktor, 1, "outskirts")
+	_trip(viktor, 1, "outskirts")
+	_check(ExpeditionSystem.loot_left("outskirts") < 0.6, "повторные вылазки обирают место")
+	var before := ExpeditionSystem.loot_left("outskirts")
+	for _i in 5:
+		ExpeditionSystem.recover_places()
+	_check(ExpeditionSystem.loot_left("outskirts") > before, "со временем место восстанавливается")
+	for _i in 40:
+		ExpeditionSystem.recover_places()
+	_check(not GameState.depletion.has("outskirts"), "полностью восстановленное место забыто")
+	_trip(viktor, 2, "factory")
+	_check(GameState.locations.has("military") and GameState.visited.has("factory"), "завод открывает военную часть")
+	# Повторная вылазка в обобранное место приносит меньше.
+	GameState.new_game()
+	GameState.rng.seed = 5
+	var full := 0
+	var poor := 0
+	for _i in 20:
+		GameState.depletion.erase("factory")
+		var m0 := GameState.get_resource("metal")
+		GameState.resources["metal"] = 0
+		var s := GameState.survivors[0]
+		s.health = s.max_health
+		GameState.locations.append("factory")
+		var tmp: Array[Dictionary] = []
+		ExpeditionSystem._resolve(s, 2, "factory", tmp)
+		full += GameState.get_resource("metal")
+		GameState.resources["metal"] = 0
+		GameState.depletion["factory"] = ExpeditionSystem.DEPLETION_MAX
+		ExpeditionSystem._resolve(s, 2, "factory", tmp)
+		poor += GameState.get_resource("metal")
+		GameState.resources["metal"] = m0
+	_check(poor < full * 0.6, "в обобранном месте добычи меньше (%d против %d)" % [poor, full])
+	# Защитный костюм бережёт от свечения.
+	var suit := GameState.survivors[1]
+	suit.equipment["outfit"] = "hazmat"
+	_check(ExpeditionSystem.has_equipped(suit, "hazmat"), "костюм надет")
+	var sick := 0
+	for _i in 60:
+		suit.illnesses.clear()
+		var tmp2: Array[Dictionary] = []
+		suit.health = suit.max_health
+		ExpeditionSystem._resolve(suit, 3, "science_town", tmp2)
+		if suit.has_illness("radiation"):
+			sick += 1
+	_check(sick <= 12, "в костюме лучевая болезнь редкость (%d из 60)" % sick)
+
+
+func _test_documents() -> void:
+	GameState.new_game()
+	GameState.rng.seed = 8
+	var anna := GameState.survivors[0]
+	var viktor := GameState.survivors[1]
+	_check(DocumentSystem.progress() == Vector2i(0, DocumentDefs.INFO.size()), "архив пуст в начале")
+	var lines: Array[Dictionary] = []
+	DocumentSystem.reveal("answering_machine", lines, viktor)
+	_check(GameState.documents == ["answering_machine"], "находка записана в архив")
+	_check(DocumentSystem.witness_of("answering_machine") == anna, "Анна видела зелёное небо — узнаёт запись")
+	var recalled := false
+	for line in lines:
+		recalled = recalled or (String(line["text"]).begins_with("Анна") and line["kind"] == "story")
+	_check(recalled, "житель вспоминает ту ночь")
+	_check(DocumentSystem.witness_of("shift_tape") == viktor, "Виктор узнаёт запись о сработавшей защите")
+	DocumentSystem.reveal("answering_machine", lines, viktor)
+	_check(GameState.documents.size() == 1, "одна находка не находится дважды")
+	DocumentSystem.reveal("toolkit_find", lines, viktor)
+	_check(GameState.storage_count("toolkit") == 1, "найденное снаряжение идёт на склад")
+	_check(DocumentSystem.remaining("factory").size() == 2, "в месте осталось что искать")
+	for id: String in DocumentDefs.INFO:
+		var def: Dictionary = DocumentDefs.INFO[id]
+		_check(DocumentDefs.KIND_NAMES.has(def["kind"]) and String(def["text"]) != "", "находка %s описана" % id)
+		var placed := false
+		for loc: String in LocationDefs.INFO:
+			placed = placed or (LocationDefs.INFO[loc].get("docs", []) as Array).has(id)
+		_check(placed, "находку %s можно найти" % id)
+	# Повторные вылазки рано или поздно находят всё.
+	for _i in 30:
+		DocumentSystem.try_find(viktor, "houses", GameState.rng, lines)
+	_check(DocumentSystem.remaining("houses").is_empty(), "повторные вылазки находят новое")
+	SaveManager.save_game()
+	GameState.reset()
+	SaveManager.load_game()
+	_check(GameState.documents.size() == 3 and GameState.documents[0] == "answering_machine", "архив сохраняется")
+
+
+func _test_encounters() -> void:
+	GameState.new_game()
+	GameState.rng.seed = 12
+	GameState.day = 6
+	for res in ResourceDefs.IDS:
+		GameState.resources[res] = 100
+	for _i in 300:
+		var ev := EventSystem.roll(GameState.rng)
+		_check(ev.is_empty() or String(ev["category"]) != "expedition", "в убежище не бывает встреч в пути")
+	_check(ExpeditionSystem.roll_encounter(GameState.rng).is_empty(), "без вылазок встреч нет")
+	var viktor := GameState.survivors[1]
+	ExpeditionSystem.start(viktor.id, 3, "outskirts")
+	var found := {}
+	for _i in 200:
+		var ev := ExpeditionSystem.roll_encounter(GameState.rng)
+		if not ev.is_empty():
+			found[ev["id"]] = true
+			_check(String(ev["category"]) == "expedition" and int(ev["ctx"]["a"]) == viktor.id, "встреча случается с ушедшим")
+	_check(found.size() >= 4, "встречи разнообразны (%d)" % found.size())
+	_check(not found.has("exp_glow"), "зелёное марево не встречается в окрестностях")
+	# Решение в пути: проверка по навыку того, кто в пути.
+	var ev := EventSystem.build("exp_raiders", GameState.rng, {"a": viktor.id, "loc": "outskirts"})
+	_check(EventSystem.helper_for(ev, EventSystem.choices_of(ev)[0]) == viktor, "в пути рассчитывают на себя")
+	_check(EventSystem.choice_view(ev, 0)["note"].contains(viktor.first_name), "шанс показан для путника")
+	# Продление и возвращение.
+	var trap := EventSystem.build("exp_collapse", GameState.rng, {"a": viktor.id, "loc": "factory"})
+	_check(not trap.is_empty(), "обвал возможен на заводе")
+	var trip := ExpeditionSystem.find(viktor.id)
+	var left := int(trip["days_left"])
+	EventSystem.resolve(trap, 1, GameState.rng)
+	_check(int(trip["days_left"]) == left + 1, "обход продлевает вылазку")
+	var glow := EventSystem.build("exp_glow", GameState.rng, {"a": viktor.id, "loc": "military"})
+	EventSystem.resolve(glow, 2, GameState.rng)
+	_check(int(ExpeditionSystem.find(viktor.id)["days_left"]) == 1, "можно повернуть домой")
+	# Спасение: новый житель с биографией и привязанностью к спасителю.
+	var rescue := EventSystem.build("exp_wounded", GameState.rng, {"a": viktor.id, "loc": "outskirts"})
+	var people := GameState.population()
+	EventSystem.resolve(rescue, 1, GameState.rng)
+	_check(GameState.population() == people + 1, "спасённый приходит в убежище")
+	var saved := GameState.survivors[-1]
+	_check(saved.bio != "" and saved.get_relation(viktor.id) >= 30.0, "у спасённого своя история и тёплое отношение к спасителю")
+	# Нет места — человек уходит, о чём честно сказано.
+	while GameState.has_free_bed():
+		GameState.add_survivor(SurvivorFactory.create_random(GameState.rng))
+	var child := EventSystem.build("exp_wounded", GameState.rng, {"a": viktor.id, "loc": "outskirts"})
+	people = GameState.population()
+	var result := EventSystem.resolve(child, 2 if false else 1, GameState.rng) if GameState.storage_count("medkit") > 0 else EventSystem.resolve(child, 0, GameState.rng)
+	_check(GameState.population() == people and String(result["text"]).contains("койки"), "без свободной койки спасённый уходит")
+	# День с вылазкой: встреча попадает в отчёт.
+	GameState.new_game()
+	GameState.rng.seed = 3
+	for res in ResourceDefs.IDS:
+		GameState.resources[res] = 100
+	var got := false
+	for _i in 12:
+		var walker := GameState.survivors[1]
+		if not walker.on_expedition:
+			walker.health = walker.max_health
+			ExpeditionSystem.start(walker.id, 3, "houses")
+		var report := DaySystem.advance()
+		_check(report.has("encounter"), "в отчёте есть поле встречи")
+		if not (report["encounter"] as Dictionary).is_empty():
+			got = true
+			_bot_answer(report["encounter"])
+			_check(_state_valid(), "после встречи состояние корректно")
+	_check(got, "за дюжину дней в пути что-то случается")
+
+
+func _test_trade() -> void:
+	GameState.new_game()
+	GameState.rng.seed = 21
+	_check(not TradeSystem.present() and GameState.next_merchant_day == 3, "торговец придёт на третий день")
+	var lines: Array[Dictionary] = []
+	TradeSystem.daily(lines, GameState.rng)
+	_check(not TradeSystem.present(), "в первый вечер торговца нет")
+	GameState.day = 2
+	TradeSystem.daily(lines, GameState.rng)
+	_check(TradeSystem.present(), "торговец приходит")
+	var deals: Array = GameState.merchant["deals"]
+	_check(deals.size() >= 4, "у торговца несколько сделок")
+	for deal: Dictionary in deals:
+		_check(int(deal["stock"]) >= 1 and not (deal["give"] as Dictionary).is_empty(), "сделка с ценой и запасом")
+	for res in ResourceDefs.IDS:
+		GameState.resources[res] = 90
+	var index := 0
+	var stock := int(deals[0]["stock"])
+	var before := GameState.resources.duplicate()
+	_check(TradeSystem.deal_error(index) == "", "сделка доступна")
+	_check(TradeSystem.buy(index), "обмен состоялся")
+	_check(int(GameState.merchant["deals"][0]["stock"]) == stock - 1, "запас уменьшается")
+	var changed := false
+	for res in ResourceDefs.IDS:
+		changed = changed or GameState.get_resource(res) != int(before[res])
+	_check(changed, "ресурсы поменялись")
+	while TradeSystem.deal_error(index) == "":
+		TradeSystem.buy(index)
+	_check(TradeSystem.deal_error(index) == "Распродано", "распроданная сделка недоступна")
+	for res in ResourceDefs.IDS:
+		GameState.resources[res] = 0
+	var cheap := -1
+	for i in GameState.merchant["deals"].size():
+		if int(GameState.merchant["deals"][i]["stock"]) > 0:
+			cheap = i
+	_check(cheap >= 0 and TradeSystem.deal_error(cheap).begins_with("Не хватает") and not TradeSystem.buy(cheap), "без ресурсов не купить")
+	# Продажа.
+	GameState.storage_add("pistol")
+	var cur := TradeSystem.currency()
+	var price := TradeSystem.sell_price("pistol")
+	_check(price > 0, "за вещь дают цену")
+	_check(TradeSystem.sell("pistol") and GameState.get_resource(cur) == price, "продажа приносит ресурс торговца")
+	_check(TradeSystem.sell_error("pistol") == "Нет на складе", "нельзя продать то, чего нет")
+	# Редкие вещи.
+	var rare_seen := false
+	for _i in 30:
+		var visit := TradeSystem.make_visit("caravan", GameState.rng)
+		for deal: Dictionary in visit["deals"]:
+			rare_seen = rare_seen or (deal.has("item") and ItemDefs.is_rare(String(deal["item"])))
+	_check(rare_seen, "у торговцев бывают редкие вещи")
+	# Сохранение и уход.
+	SaveManager.save_game()
+	var saved := GameState.merchant.duplicate(true)
+	GameState.reset()
+	SaveManager.load_game()
+	_check(TradeSystem.present() and GameState.merchant["id"] == saved["id"] and GameState.merchant["deals"].size() == saved["deals"].size(), "торговец сохраняется")
+	_check(TradeSystem.sanitize({"id": "nobody"}).is_empty() and TradeSystem.sanitize("мусор").is_empty(), "битый торговец отбрасывается")
+	for _i in MerchantDefs.VISIT_DAYS:
+		TradeSystem.daily(lines, GameState.rng)
+	_check(not TradeSystem.present() and GameState.next_merchant_day > GameState.day + 1, "торговец уходит, следующий придёт позже")
+	for id: String in MerchantDefs.INFO:
+		for deal: Dictionary in MerchantDefs.INFO[id]["deals"] + MerchantDefs.INFO[id]["rare"]:
+			_check(not deal.has("item") or ItemDefs.exists(String(deal["item"])), "товар %s существует" % id)
+	# Торговец заходит в обычной игре.
+	GameState.new_game()
+	var visits := 0
+	for res in ResourceDefs.IDS:
+		GameState.resources[res] = 100
+	for _i in 20:
+		var report := DaySystem.advance()
+		for line: Dictionary in report["lines"]:
+			if String(line["text"]).begins_with("У ворот торговец"):
+				visits += 1
+		for s in GameState.survivors:
+			s.health = s.max_health
+		if GameState.survivors.is_empty():
+			break
+	_check(visits >= 2, "за 20 дней заходит несколько торговцев (%d)" % visits)
+
+
+func _test_shelters() -> void:
+	GameState.new_game()
+	GameState.rng.seed = 33
+	_check(ShelterSystem.known().is_empty(), "в начале о других общинах ничего не известно")
+	_check(ShelterSystem.help_error("north") != "", "неизвестной общине не помочь")
+	GameState.locations.append("north_shelter")
+	_check(ShelterSystem.known() == ["north"], "открытое место — известная община")
+	_check(ShelterSystem.relation("north") == 15, "стартовое отношение")
+	GameState.resources["medicine"] = 10
+	_check(ShelterSystem.send_help("north"), "помощь отправлена")
+	_check(ShelterSystem.relation("north") == 27 and GameState.get_resource("medicine") == 7, "помощь стоит ресурсов и улучшает отношения")
+	_check(ShelterSystem.help_error("north") == "Недавно уже помогали", "помогать можно не каждый день")
+	_check(ShelterSystem.request_error("north").begins_with("Нужны отношения"), "просить можно только у друзей")
+	var cost_before := ShelterSystem.deal_cost("north", 1)
+	ShelterSystem.change_relation("north", 40)
+	_check(int(ShelterSystem.deal_cost("north", 1)["metal"]) < int(cost_before["metal"]), "с друзьями обмен выгоднее")
+	var water := GameState.get_resource("water")
+	_check(ShelterSystem.request_help("north") and GameState.get_resource("water") > water, "друзья делятся")
+	_check(ShelterSystem.request_error("north") == "Недавно уже просили", "просьбы не бесконечны")
+	GameState.resources["metal"] = 50
+	_check(ShelterSystem.trade("north", 1), "обмен с общиной")
+	_check(ShelterSystem.trade_error("north", 1) == "Сегодня уже меняли", "обмен — раз в день")
+	GameState.day += 1
+	_check(ShelterSystem.trade_error("north", 1) == "", "назавтра можно снова")
+	# Отношения влияют на события; события — на отношения.
+	GameState.locations.append("military")
+	GameState.day = 10
+	var tribute := EventSystem.build("rubezh_tribute", GameState.rng)
+	_check(not tribute.is_empty() and String(tribute["text"]).contains("Рубеж"), "гарнизон требует дань")
+	GameState.resources["food"] = 50
+	var rel := ShelterSystem.relation("rubezh")
+	EventSystem.resolve(tribute, 0, GameState.rng)
+	_check(ShelterSystem.relation("rubezh") == rel + 12, "уплаченная дань смягчает гарнизон")
+	ShelterSystem.change_relation("rubezh", 60)
+	_check(EventSystem.build("rubezh_tribute", GameState.rng).is_empty(), "с друзьями дани нет")
+	_check(EventSystem.build("metro_conflict", GameState.rng).is_empty(), "конфликт только когда известны обе стороны")
+	GameState.locations.append("metro")
+	var war := EventSystem.build("metro_conflict", GameState.rng)
+	_check(not war.is_empty(), "конфликт общин")
+	var metro := ShelterSystem.relation("metro")
+	var rubezh := ShelterSystem.relation("rubezh")
+	EventSystem.resolve(war, 2, GameState.rng)
+	_check(ShelterSystem.relation("metro") < metro and ShelterSystem.relation("rubezh") > rubezh, "выбор стороны меняет отношения обеих")
+	# Союзники дарят подарки.
+	ShelterSystem.change_relation("north", 100)
+	var gifts := 0
+	for _i in 60:
+		var lines: Array[Dictionary] = []
+		GameState.resources["water"] = 0
+		ShelterSystem.daily(lines, GameState.rng)
+		if GameState.get_resource("water") > 0:
+			gifts += 1
+		ShelterSystem.change_relation("north", 100)
+	_check(gifts >= 2, "союзники присылают подарки (%d)" % gifts)
+	SaveManager.save_game()
+	var saved := GameState.shelters.duplicate(true)
+	GameState.reset()
+	SaveManager.load_game()
+	_check(GameState.shelters == saved, "отношения с общинами сохраняются")
+
+
+func _test_migration_v3() -> void:
+	var fixture := FileAccess.get_file_as_string("res://tests/fixtures/save_v3.json")
+	_check(fixture != "" and fixture.contains("\"version\":3"), "есть образец сохранения версии 3")
+	var f := FileAccess.open(SAVE_PATH, FileAccess.WRITE)
+	f.store_string(fixture)
+	f.close()
+	var raw: Dictionary = JSON.parse_string(fixture)["state"]
+	GameState.reset()
+	_check(SaveManager.load_game(), "сохранение версии 3 загружается")
+	_check(GameState.day == int(raw["day"]) and GameState.survivors.size() == (raw["survivors"] as Array).size(), "день и жители на месте")
+	for res in ResourceDefs.IDS:
+		_check(GameState.get_resource(res) == int(raw["resources"][res]), "ресурс %s сохранён" % res)
+	_check(GameState.locations.has("houses") and GameState.locations.has("hospital"), "старые места остались, дома добавились")
+	_check(GameState.expeditions.size() == (raw["expeditions"] as Array).size(), "вылазки продолжаются")
+	_check(GameState.documents.is_empty() and not TradeSystem.present() and GameState.shelters.is_empty(), "новое начинается с чистого листа")
+	_check(GameState.next_merchant_day == GameState.day + 2, "торговец скоро заглянет и в старую игру")
+	_check(GameState.research_current == String(raw["research_current"]) and GameState.first_room_of_type("radio") != null, "исследования и эфир на месте")
+	var report := DaySystem.advance()
+	_check(not report["game_over"] and _state_valid(), "старая игра продолжается")
+	SaveManager.save_game()
+	var text := FileAccess.get_file_as_string(SAVE_PATH)
+	_check(text.contains("\"version\":4"), "после сохранения версия 4")
+
+
+func _test_sound() -> void:
+	for id: String in ["click", "confirm", "error", "build", "day", "event", "story", "radio", "merchant", "coins", "return", "bad"]:
+		_check(SoundManager.has_sound(id), "есть звук %s" % id)
+	var was := SoundManager.enabled
+	SoundManager.set_enabled(false)
+	SoundManager.play("click")
+	_check(not SoundManager.enabled, "звук выключается")
+	SoundManager.set_enabled(true)
+	SoundManager.play("story")
+	_check(SoundManager.enabled, "звук включается")
+	var cfg := ConfigFile.new()
+	_check(cfg.load(SoundManager.SETTINGS_PATH) == OK and cfg.get_value("sound", "enabled") == true, "настройка звука сохраняется")
+	SoundManager.set_enabled(was)
+	var b := Button.new()
+	add_child(b)
+	_check(b.pressed.get_connections().size() >= 1, "кнопки сами щёлкают при нажатии")
+	b.queue_free()
+	# Звуки из итогов дня существуют.
+	for id: String in ["merchant", "return"]:
+		_check(SoundManager.has_sound(id), "звук события дня %s" % id)
 
 
 # --- Сцены ----------------------------------------------------------------------

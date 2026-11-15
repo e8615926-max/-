@@ -8,6 +8,43 @@ const MIN_DAYS := 1
 const MAX_DAYS := 3
 const SUPPLY_PER_DAY := 2
 const MIN_HEALTH := 40.0
+## Насколько место беднеет после каждой вылазки и как быстро восстанавливается (в день).
+const DEPLETION_PER_VISIT := 0.15
+const DEPLETION_MAX := 0.6
+const DEPLETION_RECOVERY := 0.03
+## Шанс встречи в пути за день вылазки.
+const ENCOUNTER_CHANCE := 0.35
+
+
+## Во сколько раз меньше добычи из-за того, что место уже обобрали.
+static func loot_left(location: String) -> float:
+	return 1.0 - float(GameState.depletion.get(location, 0.0))
+
+
+## Места понемногу восстанавливаются: приходят новые люди, ветер обнажает завалы.
+static func recover_places() -> void:
+	for id: String in GameState.depletion.keys():
+		var value := float(GameState.depletion[id]) - DEPLETION_RECOVERY
+		if value <= 0.0:
+			GameState.depletion.erase(id)
+		else:
+			GameState.depletion[id] = value
+
+
+static func has_equipped(s: SurvivorData, item_id: String) -> bool:
+	return s.equipment.values().has(item_id)
+
+
+## Встреча в пути: случается с теми, кому идти ещё хотя бы день. Возвращает событие или {}.
+static func roll_encounter(rng: RandomNumberGenerator) -> Dictionary:
+	var pool: Array[Dictionary] = []
+	for e in GameState.expeditions:
+		if int(e["days_left"]) >= 2:
+			pool.append(e)
+	if pool.is_empty() or rng.randf() >= ENCOUNTER_CHANCE * pool.size():
+		return {}
+	var e: Dictionary = pool[rng.randi() % pool.size()]
+	return EventSystem.roll_expedition(rng, int(e["survivor_id"]), String(e.get("location", "outskirts")))
 
 
 static func supplies_for(days: int, location: String = "outskirts") -> Dictionary:
@@ -99,7 +136,7 @@ static func _resolve(s: SurvivorData, days: int, location: String, lines: Array[
 	var rng := GameState.rng
 	var place: Dictionary = LocationDefs.INFO[location]
 	s.on_expedition = false
-	var mult := (1.0 + s.effective_skill("scavenging") * 0.08) * ResearchSystem.loot_mult()
+	var mult := (1.0 + s.effective_skill("scavenging") * 0.08) * ResearchSystem.loot_mult() * loot_left(location)
 	if s.has_trait("brave"):
 		mult *= 1.2
 
@@ -119,7 +156,11 @@ static func _resolve(s: SurvivorData, days: int, location: String, lines: Array[
 			GameState.resources[res] = mini(GameState.get_resource(res) + int(loot[res]), GameState.get_cap(res))
 			parts.append("%s +%d" % [ResourceDefs.name_of(res).to_lower(), int(loot[res])])
 	lines.append({"text": "%s возвращается (%s): %s." % [s.first_name, LocationDefs.name_of(location), ", ".join(parts)],
-		"kind": "good", "log": true})
+		"kind": "good", "log": true, "sound": "return"})
+	if loot_left(location) < 0.75:
+		lines.append({"text": "%s: место уже изрядно обобрали, добычи меньше." % LocationDefs.name_of(location), "kind": "info"})
+	GameState.location_visits[location] = int(GameState.location_visits.get(location, 0)) + 1
+	GameState.depletion[location] = minf(float(GameState.depletion.get(location, 0.0)) + DEPLETION_PER_VISIT, DEPLETION_MAX)
 
 	var items: Array = place["items"]
 	if rng.randf() < find_chance(s, days):
@@ -133,10 +174,24 @@ static func _resolve(s: SurvivorData, days: int, location: String, lines: Array[
 			lines.append({"text": "Записи из лаборатории продвинули исследование (+%d очков)." % points, "kind": "good"})
 			ResearchSystem.add_points(points, lines)
 
-	if not GameState.visited.has(location):
+	var first_visit := not GameState.visited.has(location)
+	if first_visit:
 		GameState.visited.append(location)
 		if place.has("first_visit"):
 			lines.append({"text": "%s: %s" % [LocationDefs.name_of(location), place["first_visit"]], "kind": "story", "log": true})
+		for revealed: String in place.get("reveals", []):
+			if not GameState.locations.has(revealed):
+				GameState.locations.append(revealed)
+				lines.append({"text": "%s %s дорогу к новому месту: %s." % [s.first_name, s.by_gender("разведал", "разведала"),
+					LocationDefs.name_of(revealed)], "kind": "good", "log": true})
+		if place.has("shelter"):
+			var shelter_id := String(place["shelter"])
+			lines.append({"text": "Знакомство: %s. %s" % [ShelterDefs.name_of(shelter_id), ShelterDefs.INFO[shelter_id]["situation"]],
+				"kind": "story", "log": true})
+	# Каждая вылазка может принести новую находку — в первый раз без первой записи наверняка.
+	DocumentSystem.try_find(s, location, rng, lines, first_visit and not place.has("first_visit"))
+	if place.has("shelter") and ShelterSystem.is_known(String(place["shelter"])):
+		ShelterSystem.change_relation(String(place["shelter"]), 2)
 
 	if rng.randf() < danger_of(s, days, location):
 		var damage := float(rng.randi_range(10, 25))
@@ -152,7 +207,10 @@ static func _resolve(s: SurvivorData, days: int, location: String, lines: Array[
 			MedicalSystem.infect(s, "infection", rng, lines, "рана воспалилась")
 	else:
 		s.change_mood(5.0)
-	if place.has("illness") and rng.randf() < float(place["illness"]["chance"]):
+	var illness_chance := float(place["illness"]["chance"]) if place.has("illness") else 0.0
+	if has_equipped(s, "hazmat"):
+		illness_chance *= 0.2
+	if place.has("illness") and rng.randf() < illness_chance:
 		MedicalSystem.infect(s, String(place["illness"]["id"]), rng, lines, LocationDefs.name_of(location))
 
 	if s.add_skill_xp("scavenging", 12 * days):

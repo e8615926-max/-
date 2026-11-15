@@ -13,6 +13,8 @@ signal time_changed
 signal chronicle_changed
 signal research_changed
 signal radio_changed
+## Торговцы, соседние общины и находки.
+signal world_changed
 
 ## Сколько записей хранит летопись.
 const CHRONICLE_MAX := 300
@@ -45,8 +47,18 @@ var radio_heard: Array[String] = []
 var radio_log: Array[Dictionary] = []
 var radio_pending: String = ""
 ## Места для вылазок: открытые и уже посещённые.
-var locations: Array[String] = ["outskirts"]
+var locations: Array[String] = ["outskirts", "houses"]
 var visited: Array[String] = []
+## Сколько раз побывали в месте и насколько оно разграблено (0..1, со временем восстанавливается).
+var location_visits: Dictionary = {}
+var depletion: Dictionary = {}
+## Найденные документы, записи и сигналы — по порядку находки.
+var documents: Array[String] = []
+## Торговец у ворот: {"id", "days_left", "deals": [{"give", "get"|"item", "stock"}]} или {}.
+var merchant: Dictionary = {}
+var next_merchant_day: int = 3
+## Отношения с другими общинами: {id: {"relation", "help_day", "request_day", "trade_day"}}.
+var shelters: Dictionary = {}
 
 var next_survivor_id: int = 1
 var next_room_id: int = 1
@@ -78,8 +90,14 @@ func reset() -> void:
 	radio_heard.clear()
 	radio_log.clear()
 	radio_pending = ""
-	locations = ["outskirts"]
+	locations = ["outskirts", "houses"]
 	visited.clear()
+	location_visits = {}
+	depletion = {}
+	documents.clear()
+	merchant = {}
+	next_merchant_day = 3
+	shelters = {}
 	next_survivor_id = 1
 	next_room_id = 1
 
@@ -111,6 +129,7 @@ func emit_all() -> void:
 	chronicle_changed.emit()
 	research_changed.emit()
 	radio_changed.emit()
+	world_changed.emit()
 
 
 # --- Время и летопись ---------------------------------------------------------
@@ -485,6 +504,12 @@ func to_dict() -> Dictionary:
 		"radio_pending": radio_pending,
 		"locations": locations.duplicate(),
 		"visited": visited.duplicate(),
+		"location_visits": location_visits.duplicate(),
+		"depletion": depletion.duplicate(),
+		"documents": documents.duplicate(),
+		"merchant": merchant.duplicate(true),
+		"next_merchant_day": next_merchant_day,
+		"shelters": shelters.duplicate(true),
 		"next_survivor_id": next_survivor_id,
 		"next_room_id": next_room_id,
 	}
@@ -543,10 +568,38 @@ func from_dict(d: Dictionary) -> void:
 	for id in saved_places:
 		if LocationDefs.exists(String(id)) and not locations.has(String(id)):
 			locations.append(String(id))
-	if not locations.has("outskirts"):
-		locations.insert(0, "outskirts")
 	for id in d.get("visited", []):
 		visited.append(String(id))
+	# Сохранения до версии 4 не знали домов и мест, которые открывают сами вылазки.
+	if not locations.has("outskirts"):
+		locations.insert(0, "outskirts")
+	if not locations.has("houses"):
+		locations.insert(1, "houses")
+	for id in visited:
+		if LocationDefs.exists(id):
+			for revealed: String in LocationDefs.INFO[id].get("reveals", []):
+				if not locations.has(revealed):
+					locations.append(revealed)
+	var saved_visits: Dictionary = d.get("location_visits", {})
+	for id: String in saved_visits:
+		if LocationDefs.exists(id):
+			location_visits[id] = maxi(int(saved_visits[id]), 0)
+	var saved_depletion: Dictionary = d.get("depletion", {})
+	for id: String in saved_depletion:
+		if LocationDefs.exists(id):
+			depletion[id] = clampf(float(saved_depletion[id]), 0.0, 1.0)
+	for id in d.get("documents", []):
+		if DocumentDefs.exists(String(id)) and not documents.has(String(id)):
+			documents.append(String(id))
+	merchant = TradeSystem.sanitize(d.get("merchant", {}))
+	next_merchant_day = int(d.get("next_merchant_day", day + 2))
+	var saved_shelters: Dictionary = d.get("shelters", {})
+	for id: String in saved_shelters:
+		if ShelterDefs.INFO.has(id):
+			var entry: Dictionary = saved_shelters[id]
+			shelters[id] = {"relation": clampi(int(entry.get("relation", 0)), -100, 100),
+				"help_day": int(entry.get("help_day", -99)), "request_day": int(entry.get("request_day", -99)),
+				"trade_day": int(entry.get("trade_day", -99))}
 	next_survivor_id = int(d.get("next_survivor_id", 1))
 	next_room_id = int(d.get("next_room_id", 1))
 	# Защита от повреждённых сохранений: счётчики и ссылки должны быть согласованы.

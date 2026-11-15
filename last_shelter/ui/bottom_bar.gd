@@ -11,6 +11,7 @@ const ACTIONS := [
 	["survivors", "Выжившие", "survivors"],
 	["storage", "Склад", "storage"],
 	["expeditions", "Экспедиции", "expedition"],
+	["world", "Мир", "world"],
 	["next_day", "Следующий день", "next_day"],
 ]
 

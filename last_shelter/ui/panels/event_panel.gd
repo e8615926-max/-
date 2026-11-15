@@ -8,7 +8,8 @@ signal resolved(result: Dictionary)
 const KIND_COLORS := {"good": UITheme.GOOD, "bad": UITheme.BAD, "info": UITheme.TEXT}
 const CATEGORY_ICONS := {
 	"breakdown": "build", "emergency": "power", "trouble": "storage", "health": "health",
-	"social": "survivors", "visitor": "expedition", "luck": "chronicle",
+	"social": "survivors", "visitor": "expedition", "luck": "chronicle", "expedition": "expedition",
+	"shelter": "shelters",
 }
 
 var _event: Dictionary
@@ -69,4 +70,5 @@ func _choose(index: int) -> void:
 	ok.pressed.connect(close)
 	_choices_box.add_child(ok)
 	set_dismissable(true)
+	SoundManager.play("bad" if result["kind"] == "bad" else "confirm")
 	resolved.emit(result)

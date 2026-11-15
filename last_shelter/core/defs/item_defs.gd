@@ -30,6 +30,14 @@ const INFO := {
 		"desc": "Излечивают самую тяжёлую болезнь."},
 	"armor": {"name": "Бронежилет", "slot": "outfit", "bonus": {"combat": 3},
 		"desc": "Тяжёлый, но спасает жизнь."},
+	"rifle": {"name": "Карабин", "slot": "weapon", "bonus": {"combat": 5}, "rare": true,
+		"desc": "Армейский карабин с оптикой. Редкость."},
+	"hazmat": {"name": "Защитный костюм", "slot": "outfit", "bonus": {"scavenging": 1}, "rare": true,
+		"desc": "Почти не пропускает свечение: лучевая болезнь в вылазках впятеро реже."},
+	"binoculars": {"name": "Бинокль", "slot": "tool", "bonus": {"scavenging": 3}, "rare": true,
+		"desc": "Видно опасность издалека и добычу тоже."},
+	"toolkit": {"name": "Набор инструментов", "slot": "tool", "bonus": {"engineering": 3}, "rare": true,
+		"desc": "Полный кейс: от отвёрток до паяльника."},
 }
 
 ## Что можно изготовить: в какой комнате, из чего и после какого исследования.
@@ -42,6 +50,21 @@ const RECIPES := {
 	"pistol": {"room": "workshop", "cost": {"metal": 30}, "research": "armor"},
 	"pills": {"room": "pharmacy", "cost": {"medicine": 3}, "research": "field_medicine"},
 }
+
+## Ценность предмета при продаже торговцу (в единицах металла).
+const VALUES := {
+	"knife": 6, "pistol": 25, "wrench": 10, "trowel": 6, "gasmask": 10, "overalls": 6, "labcoat": 8,
+	"jacket": 8, "medkit": 12, "chocolate": 8, "pills": 10, "armor": 30, "rifle": 60, "hazmat": 50,
+	"binoculars": 40, "toolkit": 45,
+}
+
+static func value_of(id: String) -> int:
+	return int(VALUES.get(id, 5))
+
+
+static func is_rare(id: String) -> bool:
+	return bool(INFO[id].get("rare", false))
+
 
 ## Что можно найти в экспедиции.
 const LOOT_TABLE: Array[String] = [

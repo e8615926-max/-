@@ -25,6 +25,7 @@ func _ready() -> void:
 	if GameState.survivors.is_empty():
 		GameState.new_game()
 	GameState.active = true
+	SoundManager.set_ambient(true)
 	_build_ui()
 	if GameState.day == 1 and GameState.workers_count() == 0:
 		_show_toast("Нажмите на комнату, чтобы назначить работников", 5.0)
@@ -54,6 +55,7 @@ func _process(delta: float) -> void:
 
 func _exit_tree() -> void:
 	GameState.active = false
+	SoundManager.set_ambient(false)
 
 
 func _build_ui() -> void:
@@ -182,16 +184,34 @@ func _open_expeditions() -> void:
 	_open(panel)
 
 
+func _open_world(tab: String = "trade") -> void:
+	_cancel_build()
+	var panel := WorldPanel.new(tab)
+	panel.message.connect(_show_toast)
+	_open(panel)
+
+
 func _open_chronicle() -> void:
 	_cancel_build()
 	_open(ChroniclePanel.new())
 
 
 func _show_event(ev: Dictionary) -> void:
-	if ev.is_empty():
+	_show_events([ev])
+
+
+## Показывает события по очереди: следующее — когда закрыли предыдущее.
+func _show_events(queue: Array) -> void:
+	while not queue.is_empty() and (queue[0] as Dictionary).is_empty():
+		queue.pop_front()
+	if queue.is_empty():
 		return
+	var ev: Dictionary = queue.pop_front()
 	var panel := EventPanel.new(ev)
 	panel.resolved.connect(func(_result: Dictionary) -> void: SaveManager.save_game())
+	if not queue.is_empty():
+		panel.closed.connect(_show_events.bind(queue), CONNECT_DEFERRED)
+	SoundManager.play("radio" if String(ev["category"]) == "expedition" else "event")
 	_open(panel)
 
 
@@ -206,6 +226,7 @@ func _open_pause() -> void:
 	panel.chronicle_requested.connect(_open_chronicle)
 	panel.research_requested.connect(_open_research)
 	panel.radio_requested.connect(_open_radio)
+	panel.world_requested.connect(_open_world.bind("archive"))
 	panel.save_requested.connect(func() -> void:
 		_show_toast("Игра сохранена" if SaveManager.save_game() else "Не удалось сохранить игру")
 		panel.close())
@@ -255,6 +276,7 @@ func _on_action(action: String) -> void:
 		"survivors": _open_survivors()
 		"storage": _open_storage()
 		"expeditions": _open_expeditions()
+		"world": _open_world("shelters" if not TradeSystem.present() and not ShelterSystem.known().is_empty() else "trade")
 		"next_day": _next_day()
 
 
@@ -279,9 +301,11 @@ func _on_slot_tapped(level: int, col: int) -> void:
 		return
 	var error := GameState.build_error(type, level, col)
 	if error != "":
+		SoundManager.play("error")
 		_show_toast(error)
 		return
 	GameState.build_room(type, level, col)
+	SoundManager.play("build")
 	_cancel_build()
 	_show_toast("Построено: %s" % RoomDefs.name_of(type))
 
@@ -310,12 +334,27 @@ func _resolve_day() -> void:
 	if not report["game_over"]:
 		SaveManager.save_game()
 	var panel := DayReportPanel.new(report)
+	SoundManager.play(_report_sound(report))
 	if report["game_over"]:
 		panel.closed.connect(_show_game_over.bind(int(report["day"])), CONNECT_DEFERRED)
-	elif not (report["event"] as Dictionary).is_empty():
-		# Событие, до которого не дошли днём, случается утром.
-		panel.closed.connect(_show_event.bind(report["event"]), CONNECT_DEFERRED)
+	else:
+		# Событие, до которого не дошли днём, случается утром; потом — вести от ушедших в вылазку.
+		var queue: Array = [report["event"], report.get("encounter", {})]
+		panel.closed.connect(_show_events.bind(queue), CONNECT_DEFERRED)
 	_open(panel)
+
+
+## Чем озвучить итоги дня: самое важное из случившегося.
+func _report_sound(report: Dictionary) -> String:
+	if report["game_over"]:
+		return "bad"
+	var sound := "day"
+	for line: Dictionary in report["lines"]:
+		if line.has("sound"):
+			return String(line["sound"])
+		if line["kind"] == "story":
+			sound = "story"
+	return sound
 
 
 ## Ночью кнопка «Следующий день» мягко мигает.

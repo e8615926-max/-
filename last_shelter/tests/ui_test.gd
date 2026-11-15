@@ -41,6 +41,7 @@ func _run() -> void:
 	await _test_storage_and_expedition()
 	await _test_time_and_events()
 	await _test_stage3()
+	await _test_stage4()
 	await _test_next_day_and_save()
 	await _test_touch_scroll()
 	await _test_restart_and_game_over()
@@ -173,6 +174,7 @@ func _test_next_day_and_save() -> void:
 	await _shot("10_report")
 	await _click(_button("Начать день 2"), "закрыть итоги дня")
 	_calm()
+	await _resolve_pending_events()
 	_check(_panel(BasePanel) == null, "итоги дня закрываются")
 
 	await _click(_menu_button(), "кнопка меню")
@@ -326,6 +328,91 @@ func _test_stage3() -> void:
 	_check(_panel(ExpeditionsPanel).get("_location") == "hospital", "место вылазки выбирается")
 	await _shot("20_locations")
 	await _tap(OUTSIDE)
+
+
+func _test_stage4() -> void:
+	var game := get_tree().current_scene
+	for res in ResourceDefs.IDS:
+		GameState.resources[res] = 100
+	GameState.storage_add("knife", 2)
+	GameState.merchant = TradeSystem.make_visit("mikhalych", GameState.rng)
+	GameState.world_changed.emit()
+	GameState.resources_changed.emit()
+	# Торговец
+	await _click(_button("Мир"), "кнопка «Мир» внизу")
+	var world := _panel(WorldPanel)
+	_check(world != null and world.call("get_tab") == "trade", "«Мир» открывает торговца")
+	_check(_label_exact("Старьёвщик Михалыч") != null, "видно, кто пришёл")
+	await _shot("23_trader")
+	var stock := int(GameState.merchant["deals"][0]["stock"])
+	await _click(_button("Обменять"), "обменять")
+	_check(int(GameState.merchant["deals"][0]["stock"]) == stock - 1, "обмен у торговца кнопкой")
+	var knives := GameState.storage_count("knife")
+	await _click(_row_button("Нож", "Продать"), "продать нож")
+	_check(GameState.storage_count("knife") == knives - 1, "продажа вещи кнопкой")
+	# Общины
+	await _click(_button("Общины"), "вкладка «Общины»")
+	_check(world.call("get_tab") == "shelters" and _label_prefix("Неизвестная община") != null, "неизвестные общины скрыты")
+	GameState.locations.append("north_shelter")
+	GameState.world_changed.emit()
+	await _frames(2)
+	var rel := ShelterSystem.relation("north")
+	await _click(_button_prefix("Помочь:"), "помочь «Северному»")
+	_check(ShelterSystem.relation("north") > rel, "помощь общине кнопкой")
+	_check(_button("Недавно уже помогали") != null and _button("Недавно уже помогали").disabled, "повторная помощь недоступна и объяснена")
+	await _shot("24_shelters")
+	# Архив
+	var lines: Array[Dictionary] = []
+	DocumentSystem.reveal("answering_machine", lines, GameState.survivors[0])
+	await _frames(2)
+	await _click(_button("Архив"), "вкладка «Архив»")
+	_check(_label_prefix("Собрано находок: 1 из") != null and _label_exact("Запись · Автоответчик") != null, "находка в архиве")
+	await _shot("25_archive")
+	await _tap(OUTSIDE)
+	_check(_panel(WorldPanel) == null, "окно мира закрывается")
+	# Архив и звук из меню
+	await _click(_menu_button(), "кнопка меню")
+	await _click(_button("Архив находок"), "архив в меню")
+	_check(_panel(WorldPanel) != null and _panel(WorldPanel).call("get_tab") == "archive", "меню открывает архив")
+	await _tap(OUTSIDE)
+	await _click(_menu_button(), "кнопка меню")
+	var was: bool = SoundManager.enabled
+	await _click(_button_prefix("Звук:"), "переключить звук")
+	_check(SoundManager.enabled != was and _button_prefix("Звук:").text.ends_with("выключен" if was else "включён"), "звук переключается в меню")
+	await _click(_button_prefix("Звук:"), "вернуть звук")
+	_check(SoundManager.enabled == was, "звук возвращается")
+	await _tap(OUTSIDE)
+	# Встреча в пути показывается после итогов дня — с выбором и итогом.
+	GameState.add_survivor(SurvivorFactory.create_random(GameState.rng))
+	var walker := GameState.survivors_in_shelter()[0]
+	walker.health = walker.max_health
+	ExpeditionSystem.start(walker.id, 3, "outskirts")
+	var ev := EventSystem.build("exp_dogs", GameState.rng, {"a": walker.id, "loc": "outskirts"})
+	game.call("_show_events", [{}, ev])
+	await _frames(3)
+	var panel := _panel(EventPanel)
+	_check(panel != null and _label_prefix("Окрестности. Из-за развалин") != null, "встреча в пути открывается")
+	await _shot("26_encounter")
+	var food := GameState.get_resource("food")
+	await _click(_card("Бросить им еду"), "бросить еду")
+	_check(GameState.get_resource("food") == food - 5, "решение в пути применяется")
+	await _click(_button("Продолжить"), "продолжить после встречи")
+	_check(_panel(EventPanel) == null, "встреча закрывается")
+	_calm()
+
+
+## Если после итогов дня пришли события или встречи в пути — отвечаем первым вариантом.
+func _resolve_pending_events() -> void:
+	for _i in 4:
+		await _frames(3)
+		var panel := _panel(EventPanel)
+		if panel == null:
+			return
+		var choices := _find_all(func(n: Node) -> bool:
+			return n is Button and (n as Button).text == "" and not (n as Button).disabled, panel)
+		if not choices.is_empty():
+			await _click(choices[0] as Control, "вариант решения")
+		await _click(_button("Продолжить"), "продолжить")
 
 
 func _test_touch_scroll() -> void:

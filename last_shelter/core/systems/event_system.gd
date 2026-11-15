@@ -3,12 +3,15 @@ extends RefCounted
 ## Случайные события: выбор подходящего события, проверки навыков и последствия.
 ## Событие — словарь {"id", "title", "category", "text", "ctx"}; ctx хранит участников
 ## (a, b — id выживших), комнату (room — id), гостя (newcomer — SurvivorData) и родство (relation).
+## Встречи в пути (category "expedition") хранят место вылазки в loc, а a — того, кто в пути;
+## события общин хранят shelter — id общины.
 
 const DAILY_CHANCE := 0.6
 const EARLIEST := 540   # 09:00
 const LATEST := 1200    # 20:00
 
 static var _gender_re: RegEx
+const RARE_ITEMS: Array = ["rifle", "hazmat", "binoculars", "toolkit"]
 
 
 ## Минута, когда сегодня случится событие, или -1, если день пройдёт спокойно.
@@ -21,6 +24,8 @@ static func roll(rng: RandomNumberGenerator) -> Dictionary:
 	var candidates: Array = []
 	var total := 0.0
 	for id: String in EventDefs.INFO:
+		if String(EventDefs.INFO[id]["category"]) == "expedition":
+			continue
 		var ev := build(id, rng)
 		if ev.is_empty():
 			continue
@@ -37,6 +42,26 @@ static func roll(rng: RandomNumberGenerator) -> Dictionary:
 	return candidates[-1][0]
 
 
+## Встреча в пути для выжившего survivor_id в месте location или {}.
+static func roll_expedition(rng: RandomNumberGenerator, survivor_id: int, location: String) -> Dictionary:
+	var candidates: Array = []
+	var total := 0.0
+	for id: String in EventDefs.INFO:
+		if String(EventDefs.INFO[id]["category"]) != "expedition":
+			continue
+		var ev := build(id, rng, {"a": survivor_id, "loc": location})
+		if ev.is_empty():
+			continue
+		candidates.append([ev, float(EventDefs.INFO[id]["weight"])])
+		total += float(EventDefs.INFO[id]["weight"])
+	var pick := rng.randf() * total
+	for c: Array in candidates:
+		pick -= float(c[1])
+		if pick <= 0.0:
+			return c[0]
+	return {} if candidates.is_empty() else candidates[-1][0]
+
+
 ## Изношенные комнаты ломаются чаще.
 static func _weight_bonus(ev: Dictionary) -> float:
 	var room := GameState.get_room(int(ev["ctx"].get("room", -1)))
@@ -46,7 +71,7 @@ static func _weight_bonus(ev: Dictionary) -> float:
 
 
 ## Собирает конкретное событие, если сейчас для него есть условия, иначе {}.
-static func build(id: String, rng: RandomNumberGenerator) -> Dictionary:
+static func build(id: String, rng: RandomNumberGenerator, base_ctx: Dictionary = {}) -> Dictionary:
 	if not EventDefs.INFO.has(id):
 		return {}
 	var def: Dictionary = EventDefs.INFO[id]
@@ -54,11 +79,29 @@ static func build(id: String, rng: RandomNumberGenerator) -> Dictionary:
 	var people := GameState.survivors_in_shelter()
 	if people.is_empty() or GameState.day < int(needs.get("min_day", 1)):
 		return {}
+	var ctx := base_ctx.duplicate()
+	if needs.get("expedition", false):
+		var traveller := GameState.get_survivor(int(ctx.get("a", -1)))
+		if traveller == null or not traveller.on_expedition or not ctx.has("loc"):
+			return {}
+		if needs.has("locations") and not (needs["locations"] as Array).has(String(ctx["loc"])):
+			return {}
+	elif not base_ctx.is_empty():
+		return {}
+	if needs.has("shelter"):
+		var shelter_id := String(needs["shelter"])
+		if not ShelterSystem.is_known(shelter_id):
+			return {}
+		var rel := ShelterSystem.relation(shelter_id)
+		if rel < int(needs.get("min_relation", -100)) or rel > int(needs.get("max_relation", 100)):
+			return {}
+		if needs.has("also_known") and not ShelterSystem.is_known(String(needs["also_known"])):
+			return {}
+		ctx["shelter"] = shelter_id
 	if needs.has("min_food") and GameState.get_resource("food") < int(needs["min_food"]):
 		return {}
 	if needs.get("free_bed", false) and not GameState.has_free_bed():
 		return {}
-	var ctx := {}
 
 	if needs.has("room"):
 		var types: Array = needs["room"] if needs["room"] is Array else [needs["room"]]
@@ -162,6 +205,10 @@ static func fill(text: String, ev: Dictionary, helper: SurvivorData = null) -> S
 	var room := GameState.get_room(int(ev["ctx"].get("room", -1)))
 	if room != null:
 		result = result.replace("{room}", room.display_name())
+	if ev["ctx"].has("loc"):
+		result = result.replace("{loc}", LocationDefs.name_of(String(ev["ctx"]["loc"])))
+	if ev["ctx"].has("shelter"):
+		result = result.replace("{shelter}", ShelterDefs.name_of(String(ev["ctx"]["shelter"])))
 	return result
 
 
@@ -190,6 +237,9 @@ static func helper_for(ev: Dictionary, choice: Dictionary) -> SurvivorData:
 	var check: Dictionary = choice.get("check", {})
 	if not check.has("skill"):
 		return null
+	# В пути рассчитывать можно только на себя.
+	if ev["ctx"].has("loc"):
+		return GameState.get_survivor(int(ev["ctx"].get("a", -1)))
 	var skill := String(check["skill"])
 	var exclude: Array = []
 	if check.get("exclude_actors", false):
@@ -380,8 +430,59 @@ static func _apply_effects(effects: Array, ev: Dictionary, helper: SurvivorData,
 				notes.append("%s и %d металла." % [ItemDefs.name_of(item_id).to_lower(), metal])
 			"newcomer":
 				var n: SurvivorData = ev["ctx"].get("newcomer")
-				if n != null and GameState.has_free_bed() and GameState.get_survivor(n.id) == null:
-					GameState.add_survivor(n)
+				if n != null and GameState.get_survivor(n.id) == null:
+					if GameState.has_free_bed():
+						if e.has("health"):
+							n.health = float(e["health"])
+						GameState.add_survivor(n)
+						# Спасённый и спаситель с первого дня неравнодушны друг к другу.
+						var rescuer := GameState.get_survivor(int(ev["ctx"].get("a", -1)))
+						if rescuer != null and ev["ctx"].has("loc"):
+							n.change_relation(rescuer.id, 30.0)
+							rescuer.change_relation(n.id, 20.0)
+						notes.append("%s теперь живёт в убежище." % n.first_name)
+					else:
+						notes.append("Но в убежище нет свободной койки — %s %s своей дорогой." % [n.first_name, n.by_gender("пошёл", "пошла")])
+			"shelter":
+				var shelter_id := String(e.get("id", ev["ctx"].get("shelter", "")))
+				if ShelterDefs.INFO.has(shelter_id):
+					ShelterSystem.change_relation(shelter_id, int(e["amount"]))
+					notes.append("%s: отношения %s." % [ShelterDefs.name_of(shelter_id), "%+d" % int(e["amount"])])
+			"find_item":
+				var pool: Array = []
+				if String(e.get("pool", "location")) == "rare":
+					pool = RARE_ITEMS
+				elif ev["ctx"].has("loc"):
+					pool = LocationDefs.INFO[String(ev["ctx"]["loc"])]["items"]
+				if pool.is_empty():
+					pool = ItemDefs.LOOT_TABLE
+				var found: String = pool[rng.randi() % pool.size()]
+				GameState.storage_add(found)
+				notes.append("%s (на склад)." % ItemDefs.name_of(found).to_lower())
+			"find_doc":
+				var place := String(e.get("location", ev["ctx"].get("loc", "")))
+				var doc_lines: Array[Dictionary] = []
+				if place != "" and LocationDefs.exists(place):
+					DocumentSystem.try_find(GameState.get_survivor(int(ev["ctx"].get("a", -1))), place, rng, doc_lines, true)
+				if doc_lines.is_empty():
+					GameState.radio_progress += 4.0
+					notes.append("Ничего нового — но радистам пригодится каждая подробность.")
+				for line in doc_lines:
+					notes.append(String(line["text"]))
+			"extend":
+				var trip := ExpeditionSystem.find(int(ev["ctx"].get("a", -1)))
+				if not trip.is_empty():
+					trip["days_left"] = int(trip["days_left"]) + int(e.get("days", 1))
+					trip["total_days"] = int(trip["total_days"]) + int(e.get("days", 1))
+					notes.append("Вылазка продлится дольше.")
+			"return":
+				var trip := ExpeditionSystem.find(int(ev["ctx"].get("a", -1)))
+				if not trip.is_empty() and int(trip["days_left"]) > 1:
+					trip["total_days"] = maxi(int(trip["total_days"]) - int(trip["days_left"]) + 1, 1)
+					trip["days_left"] = 1
+					notes.append("Завтра будет дома.")
+			"radio":
+				GameState.radio_progress += float(e["amount"])
 			"relative":
 				var n: SurvivorData = ev["ctx"].get("newcomer")
 				var host := GameState.get_survivor(int(ev["ctx"].get("a", -1)))

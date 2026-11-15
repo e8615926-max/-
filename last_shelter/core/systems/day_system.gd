@@ -146,7 +146,8 @@ static func compute_economy() -> Dictionary:
 
 ## Завершает текущий день. Возвращает отчёт:
 ## {"day": номер прошедшего дня, "lines": [{"text", "kind", "log"?}], "delta": {ресурс: изменение},
-##  "game_over": bool, "event": событие, которое не успело случиться днём, или {}}
+##  "game_over": bool, "event": событие, которое не успело случиться днём, или {},
+##  "encounter": встреча в пути у кого-то из ушедших в вылазку, или {}}
 static func advance() -> Dictionary:
 	var lines: Array[Dictionary] = []
 	var rng := GameState.rng
@@ -225,7 +226,13 @@ static func advance() -> Dictionary:
 
 	# 4. Отношения, пары и экспедиции.
 	RelationshipSystem.daily_update(lines)
+	var encounter := ExpeditionSystem.roll_encounter(rng)
 	ExpeditionSystem.tick(lines)
+	ExpeditionSystem.recover_places()
+
+	# 4б. Внешний мир: торговцы и соседние общины.
+	TradeSystem.daily(lines, rng)
+	ShelterSystem.daily(lines, rng)
 
 	# 5. Износ оборудования.
 	MaintenanceSystem.tick(lines, unpowered)
@@ -279,6 +286,7 @@ static func advance() -> Dictionary:
 		"delta": actual,
 		"game_over": GameState.survivors.is_empty(),
 		"event": pending,
+		"encounter": encounter,
 	}
 
 
