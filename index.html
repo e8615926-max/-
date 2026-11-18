@@ -3568,11 +3568,16 @@ for (const prop of ['fillStyle', 'strokeStyle']) {   // и заливка, и о
 const SPR_FPS = 20, SPR_MAX = 1700, SPR_CACHE = new Map(), SPR_POSE = new Map();
 let SPR_IDS = new WeakMap();
 let sprN = 0;
+// бюджет на новые кадры героев: при входе в магазин или смене страницы кэш пуст и каждый из ~12 героев рисуется по точкам —
+// на слабом телефоне это 10–20 мс в кадр (первые ~5 с магазин дёргался). Теперь за кадр рисуем новые кадры не дольше SPR_BUDGET мс,
+// остальные герои на кадр-другой показывают свой предыдущий кадр — анимация чуть догоняет, а картинка не тормозит
+const SPR_BUDGET = 3, SPR_LAST = new Map();
+let sprFrame = 0, sprBudF = -1, sprBudMs = 0;
 // готовый кадр героя (холст SPR_W×SPR_H, как hcv). Если кадр уже был — без перерисовки
 const SPR_LOOP = Math.PI * 2 / 2.4 * 2;   // 2 вдоха ≈ 5.2 с: при 20 кадрах/с — 105 кадров на позу (12 героев на странице влезают в кэш)
 function heroSpriteGet(sk, pose, t, blink, fpsFix) {
   let id = SPR_IDS.get(sk);
-  if (!id) { if (sprN >= 8000) { sprN = 0; SPR_IDS = new WeakMap(); SPR_CACHE.clear(); } SPR_IDS.set(sk, id = ++sprN); }   // номера героев влезают в ключ; кончились — начинаем заново
+  if (!id) { if (sprN >= 8000) { sprN = 0; SPR_IDS = new WeakMap(); SPR_CACHE.clear(); SPR_LAST.clear(); } SPR_IDS.set(sk, id = ++sprN); }   // номера героев влезают в ключ; кончились — начинаем заново
   let pi = SPR_POSE.get(pose); if (pi === undefined) SPR_POSE.set(pose, pi = SPR_POSE.size);
   // fpsFix — своя частота у зацикленных анимаций (соперники, аватарки): ключ кадра не меняется, жив ты или нет
   // время анимации зациклено (3 вдоха ≈ 7.85 с): раньше оно росло бесконечно, кадры не повторялись и кэш НИКОГДА не срабатывал —
@@ -3582,13 +3587,17 @@ function heroSpriteGet(sk, pose, t, blink, fpsFix) {
         key = (((tq * 4 + (fps === 30 ? 1 : fps === SPR_FPS ? 0 : fps === 5 ? 2 : 3)) * 2 + (blink ? 1 : 0)) * 64 + (pi & 63)) * 8192 + id;
   let c = SPR_CACHE.get(key);
   if (c) { SPR_CACHE.delete(key); SPR_CACHE.set(key, c); return c; }   // LRU: свежий — в конец
+  if (sprBudF !== sprFrame) { sprBudF = sprFrame; sprBudMs = 0; }
+  const lk = (pi & 63) * 8192 + id;   // этот герой в этой позе (без времени): его последний нарисованный кадр
+  if (sprBudMs > SPR_BUDGET) { const o = SPR_CACHE.get(SPR_LAST.get(lk)); if (o) return o; }   // бюджет кадра исчерпан — пока прежний кадр
+  const tb = performance.now();
   hctx.setTransform(1, 0, 0, 1, 0, 0);
   hueNow = sk.hue || 0;
   try { heroSprite0(sk, pose, tq / fps, blink); } finally { hueNow = 0; }
   if (SPR_CACHE.size >= SPR_MAX) { const old = SPR_CACHE.keys().next().value; c = SPR_CACHE.get(old); SPR_CACHE.delete(old); }
   else { c = document.createElement('canvas'); c.width = SPR_W; c.height = SPR_H; c.__spr = true; c.__g = c.getContext('2d'); }   // __spr: drawImage сам переводит координаты «32×40» в большой холст, как у hcv
   const g = c.__g || (c.__g = c.getContext('2d')); g.setTransform(1, 0, 0, 1, 0, 0); g.clearRect(0, 0, SPR_W, SPR_H); drawRaw.call(g, hcv, 0, 0);
-  SPR_CACHE.set(key, c);
+  SPR_CACHE.set(key, c); SPR_LAST.set(lk, key); sprBudMs += performance.now() - tb;
   hctx.setTransform(1, 0, 0, 1, SPR_X, 8 + SPR_Y);
   sprFresh = c;   // этот кадр уже лежит в hcv
   return c;
@@ -7510,26 +7519,6 @@ function emoDo(id) {
 // смайлики в меню: облачко «…» (будто кто-то пишет); нажал — веер смайликов, выбрал — герой показывает, веер закрывается
 const MENU_EMO = { x: W - 60, y: 392, w: 46, h: 38 };
 let menuEmOpen = false, menuEmT = 0;
-const menuEmItem = i => ({ x: MENU_EMO.x - 2 - Math.floor(i / 5) * 52, y: MENU_EMO.y - 4 - ((i % 5) + 1) * 50, w: 46, h: 46 });
-function menuEmoClick(pt) {
-  const wl = emoWheel(); if (!wl.length || TUT.on || mp.link) return false;
-  if (inRect(pt, MENU_EMO)) { audio(); menuEmOpen = !menuEmOpen; menuEmT = time; sfx.click(); return true; }
-  if (menuEmOpen) { for (let i = 0; i < wl.length; i++) if (inRect(pt, menuEmItem(i))) { emoDo(wl[i]); return true; } menuEmOpen = false; return true; }
-  return false;
-}
-function drawMenuEmo() {
-  const wl = emoWheel(); if (!wl.length || mp.link) return; const b = MENU_EMO, bob = Math.round(Math.sin(time * 2.5) * 1.5), y = b.y + bob;
-  // облачко-сообщение с хвостиком
-  ctx.fillStyle = OL; ctx.fillRect(b.x, y - 2, b.w, b.h - 6); ctx.fillRect(b.x - 2, y, b.w + 4, b.h - 10); ctx.fillRect(b.x + 8, y + b.h - 8, 10, 6); ctx.fillRect(b.x + 6, y + b.h - 4, 6, 6);
-  ctx.fillStyle = menuEmOpen ? '#ffd23a' : '#ffffff'; ctx.fillRect(b.x + 2, y, b.w - 4, b.h - 10); ctx.fillRect(b.x, y + 2, b.w, b.h - 14); ctx.fillRect(b.x + 10, y + b.h - 10, 6, 4); ctx.fillRect(b.x + 8, y + b.h - 6, 2, 2);
-  ctx.fillStyle = 'rgba(0,0,0,0.12)'; ctx.fillRect(b.x + 2, y + b.h - 14, b.w - 4, 4);
-  for (let k = 0; k < 3; k++) { const j = Math.max(0, Math.sin(time * 6 - k * 0.9)) * 3; prect(ctx, b.x + 11 + k * 10, y + 12 - j, 6, 6, '#3a2a5a'); }
-  if (!menuEmOpen) return;
-  const sk = mpSkin(skinId);
-  wl.forEach((id, i) => { const r = menuEmItem(i), pop = Math.min(1, Math.max(0, (time - menuEmT - i * 0.04) * 7)); if (pop <= 0) return; const ix = r.x + 23, iy = r.y + 23;
-    ctx.save(); ctx.translate(ix, iy); ctx.scale(pop, pop); ctx.translate(-ix, -iy);
-    pell(ctx, ix, iy, 25, 25, OL); pell(ctx, ix, iy, 22, 22, '#ffffff'); emoPortrait(id, sk, ix - 21, iy - 21, 42, 42, time % 3.2, true, 0.56); ctx.restore(); });
-}
 function emoPlayClick(pt) {
   const wl = emoWheel(); if (!wl.length || TUT.on) return false;
   if (inRect(pt, EMO_BTN)) { emOpen = !emOpen; if (emOpen) emOpenT = time; sfx.click(); return true; }
@@ -8304,7 +8293,6 @@ function zoneBlend() {
   const t = n ? clamp((m - (n.m - 30)) / 30, 0, 1) : 0;
   return { i, t, z: ZONES[i], n: n || ZONES[i] };
 }
-const zc = (b, key) => b.t > 0 ? mix(b.z[key], b.n[key], b.t) : b.z[key];
 
 // Большая крона-дерево позади столбов
 function colAt(wy) {
@@ -9803,28 +9791,6 @@ function setClick(pt) {
   if (inRect(pt, RESET_BTN)) { sfx.click(); openAccounts(); return; }
 }   // тап по пустому месту ничего не делает: выход — только «назад» или домик
 
-// полный сброс: стираем всё сохранение игры, кроме входа, языка, настроек, имени и друзей, и перезапускаем игру
-function progressWipe() {
-  // сброс — в самое начало: язык, выбор входа (Google или гость), имя с Мистером Пиклсом, обучение
-  const g = acctG();
-  const keepCloud = new Set(['wk3_fcode', 'wk3_friends']);   // друзья и код друга — не прогресс, их оставляем в облаке аккаунта
-  const keepHere = new Set(g ? [] : ['wk3_fbAuth', 'wk3_fcode', 'wk3_friends', 'wk3_muted']);   // гость: тот же аккаунт гостя, чтобы друзья не пропали
-  const ks = []; try { for (let i = 0; i < localStorage.length; i++) ks.push(localStorage.key(i)); } catch (e) {}
-  const all = [...new Set([...ks, ...Object.keys(memStore)])].filter(k => k && k.startsWith('wk3_'));
-  const wipe = keep => { for (const k of all) if (!keep.has(k)) { try { localStorage.removeItem(k); } catch (e) {} delete memStore[k]; } };
-  sfx.die();
-  let done = false; const go = () => {
-    if (done) return; done = true;
-    wipe(keepHere); try { localStorage.setItem('wk3__savedAt', String(Date.now())); } catch (e) {}
-    location.reload();
-  };
-  if (g) {   // аккаунт Google: сначала пустой прогресс в облако (иначе при входе вернётся старый), потом выходим из аккаунта
-    wipe(new Set([...ACCT_KEYS, ...keepCloud, 'wk3_lang']));
-    store.set = () => {};
-    fbSave.ready = true; quiet = false; fbCloudPush(true).catch(() => {}).then(() => setTimeout(go, 300));
-  } else { store.set = () => {}; setTimeout(go, 400); }
-  setTimeout(go, 5000);
-}
 // ---------- Физика ----------
 function solidsNear(y0, y1) {
   const out = [GROUND];
@@ -12128,17 +12094,6 @@ function coinRaw(ctx, x, y, r, sx) {
 const TROPHY_PIX = ['..OOOOOOOOOO..', 'OOOHHYYYYYDOOO', 'OYOHYYYYYYDOYO', 'OYOHYYYYYYDOYO', '.OYOHYYYYDOYO.', '..OOYYYYYDOO..', '....OYYYDO....', '.....OYDO.....', '.....OYDO.....', '....OOYDOO....', '...ONNNNNNO...', '...ONYYYDNO...', '..ONNNNNNNNO..', '..OOOOOOOOOO..'];
 const TROPHY_COL = { O: OL, H: '#fff6b0', Y: '#ffd23a', D: '#d8960a', N: '#8a5030' };
 function trophyIcon(x, y, s = 1) { pixIcon(TROPHY_PIX, TROPHY_COL, x, y, s); }
-function trophyIcon0(x, y, s = 1) {   // старый кубок из линий (не используется)
-  ctx.save(); ctx.translate(x, y); ctx.scale(s, s); ctx.lineJoin = 'round';
-  const cup = () => { ctx.beginPath(); ctx.moveTo(-8, -10); ctx.lineTo(8, -10); ctx.lineTo(7, -2); ctx.quadraticCurveTo(0, 5, -7, -2); ctx.closePath(); };
-  ctx.strokeStyle = OL; ctx.lineWidth = 6; ctx.beginPath(); ctx.arc(-8, -5, 3.5, Math.PI * 0.5, Math.PI * 1.5); ctx.stroke(); ctx.beginPath(); ctx.arc(8, -5, 3.5, -Math.PI * 0.5, Math.PI * 0.5); ctx.stroke();
-  ctx.strokeStyle = '#ffd23a'; ctx.lineWidth = 2.5; ctx.beginPath(); ctx.arc(-8, -5, 3.5, Math.PI * 0.5, Math.PI * 1.5); ctx.stroke(); ctx.beginPath(); ctx.arc(8, -5, 3.5, -Math.PI * 0.5, Math.PI * 0.5); ctx.stroke();
-  ctx.fillStyle = OL; ctx.fillRect(-3.5, 1, 7, 7); ctx.fillRect(-8.5, 6, 17, 6);
-  cup(); ctx.lineWidth = 3; ctx.strokeStyle = OL; ctx.stroke(); ctx.fillStyle = '#ffd23a'; ctx.fill();
-  ctx.fillStyle = '#c8820a'; ctx.fillRect(-2, 2, 4, 5); ctx.fillRect(-7, 7, 14, 4);
-  ctx.fillStyle = '#fff6a0'; ctx.fillRect(-5, -8, 2, 6); ctx.fillStyle = '#e8a820'; ctx.fillRect(2, -8, 4, 2);
-  ctx.restore();
-}
 function button(r, label, col, dark) {
   ctx.fillStyle = OL; ctx.fillRect(r.x - 3, r.y - 3, r.w + 6, r.h + 9);
   ctx.fillStyle = dark; ctx.fillRect(r.x, r.y + 4, r.w, r.h);
@@ -12149,14 +12104,6 @@ function button(r, label, col, dark) {
 function roundBtn(b) {
   pell(ctx, b.x + b.w / 2, b.y + b.h / 2 + 2, b.w / 2 + 2, b.h / 2 + 2, OL);
   pell(ctx, b.x + b.w / 2, b.y + b.h / 2, b.w / 2, b.h / 2, '#ffffff');
-}
-function drawMuteBtn() {
-  const b = BTN.mute; roundBtn(b);
-  ctx.fillStyle = OL;
-  ctx.fillRect(b.x + 7, b.y + 13, 6, 8);
-  ctx.beginPath(); ctx.moveTo(b.x + 13, b.y + 13); ctx.lineTo(b.x + 19, b.y + 7); ctx.lineTo(b.x + 19, b.y + 27); ctx.lineTo(b.x + 13, b.y + 21); ctx.fill();
-  if (muted) { ctx.strokeStyle = '#ff3d3d'; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(b.x + 6, b.y + 6); ctx.lineTo(b.x + 28, b.y + 28); ctx.stroke(); }
-  else { ctx.fillRect(b.x + 22, b.y + 12, 2, 10); ctx.fillRect(b.x + 26, b.y + 9, 2, 16); }
 }
 const GEAR_PIX0 = ['.....###.....', '.##.#####.##.', '.###########.', '..####.####..', '.###.....###.', '####.....####', '###.......###', '####.....####', '.###.....###.', '..####.####..', '.###########.', '.##.#####.##.', '.....###.....'];
 // настройки: ровная шестерёнка на 8 зубцов (симметричная по обеим осям), с объёмом и тенью
@@ -12184,22 +12131,6 @@ function drawPkTap(x, y) {
   ctx.save(); ctx.translate(x + 4, y + dy - 20); ctx.scale(1 + press * 0.06, 1 - press * 0.1); ctx.translate(-x - 4, -(y + dy - 20));
   drawPickles(x + 4, y + dy, 1.15, 'point', time, { talk: 0, rot: Math.sin(time * 2) * 0.04 });
   ctx.restore();
-}
-function drawHand(x, y) {   // перчатка жмёт: палец опускается, от касания расходятся круги
-  const ph = (time * 1.6) % 1, down = ph > 0.35 && ph < 0.55, dy = down ? 6 : ph < 0.35 ? 0 : Math.round((1 - (ph - 0.55) / 0.45) * 2);
-  if (ph > 0.4) { const q = (ph - 0.4) / 0.6; ctx.globalAlpha = (1 - q) * 0.8; ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 3; ctx.beginPath(); ctx.ellipse(x + 6, y + 2, 8 + q * 26, 3 + q * 9, 0, 0, Math.PI * 2); ctx.stroke(); ctx.globalAlpha = (1 - q) * 0.45; ctx.beginPath(); ctx.ellipse(x + 6, y + 2, 4 + q * 14, 2 + q * 5, 0, 0, Math.PI * 2); ctx.stroke(); ctx.globalAlpha = 1; }
-  y += dy;
-  ctx.globalAlpha = 0.25; pell(ctx, x + 12, y + 74, 26, 5, '#000000'); ctx.globalAlpha = 1;   // тень
-  // указательный палец и кулак: контур, белая перчатка, серая тень справа, блик слева
-  prect(ctx, x - 2, y - 2, 16, 42, OL); prect(ctx, x - 16, y + 24, 56, 50, OL);
-  prect(ctx, x, y, 12, 40, '#ffffff'); prect(ctx, x + 8, y + 2, 4, 36, '#dcdce8'); prect(ctx, x + 2, y + 2, 2, 22, '#ffffff');
-  prect(ctx, x + 2, y, 8, 2, '#f0f0f8');
-  prect(ctx, x - 14, y + 26, 52, 44, '#ffffff'); prect(ctx, x + 28, y + 28, 10, 40, '#dcdce8');
-  for (const fx of [14, 24]) { prect(ctx, x + fx, y + 22, 10, 12, OL); prect(ctx, x + fx + 2, y + 24, 6, 8, '#ffffff'); prect(ctx, x + fx + 6, y + 24, 2, 8, '#dcdce8'); }
-  prect(ctx, x - 18, y + 36, 8, 16, OL); prect(ctx, x - 16, y + 38, 6, 12, '#ffffff');   // большой палец
-  prect(ctx, x + 12, y + 34, 2, 12, '#b8b8c8'); prect(ctx, x + 22, y + 34, 2, 12, '#b8b8c8');
-  prect(ctx, x - 14, y + 60, 52, 10, '#ff7a2a'); prect(ctx, x - 14, y + 60, 52, 3, '#ffb07a'); prect(ctx, x - 14, y + 68, 52, 2, '#c04a00');   // манжета
-  if (down) for (let k = 0; k < 3; k++) prect(ctx, x - 12 + k * 13, y - 16 - (k === 1 ? 6 : 0), 4, 8, '#ffffff');
 }
 
 // ---------- полёт монет: из места награды — к счётчику; сумма на счётчике догоняет, как в играх ----------
@@ -12565,16 +12496,6 @@ function drawMenuMsg() {
 }
 // шаг времени для анимаций меню (draw не получает dt)
 function dtMenu() { const n = performance.now(), d = dtMenu.l ? Math.min(0.05, (n - dtMenu.l) / 1000) : 0; dtMenu.l = n; return d; }
-// стрелка «ЕЩЁ / СКРЫТЬ»: на ней же значок, если внутри что-то ждёт
-function drawMoreBtn() {
-  const b = BTN.more, bob = menuMore ? 0 : Math.sin(time * 4) * 2;
-  ctx.fillStyle = OL; ctx.fillRect(b.x - 2, b.y - 2 + bob, b.w + 4, b.h + 6);
-  ctx.fillStyle = '#5a3aa0'; ctx.fillRect(b.x, b.y + bob, b.w, b.h); ctx.fillStyle = '#7a5ac8'; ctx.fillRect(b.x, b.y + bob, b.w, 4);
-  text(menuMore ? tr('СКРЫТЬ', 'LESS') : tr('ЕЩЁ', 'MORE'), b.x + b.w / 2 - 8, b.y + 16 + bob, 1, '#ffffff', 'center', OL, b.w - 26);
-  const ax = b.x + b.w - 14, ay = b.y + 11 + bob, d = menuMore ? -1 : 1;   // треугольник вниз / вверх
-  ctx.fillStyle = '#ffd23a'; for (let i = 0; i < 4; i++) ctx.fillRect(ax - 6 + i * 2 - 1, ay - 3 * d + i * 2 * d - (d < 0 ? 1 : 0), 14 - i * 4, 2);
-  if (!menuMore && tDailyReady()) badge(b.x + b.w - 2, b.y + bob);
-}
 
 function chestIcon(x, y, open, shakeX, gold) {
   x += shakeX;
@@ -15306,28 +15227,6 @@ function drawTent() {
   roundBtn(BACK_BTN); text('<', BACK_BTN.x + 21, BACK_BTN.y + 28, 3, OL, 'center', null);
   if (tc) drawTentChest();
 }
-// что выпало из сундука
-function tchestRoll(id) {
-  const R = [], givePow = (n, cheap) => { for (let i = 0; i < n; i++) { const pool = POWERS.filter(P => !cheap || !P.price.gems), P = pool[Math.floor(Math.random() * pool.length)]; pw[P.id] = (pw[P.id] || 0) + 1; R.push({ kind: 'power', id: P.id, n: 1 }); } savePw(); };
-  const hero = pool => { const free = pool.filter(k => !owned.includes(k.id)), k = (free.length ? free : pool)[Math.floor(Math.random() * (free.length ? free : pool).length)]; return k; };
-  let k = null;
-  if (id === 'daily') {
-    const c = 300 + Math.floor(Math.random() * 13) * 50, g = 3 + Math.floor(Math.random() * 6); bank += c; gems += g; R.push({ kind: 'coins', n: c }, { kind: 'gems', n: g }); givePow(2, true);
-    if (Math.random() < 0.25) { const r2 = Math.random() < 0.7 ? 1 : 2, pool = SKINS.filter(s => s.r === r2 && !s.gift && !owned.includes(s.id)); if (pool.length) k = pool[Math.floor(Math.random() * pool.length)]; }
-  } else if (id === 'power') givePow(4, false);
-  else if (id === 'monster') {
-    const all = MONSTERS.map(m => SKINS.find(s => s.id === m)).filter(Boolean), r2 = pickIdx([0, 0, 60, 35, 5]);
-    const byR = all.filter(s => s.r === r2 && !owned.includes(s.id)), anyFree = all.filter(s => !owned.includes(s.id));
-    k = byR.length ? byR[Math.floor(Math.random() * byR.length)] : anyFree.length ? hero(anyFree) : null;
-    bank += 200; R.push({ kind: 'coins', n: 200 });
-    if (!k) { gems += 25; R.push({ kind: 'gems', n: 25 }); }
-  } else if (id === 'royal') {
-    const r2 = Math.random() < 0.75 ? 3 : 4; k = hero(SKINS.filter(s => s.r === r2 && !s.gift)); gems += 20; R.push({ kind: 'gems', n: 20 });
-  }
-  let dup = false; if (k) { dup = owned.includes(k.id); if (dup) { bank += DUP_REFUND; setTimeout(() => coinFly(W / 2, 500, DUP_REFUND, 'c'), 2400); } else grantSkin(k); R.unshift({ kind: 'hero', k, dup }); }
-  saveMoney();
-  return { rewards: R, k, dup };
-}
 function tentChestOpen(i) {
   const C = TCHESTS[i];
   if (C.id === 'daily') { if (!tDailyReady()) { sfx.no(); return; } store.set('tentDay', dayNum()); }
@@ -16442,7 +16341,7 @@ function drawPerfHud() {
   text(l1, 8, H - 22, 1, PFH.fps >= 55 ? '#7cf08a' : PFH.fps >= 40 ? '#ffd23a' : '#ff6a6a', 'left', null, 214); text(l2, 8, H - 10, 1, '#ffffff', 'left', null, 214); ctx.restore();
 }
 function frame0(now) {
-  frameT0 = performance.now();
+  frameT0 = performance.now(); sprFrame++;
   // экраны 90–144 Гц (в Chrome на телефоне они включены, во встроенных окнах обычно нет): рисуем не чаще ~60 раз в секунду —
   // работы меньше, телефон не греется и не сбрасывает частоту
   // рисуем с частотой экрана (90, 120, 144 Гц), выше ~165 кадров/с смысла нет
@@ -17131,7 +17030,6 @@ function passBoxOpen(free, startLv) {
 const DAYG = [{ need: 1, rw: { k: 'xp', n: 60 } }, { need: 2, rw: { k: 'coins', n: 80 } }, { need: 3, rw: { k: 'xp', n: 100 } }, { need: 5, rw: { k: 'box' } }];
 function dayGames() { let g = store.get('dayG', null); if (!g || g.d !== dayNum() || !Array.isArray(g.cl)) { g = { d: dayNum(), n: 0, cl: [] }; store.set('dayG', g); } g.n = Math.min(99, nat(g.n)); return g; }
 function dayGameAdd() { if (quiet) return; const g = dayGames(); g.n++; store.set('dayG', g); try { pigAdd(1); } catch (e) {} }
-const dayGReady = () => { const g = dayGames(); return DAYG.some((s, i) => g.n >= s.need && !g.cl.includes(i)); };
 // «Победы дня»: 10 наград за день. Победа — забег выше 50 м или топ-3 в раунде «Сети». Первая — особый ящик (сразу эпический)
 const DWIN_N = 10;
 function dayWins() { let g = store.get('dwin', null); if (!g || g.d !== dayNum()) { g = { d: dayNum(), n: 0, cl: 0, rr: [] }; store.set('dwin', g); } g.n = Math.min(DWIN_N, nat(g.n)); g.cl = Math.min(g.n, nat(g.cl)); if (!Array.isArray(g.rr)) g.rr = []; return g; }
@@ -17599,19 +17497,6 @@ function rankBadge(x, y, s, i) {
   if (i >= RANKS.length - 1) { g.fillStyle = OL; g.fillRect(x - 6 * s, y - 17 * s, 12 * s, 5 * s); g.fillStyle = '#ffd23a'; for (const dx of [-5, -1, 3]) g.fillRect(x + dx * s, y - 18 * s, 2 * s, 4 * s); g.fillRect(x - 5 * s, y - 15 * s, 10 * s, 2 * s); }
   g.restore();
 }
-function rankBadge0(x, y, s, i) {   // старый значок (не используется)
-  if (i < 0) return;
-  const [, , , col, dk] = RANKS[i], g = ctx;
-  const shield = (k) => { g.beginPath(); g.moveTo(x, y - 11 * k); g.lineTo(x + 9 * k, y - 7 * k); g.lineTo(x + 8 * k, y + 3 * k); g.lineTo(x, y + 11 * k); g.lineTo(x - 8 * k, y + 3 * k); g.lineTo(x - 9 * k, y - 7 * k); g.closePath(); };
-  g.save();
-  shield(s * 1.18); g.fillStyle = OL; g.fill();
-  shield(s); if (col === 'rainbow') { const gr = g.createLinearGradient(x - 9 * s, y - 11 * s, x + 9 * s, y + 11 * s); ['#ff3a3a', '#ffd23a', '#3ae05a', '#3ab0ff', '#a64aff'].forEach((c, j) => gr.addColorStop(j / 4, c)); g.fillStyle = gr; } else g.fillStyle = col; g.fill();
-  g.beginPath(); g.moveTo(x, y - 11 * s); g.lineTo(x + 9 * s, y - 7 * s); g.lineTo(x + 8 * s, y + 3 * s); g.lineTo(x, y + 11 * s); g.closePath(); g.fillStyle = 'rgba(0,0,0,0.18)'; g.fill();
-  g.fillStyle = dk; emoStar(x, y, 5.2 * s, dk); emoStar(x, y - 0.5 * s, 4 * s, '#ffffff');
-  g.fillStyle = 'rgba(255,255,255,0.55)'; g.fillRect(x - 6 * s, y - 7 * s, 3 * s, 1.5 * s);
-  if (i >= RANKS.length - 1) { g.fillStyle = OL; g.fillRect(x - 6 * s, y - 17 * s, 12 * s, 5 * s); g.fillStyle = '#ffd23a'; for (const dx of [-5, -1, 3]) g.fillRect(x + dx * s, y - 18 * s, 2 * s, 4 * s); g.fillRect(x - 5 * s, y - 15 * s, 10 * s, 2 * s); }
-  g.restore();
-}
 function rankCnv(i, size) {
   const c = document.createElement('canvas'); c.width = 64; c.height = 56; c.style.width = Math.round(size * 64 / 48) + 'px'; c.style.height = Math.round(size * 56 / 48) + 'px'; c.style.margin = '0 ' + -Math.round(size / 6) + 'px';
   withCtx(c, () => rankBadge(32, 31, 1.6, i)); return c;
@@ -17816,47 +17701,6 @@ function profNickSheet() {
     }
     bd.appendChild(g);
   });
-}
-function profPickAvatar() {
-  moOpen(tr('АВАТАРКА', 'AVATAR'), bd => {
-    const c = moEl('div', 'card'), g = moEl('div', 'grid');
-    const opts = [...AVATARS.filter(avHave).map(a => 'a:' + a.id), ...META.icons.map(id => 'g:' + id), ...owned];
-    for (const av of opts) {
-      const p = moEl('div', 'pick' + (META.prof.av === av ? ' on' : '')), a = avatarDef(av);
-      p.style.background = a ? `linear-gradient(180deg,${a.bg[0]}66,#2a1a4a)` : av.startsWith('g:') ? 'linear-gradient(180deg,#7a5a0066,#2a1a4a)' : `linear-gradient(180deg,${RARITY[(skinById(av) || SKINS[0]).r].col}55,#2a1a4a)`;
-      p.appendChild(avatarCnv(av, 56)); p.onclick = () => { META.prof.av = av; metaSave(); boardPush(); sfx.click(); moBack(); }; g.appendChild(p);
-    }
-    const more = moTxt('button', 'btn gold', tr('ЕЩЁ АВАТАРКИ В МАГАЗИНЕ ›', 'MORE AVATARS IN THE SHOP ›')); more.style.cssText += ';width:100%;margin-top:10px'; more.onclick = () => { sfx.click(); openCosmetics(); };
-    c.append(moTxt('div', 'sm', tr('ЗОЛОТЫЕ ИКОНКИ — С ДОРОЖКИ КУБКОВ (1000 КУБКОВ ГЕРОЯ)', 'GOLDEN ICONS COME FROM THE TROPHY ROAD (1000 HERO TROPHIES)')), g, more); bd.appendChild(c);
-  }, true);
-}
-function profPickTitle() {
-  moOpen(tr('ТИТУЛ', 'TITLE'), bd => {
-    const c = moEl('div', 'card'), all = ['', ...Object.keys(PASS_TITLES).filter(id => id !== 'free1' && META.titles.includes(id)), ...META.titles.filter(id => !PASS_TITLES[id])];
-    if (all.length === 1) c.appendChild(moTxt('div', 'sm', tr('ТИТУЛЫ ДАЮТ ДОРОЖКА КУБКОВ (2000 КУБКОВ ГЕРОЯ) И WALL PLAY PASS', 'TITLES COME FROM THE TROPHY ROAD (2000 HERO TROPHIES) AND WALL PLAY PASS')));
-    for (const id of all) { const b = moTxt('button', 'btn ' + (META.prof.title === id ? 'gold' : 'blue'), id ? '«' + titleText(id) + '»' : tr('БЕЗ ТИТУЛА', 'NO TITLE')); b.style.cssText += ';width:100%;margin-top:8px'; b.onclick = () => { META.prof.title = id; metaSave(); boardPush(); sfx.click(); moBack(); }; c.appendChild(b); }
-    bd.appendChild(c);
-  }, true);
-}
-function profPickFrame() {
-  moOpen(tr('РАМКА', 'FRAME'), bd => {
-    const c = moEl('div', 'card');
-    c.appendChild(moTxt('div', 'sm', tr('РАМКА ВИДНА В ПРОФИЛЕ И ВО ВСЮ ДЛИНУ ТВОЕЙ СТРОКИ В РЕЙТИНГЕ', 'YOUR FRAME SHOWS IN THE PROFILE AND ACROSS YOUR ROW IN THE RANKING')));
-    for (const id of [...new Set(META.frames.concat(PASS_FRAMES))].filter(id => FRAME_STYLES[id] || id.startsWith('h:'))) {   // свои рамки и рамки Pass
-      const on = META.prof.frame === id, f = frameStyle(id), r = moEl('div', 'rk' + (on ? ' glow' : ''));
-      frameBg(r, f); r.style.marginTop = '8px';
-      const lab = moEl('div'); lab.style.cssText = 'flex:1;background:rgba(20,10,40,.7);padding:5px 8px;border-radius:8px;min-width:0';
-      lab.append(moTxt('div', 'ol', mp.nick || tr('ИГРОК', 'PLAYER')), moTxt('div', 'sm', frameName(id)));
-      r.append(framed(avatarCnv(META.prof.av, 40), id, 3), lab);
-      if (on) r.appendChild(moTxt('div', 'ol', '✓'));
-      if (!frameHave(id)) { r.style.opacity = '.55'; r.appendChild(moTxt('div', 'ol', '🔒 PASS')); r.onclick = () => { sfx.no(); moReward(tr('НУЖЕН ПРЕМИУМ PASS', 'NEEDS PASS PREMIUM'), iconCnv('gems', 0, 70), tr('НОВЫЕ РАМКИ И ПЕРЕЛИВАЮЩИЕСЯ НИКИ — В PASS', 'NEW FRAMES AND SHIMMERING NICKS ARE IN THE PASS')); }; c.appendChild(r); continue; }
-      r.onclick = () => { META.prof.frame = id; metaSave(); boardPush(); sfx.click(); moBack(); };
-      c.appendChild(r);
-    }
-    const more = moTxt('button', 'btn gold', tr('РАМКИ С УЗОРОМ В МАГАЗИНЕ ›', 'PATTERNED FRAMES IN THE SHOP ›')); more.style.cssText += ';width:100%;margin-top:12px'; more.onclick = () => { sfx.click(); openCosmetics(); }; c.appendChild(more);
-    c.appendChild(moTxt('div', 'sm', tr('ЕЩЁ РАМКИ: WALL PLAY PASS И 3000 КУБКОВ ГЕРОЯ', 'MORE FRAMES: WALL PLAY PASS AND 3000 HERO TROPHIES')));
-    bd.appendChild(c);
-  }, true);
 }
 
 // ---- задания дня ----
@@ -18076,14 +17920,6 @@ function passTile(rw, opt) {
   else if (opt.lock) c.appendChild(moTxt('div', 'lk', opt.prem && opt.noPrem ? '👑' : '🔒'));
   if (opt.can) c.appendChild(moTxt('div', 'take ol', tr('ЗАБРАТЬ', 'CLAIM')));
   return c;
-}
-// «Награды за игры»: сыграл раунд или забег — ближе к награде
-function openDayWins() { moOpen(tr('ПОБЕДЫ ДНЯ', 'DAILY WINS'), bd => { bd.appendChild(dayGamesCard()); bd.appendChild(dropChancesCard()); }); }
-function dropChancesCard() {
-  const c = moEl('div', 'card'); c.appendChild(moTxt('div', 'ol', tr('ШАНСЫ ДРОПОВ', 'DROP CHANCES')));
-  DROP_R.forEach((R, i) => { const r = moEl('div', 'row'); r.style.cssText = 'gap:8px;margin-top:6px'; const n = moTxt('div', 'ol', tr(R.ru, R.en)); n.style.cssText = 'flex:1;color:' + R.c[0]; r.append(dropCnv(i, 28), n, moTxt('div', 'ol', R.p + '%')); c.appendChild(r); });
-  c.appendChild(moTxt('div', 'sm', trf('ПЕРВЫЙ ДРОП ДНЯ — НЕ НИЖЕ СВЕРХРЕДКОГО. ТАПАЙ ПО ДРОПУ — РЕДКОСТЬ МОЖЕТ ПОДНЯТЬСЯ. БОНУС: ЯЩИК С ГЕРОЕМ — {a}%, БОЛЬШОЙ ЯЩИК — {b}%', 'THE FIRST DROP OF THE DAY IS AT LEAST SUPER RARE. TAP THE DROP — ITS RARITY MAY RISE. BONUS: A HERO BOX — {a}%, A BIG BOX — {b}%', { a: +(DROP_BONUS - DROP_BIG).toFixed(1), b: DROP_BIG })));
-  c.lastChild.style.marginTop = '8px'; return c;
 }
 function dayGamesCard() {
   const g = dayWins(), card = moEl('div', 'card dayg' + (dayWinReady() ? ' glow' : ''));
@@ -18393,7 +18229,6 @@ function drawClanBtn() {
   if (CLAN.news || (CLAN.my && CLAN.in === 'my' && CLAN.my.rq.length) || pigReady()) badge(b.x + b.w - 2, b.y + 4);
   text(tr('КЛУБ', 'CLUB'), b.x + b.w / 2, b.y + b.h + 12, 1, '#ffffff', 'center', OL, 50);
 }
-const moreOpen = () => menuMoreT > 0.85;
 let menuSw = null;
 // кнопка Pass внизу слева: кружок с уровнем, полоска опыта, звезда у купленного
 let passPopT = -9;
@@ -19711,14 +19546,6 @@ function botRow(i, trOv) {   // строка рейтинга бота — в т
   const stk = Math.floor(Math.pow(h(30), 2.2) * 45), stkH = k.id;
   return { id: 'bot' + i, bot: true, bi: i, n: botName(i), av, fr, ti, nc, stk, stkH, bg: h(32) < 0.4 ? PROF_BGS[1 + Math.floor(h(33) * (PROF_BGS.length - 1))].id : '', c: Math.floor(h(5) * tr0 * 40 + 200), g: Math.floor(h(6) * tr0 / 3), r: Math.floor(h(7) * tr0 / 150), b, tr: Math.min(tr0, b * sk), sk, pl: Math.min(PASS_TIERS, Math.floor(h(17) * 30)),
     ...botKit(i, k, sk, b, tr0), cl: botClubInfo(i) };
-}
-function botKit(i, k, sk, b, tr0) {   // у бота как у живого: свои герои, кубки по героям, достижения
-  const pool = SKINS.filter(x => !x.gift && x.id !== 'zombie'), own = [k.id];
-  for (let q = 0; own.length < sk && q < sk * 4; q++) { const c = pool[Math.floor(botH(i, 40 + q) * pool.length)]; if (c && !own.includes(c.id) && c.r <= (tr0 < 300 ? 2 : 4)) own.push(c.id); }
-  const tro = own.slice(0, 12).map(id => [id, botHeroTro(i, id)]).sort((x, y) => y[1] - x[1]);   // те же цифры, что в «Топе по героям»
-  const nAch = Math.min(ACH.length, Math.round(ACH.length * clamp(0.15 + tr0 / 6000 + botH(i, 90) * 0.25, 0.1, 1)));
-  const ach = ACH.filter((a, n) => botH(i, 100 + n) < nAch / ACH.length).map(a => a.id);
-  return { own, ic: own.slice(0, 6), ach, show: ach.slice(0, 3), tro };
 }
 const BOARD_BOTS = 300;
 PASS_TITLES.abs = ['АБСОЛЮТНЫЙ ЧЕМПИОН!', 'ABSOLUTE CHAMPION!'];
@@ -21394,11 +21221,6 @@ function rpOpen(rec) {
   RP.on = true; p.x = -999; p.y = 999; state = 'replay'; camY = -H + 150; camR = pxSnap(camY);
 }
 function rpClose() { RP.on = false; RP.rec = null; reset(); state = 'menu'; menuAt = time; sfx.click(); openReplays(); }
-function rpFrame(t) {   // два ближайших снимка и доля между ними
-  const f = RP.rec.f; let lo = 0, hi = f.length - 1;
-  while (hi - lo > 1) { const m = (lo + hi) >> 1; if (f[m][0] <= t) lo = m; else hi = m; }
-  const a = f[lo], b = f[hi], k = b[0] > a[0] ? clamp((t - a[0]) / (b[0] - a[0]), 0, 1) : 0; return [a, b, k];
-}
 // плавно: кривая через 4 соседних снимка (Катмулл-Ром) — прыжки идут дугой, а не ломаной; плюс скорость для позы
 function rpPeople(t) {
   const f = RP.rec.f; let lo = 0, hi = f.length - 1;
