@@ -1,0 +1,4 @@
+Source: https://github.com/addyosmani/web-quality-skills/tree/afa8da9/skills/web-quality-audit
+Copied unchanged on 2026-11-18.
+Inspected: SKILL.md and scripts/analyze.sh (read-only grep checks of HTML files, JSON output via jq). No hooks or tool permissions.
+License: MIT (LICENSE.txt).

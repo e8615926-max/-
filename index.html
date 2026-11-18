@@ -3570,8 +3570,10 @@ let SPR_IDS = new WeakMap();
 let sprN = 0;
 // бюджет на новые кадры героев: при входе в магазин или смене страницы кэш пуст и каждый из ~12 героев рисуется по точкам —
 // на слабом телефоне это 10–20 мс в кадр (первые ~5 с магазин дёргался). Теперь за кадр рисуем новые кадры не дольше SPR_BUDGET мс,
-// остальные герои на кадр-другой показывают свой предыдущий кадр — анимация чуть догоняет, а картинка не тормозит
-const SPR_BUDGET = 3, SPR_LAST = new Map();
+// остальные герои на кадр-другой показывают свой предыдущий кадр — анимация чуть догоняет, а картинка не тормозит.
+// Каждый герой обновляется не реже раза в SPR_STALE кадров даже сверх бюджета: иначе на слабом телефоне бюджет съедали
+// первые карточки, а остальные герои застывали навсегда
+const SPR_BUDGET = 3, SPR_STALE = 8, SPR_LAST = new Map();
 let sprFrame = 0, sprBudF = -1, sprBudMs = 0;
 // готовый кадр героя (холст SPR_W×SPR_H, как hcv). Если кадр уже был — без перерисовки
 const SPR_LOOP = Math.PI * 2 / 2.4 * 2;   // 2 вдоха ≈ 5.2 с: при 20 кадрах/с — 105 кадров на позу (12 героев на странице влезают в кэш)
@@ -3589,7 +3591,8 @@ function heroSpriteGet(sk, pose, t, blink, fpsFix) {
   if (c) { SPR_CACHE.delete(key); SPR_CACHE.set(key, c); return c; }   // LRU: свежий — в конец
   if (sprBudF !== sprFrame) { sprBudF = sprFrame; sprBudMs = 0; }
   const lk = (pi & 63) * 8192 + id;   // этот герой в этой позе (без времени): его последний нарисованный кадр
-  if (sprBudMs > SPR_BUDGET) { const o = SPR_CACHE.get(SPR_LAST.get(lk)); if (o) return o; }   // бюджет кадра исчерпан — пока прежний кадр
+  const lr = SPR_LAST.get(lk);
+  if (sprBudMs > SPR_BUDGET && lr && sprFrame - lr.f < SPR_STALE) { const o = SPR_CACHE.get(lr.key); if (o) return o; }   // бюджет кадра исчерпан — пока прежний кадр
   const tb = performance.now();
   hctx.setTransform(1, 0, 0, 1, 0, 0);
   hueNow = sk.hue || 0;
@@ -3597,7 +3600,7 @@ function heroSpriteGet(sk, pose, t, blink, fpsFix) {
   if (SPR_CACHE.size >= SPR_MAX) { const old = SPR_CACHE.keys().next().value; c = SPR_CACHE.get(old); SPR_CACHE.delete(old); }
   else { c = document.createElement('canvas'); c.width = SPR_W; c.height = SPR_H; c.__spr = true; c.__g = c.getContext('2d'); }   // __spr: drawImage сам переводит координаты «32×40» в большой холст, как у hcv
   const g = c.__g || (c.__g = c.getContext('2d')); g.setTransform(1, 0, 0, 1, 0, 0); g.clearRect(0, 0, SPR_W, SPR_H); drawRaw.call(g, hcv, 0, 0);
-  SPR_CACHE.set(key, c); SPR_LAST.set(lk, key); sprBudMs += performance.now() - tb;
+  SPR_CACHE.set(key, c); if (lr) { lr.key = key; lr.f = sprFrame; } else SPR_LAST.set(lk, { key, f: sprFrame }); sprBudMs += performance.now() - tb;
   hctx.setTransform(1, 0, 0, 1, SPR_X, 8 + SPR_Y);
   sprFresh = c;   // этот кадр уже лежит в hcv
   return c;
@@ -12437,7 +12440,7 @@ const DWIN_BOX = { x: 12, y: 540, w: 336, h: 34 }, DWIN_B0 = { x: 12, y: 540, w:
 function drawDayWins() {
   const g = dayWins();
   // в меню есть готовый ящик — он сам выходит на экран (один раз за каждую победу)
-  if (state === 'menu' && dayWinReady() && time - menuAt > 0.8 && !modal && !chest && !(moUi && moUi.style.display === 'flex') && !sideUi && !TUT.on && dwinAuto !== g.d + ':' + g.cl + ':' + g.n) { dwinAuto = g.d + ':' + g.cl + ':' + g.n; setTimeout(() => { if (state === 'menu' && dayWinReady()) dropShow(); }, 50); }
+  if (state === 'menu' && dayWinReady() && time - menuAt > 0.25 && !modal && !chest && !(moUi && moUi.style.display === 'flex') && !sideUi && !TUT.on && dwinAuto !== g.d + ':' + g.cl + ':' + g.n) { dwinAuto = g.d + ':' + g.cl + ':' + g.n; setTimeout(() => { if (state === 'menu' && dayWinReady()) dropShow(); }, 50); }
   // новый день: полоса въезжает справа с искрами и звуком
   if (store.get('dwinDay', 0) !== g.d) { store.set('dwinDay', g.d); dwinNewT = time; try { A_NEWDAY(); } catch (e) {} }
   const ni = clamp((time - dwinNewT) / 0.7, 0, 1);
@@ -12518,14 +12521,17 @@ function drawCardArt(k, r, t, sp) {
 const heroBlink = t => ((t * 1.13) % 3.1 + 3.1) % 3.1 < 0.14;   // герои на карточках моргают — каждый в свой момент
 // карточка героя рисуется в свою картинку 15 раз в секунду (у разных карточек — в разные кадры), а между ними
 // ставится готовая: сценки легенд и мификов — это тысячи мелких прямоугольников, 60 раз в секунду телефон не тянул
-let CARD_NOHERO = false;   // в готовой карточке героя нет — он рисуется поверх каждый кадр (плавно, из кэша кадров)
+let CARD_NOHERO = false;
+// подписи карточки (имя, цена, «выбран», страйк) рисуются отдельным слоем поверх всех карточек страницы:
+// эффекты сценок и головы героев из нижнего ряда больше не закрывают имя и цену
+let CARD_NOLBL = false;   // в готовой карточке героя нет — он рисуется поверх каждый кадр (плавно, из кэша кадров)
 const CARD_CACHE = new Map(), CARD_FPS = 15, CARD_M = { l: 16, t: 50, r: 16, b: 16 };
 let frameT0 = 0, cardSlot = -1;   // начало текущего кадра; в каком кадре уже была перерисовка карточки
 // карточки страницы обновляются по очереди, по 2 за кадр: у всех одинаковая плавность (раньше одни шли быстро, другие — рывками)
 const CARD_RR = { n: 0, f: 0 };
 function drawSkinCard(r, k, slot) {
   const K = cv.width / W;
-  if (!(K > 0) || ctx.canvas !== cv) return drawSkinCard0(r, k);
+  if (!(K > 0) || ctx.canvas !== cv) { CARD_NOLBL = true; try { return drawSkinCard0(r, k); } finally { CARD_NOLBL = false; } }
   const cw = Math.ceil((r.w + CARD_M.l + CARD_M.r) * K), ch = Math.ceil((r.h + CARD_M.t + CARD_M.b) * K);
   const ph = ((r.x * 7 + r.y * 3) % 10) / 10, tq = Math.floor(time * CARD_FPS + ph);
   const stamp = tq + '|' + (k.id === skinId) + '|' + owned.includes(k.id) + '|' + canPay(priceOf(k)) + '|' + r.x + ',' + r.y + '|' + cw + '|' + lang + '|' + heroStk(k.id);
@@ -12543,7 +12549,7 @@ function drawSkinCard(r, k, slot) {
     if (e.c.width !== cw || e.c.height !== ch) { e.c.width = cw; e.c.height = ch; }
     const g = e.c.getContext('2d'), old = ctx;
     g.setTransform(1, 0, 0, 1, 0, 0); g.clearRect(0, 0, cw, ch); g.setTransform(K, 0, 0, K, (CARD_M.l - r.x) * K, (CARD_M.t - r.y) * K); g.imageSmoothingEnabled = false;
-    ctx = g; CARD_NOHERO = k.r < 3; try { drawSkinCard0(r, k); } finally { ctx = old; CARD_NOHERO = false; }
+    ctx = g; CARD_NOHERO = k.r < 3; CARD_NOLBL = true; try { drawSkinCard0(r, k); } finally { ctx = old; CARD_NOHERO = false; CARD_NOLBL = false; }
     e.stamp = stamp;
   }
   drawRaw.call(ctx, e.c, r.x - CARD_M.l, r.y - CARD_M.t, cw / K, ch / K);
@@ -12565,7 +12571,13 @@ function drawSkinCard0(r, k) {
   }
   drawCardArt(k, r, time + r.x * 0.01, { x: cx - 32, y: r.y - 26, s: 2 });
   if (k.r >= 3) cardMarquee(r, cardCol(k), time + r.x * 0.01, k.myth);
+  if (!CARD_NOLBL) cardLabels(r, k);
+}
+function cardLabels(r, k) {
+  const R = RARITY[k.r], sel = k.id === skinId, own = owned.includes(k.id), cx = r.x + r.w / 2;
   const [l1, l2] = skinLines(k);
+  // подложка под второй строкой имени и ценой: сюда заходит голова героя из нижнего ряда — цена всегда читается
+  ctx.globalAlpha = 0.82; ctx.fillStyle = sel ? '#ffe680' : own ? '#e4eeff' : '#c4b8e0'; ctx.fillRect(r.x + 4, r.y + (l2 ? 66 : 76), r.w - 8, l2 ? 22 : 12); ctx.globalAlpha = 1;
   text(l1, cx, r.y + 64, 1, OL, 'center', null, r.w - 4);
   if (l2) text(l2, cx, r.y + 73, 1, R.dk, 'center', null, r.w - 4);
   if (own) text(sel ? T('selected') : T('take'), cx, r.y + 84, 1, sel ? '#c01f5a' : '#1a70c0', 'center', null, r.w - 4);
@@ -15340,11 +15352,12 @@ function drawShopHeader() {
   }
 }
 function drawHeroesTab() {
-  const ps = pageSkins();   // снизу вверх: высокие шляпы нижнего ряда не закрывают цены верхнего
+  const ps = pageSkins();   // сверху вниз: голова и шляпа героя нижнего ряда видна целиком поверх низа верхней карточки, а цены не теряются — подписи идут отдельным слоем сверху
   CARD_RR.n = ps.length; CARD_RR.f++;
   const top = tabRect(0).y + tabRect(0).h + 4;
-  for (let j = ps.length - 1; j >= 0; j--) { const r = shopRect(j);   // карточка со своими эффектами — только в своей клетке (+ место для шляпы сверху): соседей не закрывает
+  for (let j = 0; j < ps.length; j++) { const r = shopRect(j);   // карточка со своими эффектами — только в своей клетке (+ место для шляпы сверху): соседей не закрывает
     ctx.save(); ctx.beginPath(); ctx.rect(r.x - 3, Math.max(top, r.y - 30), r.w + 6, r.y + r.h + 4 - Math.max(top, r.y - 30)); ctx.clip(); drawSkinCard(r, ps[j], j); ctx.restore(); }
+  for (let j = 0; j < ps.length; j++) cardLabels(shopRect(j), ps[j]);   // подписи — слоем поверх всех карточек
   for (let i = 0; i < 5; i++) {   // вкладки редкости — поверх карточек
     const r = tabRect(i), R = RARITY[i], on = i === shopTab;
     ctx.fillStyle = OL; ctx.fillRect(r.x - 2, r.y - 2, r.w + 4, r.h + 4);
@@ -17036,11 +17049,11 @@ function dayWins() { let g = store.get('dwin', null); if (!g || g.d !== dayNum()
 // ---- дропы: у каждого своя редкость (шансы ниже); тапаешь — редкость может подняться, потом он раскрывается и из него вылетают призы ----
 const DROP_PIX = ["OOOOOOOOOOOOOOOOOO", "OHHHHHHHBBHHHHHLLO", "OHWWWHHHBBHHHHHLLO", "OHHHHHHHBBHHHHHLLO", "OMMMMMMMDDMMMMMLLO", "OHHHHHHHBBHHHHHHHO", "OOWLLLLLBYLLLLMMOO", ".OWLLLLLYYYLLLMMO.", ".OWLLLLYYYYYLLMMO.", ".OLLLLLLYYYLLLMMO.", ".OLLLLLLYBYLLLMMO.", ".OLLLLLLBBLLLLMMO.", ".OMMMMMMBBMMMMMMO.", ".OMMMMMMBBMMMMMMO.", ".OOOOOOOOOOOOOOOO."], CHECK_PIX = ["..........OO", ".........OGO", "........OGGO", ".OO....OGGO.", "OGGO..OGGO..", "OGGGOOGGO...", ".OGGGGGGO...", "..OGGGGO....", "...OGGO.....", "....OO......"], CHECK_COL = { O: '#1a1030', G: '#3ce06a' };
 const DROP_R = [
-  { ru: 'РЕДКИЙ', en: 'RARE', p: 50, c: ['#5ae06a', '#c8ffc0', '#2a9a3a'] },
-  { ru: 'СВЕРХРЕДКИЙ', en: 'SUPER RARE', p: 28.5, c: ['#3ab0ff', '#bfe8ff', '#1a60c0'] },
-  { ru: 'ЭПИЧЕСКИЙ', en: 'EPIC', p: 15.5, c: ['#c04aff', '#f0c0ff', '#6a1ab0'] },
-  { ru: 'МИФИЧЕСКИЙ', en: 'MYTHIC', p: 1, c: ['#ff3a5a', '#ffc0c8', '#a0102a'] },
-  { ru: 'ЛЕГЕНДАРНЫЙ', en: 'LEGENDARY', p: 5, c: ['#ffc23a', '#fff6b0', '#c07a00'] }];
+  { ru: 'РЕДКИЙ', en: 'RARE', p: 44, c: ['#5ae06a', '#c8ffc0', '#2a9a3a'] },
+  { ru: 'СВЕРХРЕДКИЙ', en: 'SUPER RARE', p: 30, c: ['#3ab0ff', '#bfe8ff', '#1a60c0'] },
+  { ru: 'ЭПИЧЕСКИЙ', en: 'EPIC', p: 17, c: ['#c04aff', '#f0c0ff', '#6a1ab0'] },
+  { ru: 'МИФИЧЕСКИЙ', en: 'MYTHIC', p: 6, c: ['#ff3a5a', '#ffc0c8', '#a0102a'] },
+  { ru: 'ЛЕГЕНДАРНЫЙ', en: 'LEGENDARY', p: 3, c: ['#ffc23a', '#fff6b0', '#c07a00'] }];
 const DROP_UNK = ['#7a6aa8', '#b8a8e0', '#3a2a6a'];
 const DROP_BONUS = 2.5, DROP_BIG = 0.5;   // в 1 дропе из 10 — ещё и ящик с героем; из них большой — 3 из 100 дропов
 // у каждого цвета — своя копия строк: заготовки значков хранятся по строкам
@@ -17076,17 +17089,32 @@ function dropShow(opt = {}) {
   let cnv = dropCnv(shown, 170); box.appendChild(cnv); stage.appendChild(box);
   const paint = () => { const R = DROP_R[shown]; ov.style.setProperty('--dc', R.c[0]); ov.style.setProperty('--dk', R.c[2]); nm.textContent = tr(R.ru, R.en); const c2 = dropCnv(shown, 170); box.replaceChild(c2, cnv); cnv = c2; };
   const ch = el('div', 'ch'); DROP_R.forEach(R2 => { const s = el('span', '', tr(R2.ru, R2.en) + ' ' + R2.p + '%'); s.style.color = R2.c[0]; ch.appendChild(s); });
-  stage.appendChild(el('i', 'ring'));   // ящик вылетает снизу, по приземлении — кольцо света и искры
+  stage.appendChild(el('i', 'ring'));   // ящик падает сверху; удар об пол — кольцо света, искры, тряска и глухой бум
   paint(); ov.append(rays, ttl, left, stage, nm, hint, ch); document.body.appendChild(ov);
-  try { tone(300, 900, 0.45, 'sine', 0.05); noise(0.35, 0.04, 2500); setTimeout(() => { try { tone(784, 1568, 0.18, 'triangle', 0.06); } catch (e) {} burst(18); }, 560); } catch (e) {}
+  try { tone(1500, 260, 0.34, 'sine', 0.035); noise(0.3, 0.03, 3000, 9000); } catch (e) {}   // свист падения
+  setTimeout(() => { if (!ov.isConnected) return; dropBoom(0); burst(22); burst(10, '#ffffff'); ov.classList.remove('shake'); void ov.offsetWidth; ov.classList.add('shake'); vib([25, 15, 40]);
+    setTimeout(() => { try { tone(784, 1568, 0.18, 'triangle', 0.06); } catch (e) {} }, 120); }, 340);
   const burst = (n, col) => { for (let i = 0; i < n; i++) { const d = el('i', 'sp'), a = Math.random() * 6.283, v = 90 + Math.random() * 130; d.style.background = col || DROP_R[shown].c[i % 2 ? 1 : 0]; d.style.setProperty('--dx', Math.cos(a) * v + 'px'); d.style.setProperty('--dy', Math.sin(a) * v + 'px'); stage.appendChild(d); setTimeout(() => d.remove(), 800); } };
+  const again = (e2, cls) => { e2.classList.remove(cls); void e2.offsetWidth; e2.classList.add(cls); };
+  let busy = false;
   const tap = () => {
-    if (opened) return;
+    if (opened || busy) return;
     box.classList.remove('hit'); void box.offsetWidth; box.classList.add('hit'); vib(15);
-    if (shown < r) {   // редкость поднимается
-      shown++; paint(); burst(16); box.classList.remove('up'); void box.offsetWidth; box.classList.add('up');
-      try { tone(520 + shown * 160, 900 + shown * 240, 0.16, 'square', 0.05); tone(1040 + shown * 200, 1040 + shown * 200, 0.12, 'triangle', 0.04, 0.1); } catch (e) {}
-      hint.textContent = shown >= 3 ? tr('ОГО! ЖМИ ЕЩЁ!', 'WOW! TAP AGAIN!') : tr('ЖМИ! ЖМИ!', 'TAP! TAP!'); if (shown >= 3) vib([30, 20, 60]);
+    if (shown < r) {   // редкость поднимается: ящик заряжается, вспышка — и он уже другой
+      busy = true; const nx = shown + 1;
+      again(box, 'charge'); ov.style.setProperty('--nc', DROP_R[nx].c[0]); dropRise(nx);
+      const beam = el('i', 'beam'); stage.appendChild(beam); setTimeout(() => beam.remove(), 1100);
+      hint.textContent = '';
+      setTimeout(() => {
+        if (!ov.isConnected) return;
+        shown = nx; paint(); box.classList.remove('charge'); again(box, 'up'); again(nm, 'pop'); again(ov, 'shake');
+        const fl = el('i', 'fl'); ov.appendChild(fl); setTimeout(() => fl.remove(), 600);
+        const rg = el('i', 'ring2'); stage.appendChild(rg); setTimeout(() => rg.remove(), 800);
+        burst(26 + shown * 6); burst(12, '#ffffff'); dropBoom(shown);
+        hint.textContent = shown >= 3 ? tr('ОГО! ЖМИ ЕЩЁ!', 'WOW! TAP AGAIN!') : tr('ЖМИ! ЖМИ!', 'TAP! TAP!');
+        vib(shown >= 3 ? [40, 30, 90, 30, 140] : [30, 20, 60]);
+        setTimeout(() => { busy = false; }, 260);
+      }, 420);
       return;
     }
     opened = true; hint.textContent = '';
@@ -17109,23 +17137,47 @@ function dropShow(opt = {}) {
   ov.addEventListener('click', tap);
 }
 let dwinFinT = -99, dwinAuto = '', dwinNewT = -99;
+// звук трансформации дропа: нарастающий заряд…
+function dropRise(lv) { try { tone(160, 760 + lv * 220, 0.42, 'sawtooth', 0.03); tone(80, 160 + lv * 40, 0.42, 'square', 0.025); noise(0.42, 0.045, 1500, 9000); } catch (e) {} }
+// …и тяжёлый удар: глубокий бум, хлопок и аккорд новой редкости (чем реже — тем выше и ярче)
+function dropBoom(lv) {
+  try {
+    tone(120, 34, 0.55, 'sine', 0.2); tone(60, 30, 0.6, 'triangle', 0.12); noise(0.28, 0.13, 40, 1400);
+    if (lv <= 0) return;
+    const k = 1 + lv * 0.08;
+    [523.25, 659.25, 783.99, 1046.5].forEach((f, i) => tone(f * k, f * k * 1.005, 0.55, 'triangle', 0.045, 0.03 + i * 0.035));
+    tone(130.8 * k, 130.8 * k, 0.6, 'square', 0.03, 0.03);
+    if (lv >= 3) { [1568, 2093, 2637, 3136, 4186].forEach((f, i) => tone(f, f, 0.14, 'sine', 0.03, 0.18 + i * 0.06)); noise(0.5, 0.035, 5000, 12000, 0.15); }
+  } catch (e) {}
+}
 function A_NEWDAY() { [523, 659, 784, 1047, 1319].forEach((f, i) => tone(f, f * 1.01, 0.12, 'triangle', 0.05, i * 0.07)); noise(0.2, 0.04, 2500, 0.3); }
 { const st = document.createElement('style'); st.textContent = `
 #dropov{position:fixed;inset:0;z-index:130;animation:dpIn .45s ease-out both;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;font-family:Montserrat,sans-serif;font-weight:900;text-transform:uppercase;color:#fff;background:radial-gradient(circle at 50% 45%,var(--dk) 0%,#140a28 65%);overflow:hidden;animation:dpIn .3s ease-out;cursor:pointer;user-select:none;-webkit-user-select:none;touch-action:manipulation}
 #dropov .rays{position:absolute;left:50%;top:45%;width:900px;height:900px;margin:-450px 0 0 -450px;background:repeating-conic-gradient(from 0deg,#ffffff14 0 10deg,transparent 10deg 20deg);animation:nwRot 18s linear infinite;pointer-events:none}
 #dropov .tt{position:relative;font-size:24px;letter-spacing:3px;color:#ffd23a;text-shadow:0 3px 0 #1a0a04}
 #dropov .lf{position:relative;font-size:13px;opacity:.8;letter-spacing:1px}
-#dropov .stage{position:relative;width:260px;height:240px;display:flex;align-items:center;justify-content:center;animation:dpEnter .7s cubic-bezier(.2,1.4,.4,1) both}
-#dropov .tt,#dropov .lf,#dropov .nm,#dropov .hint{animation:dpFade .4s ease-out .45s both}
-#dropov .ring{position:absolute;left:50%;top:50%;width:40px;height:40px;margin:-20px 0 0 -20px;border:6px solid var(--dc);border-radius:50%;opacity:0;animation:dpRing .7s ease-out .55s both;pointer-events:none}
-@keyframes dpEnter{0%{transform:translateY(320px) scale(.25) rotate(-25deg);opacity:0}60%{opacity:1}100%{transform:none}}
+#dropov .stage{position:relative;width:260px;height:240px;display:flex;align-items:center;justify-content:center;animation:dpDrop .62s linear both}
+#dropov .tt,#dropov .lf,#dropov .nm,#dropov .hint{animation:dpFade .35s ease-out .3s both}
+#dropov .ring{position:absolute;left:50%;top:62%;width:40px;height:40px;margin:-20px 0 0 -20px;border:6px solid var(--dc);border-radius:50%;opacity:0;animation:dpRing .7s ease-out .34s both;pointer-events:none}
+#dropov .ring2{position:absolute;left:50%;top:50%;width:40px;height:40px;margin:-20px 0 0 -20px;border:8px solid var(--dc);border-radius:50%;animation:dpRing .75s ease-out both;pointer-events:none}
+#dropov .beam{position:absolute;left:50%;top:-60%;width:130px;height:220%;margin-left:-65px;background:linear-gradient(90deg,transparent,var(--nc) 40%,#fff 50%,var(--nc) 60%,transparent);opacity:0;animation:dpBeam 1s ease-out both;pointer-events:none;mix-blend-mode:screen}
+#dropov .fl{position:absolute;inset:0;background:radial-gradient(circle at 50% 45%,#fff 0%,var(--dc) 35%,transparent 70%);animation:dpFlash .55s ease-out forwards;pointer-events:none;z-index:2}
+#dropov.shake{animation:dpShake .4s ease-out}
+#dropov .stage .box.charge canvas{animation:dpCharge .42s ease-in both}
+#dropov .nm.pop{animation:dpBadge .55s cubic-bezier(.2,2,.4,1) both}
+@keyframes dpDrop{0%{transform:translateY(-110vh) scale(.95,1.1);animation-timing-function:cubic-bezier(.5,0,1,1)}55%{transform:translateY(0) scale(.95,1.1)}62%{transform:translateY(12px) scale(1.28,.7)}76%{transform:translateY(-30px) scale(.92,1.1)}89%{transform:translateY(0) scale(1.07,.93)}100%{transform:none}}
+@keyframes dpShake{0%,100%{transform:none}15%{transform:translate(-9px,5px)}30%{transform:translate(8px,-6px)}45%{transform:translate(-6px,-3px)}60%{transform:translate(5px,4px)}80%{transform:translate(-2px,1px)}}
+@keyframes dpCharge{0%{transform:none;filter:brightness(1)}20%{transform:translate(-3px,1px) rotate(-3deg)}40%{transform:translate(4px,-2px) rotate(3deg) scale(1.04)}60%{transform:translate(-5px,2px) rotate(-4deg) scale(1.08)}80%{transform:translate(5px,-1px) rotate(4deg) scale(1.12)}100%{transform:scale(1.18);filter:brightness(3.2) saturate(.3)}}
+@keyframes dpBeam{0%{opacity:0;transform:scaleX(.2)}35%{opacity:.95;transform:scaleX(1)}100%{opacity:0;transform:scaleX(1.6)}}
+@keyframes dpFlash{0%{opacity:1}100%{opacity:0}}
+@keyframes dpBadge{0%{transform:scale(2.2) rotate(-6deg);opacity:0;filter:brightness(3)}60%{opacity:1}100%{transform:none;filter:none}}
 @keyframes dpFade{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
 @keyframes dpRing{0%{opacity:.9;transform:scale(.5)}100%{opacity:0;transform:scale(7)}}
 #dropov .box{position:relative;filter:drop-shadow(0 0 22px var(--dc)) drop-shadow(0 8px 0 #0008);animation:dpBob 1.4s ease-in-out infinite}
 #dropov .box.hit canvas{animation:dpHit .18s ease-out}
 #dropov .box.up{animation:dpUp .45s cubic-bezier(.2,2,.4,1)}
 #dropov .box.open{animation:dpOpen .45s ease-in forwards}
-#dropov .nm{position:relative;font-size:26px;letter-spacing:2px;color:var(--dc);text-shadow:0 3px 0 #1a0a04,0 0 14px var(--dk)}
+#dropov .nm{position:relative;margin-top:-6px;padding:6px 18px 5px;font-size:24px;letter-spacing:2px;color:#fff;background:linear-gradient(var(--dc),var(--dk));border:4px solid #1a0a04;border-radius:12px;box-shadow:0 5px 0 #1a0a04,0 0 22px var(--dc);text-shadow:0 3px 0 #1a0a04}
 #dropov .ch{position:absolute;left:8px;right:8px;bottom:max(10px,env(safe-area-inset-bottom));display:flex;flex-wrap:wrap;justify-content:center;gap:4px 10px;font-size:10px;opacity:.85;text-shadow:0 1px 0 #1a0a04}
 #dropov .hint{position:relative;font-size:18px;animation:dpPulse .8s ease-in-out infinite;min-height:24px}
 #dropov .sp{position:absolute;left:50%;top:50%;width:10px;height:10px;border:2px solid #1a0a04;animation:dpSp .75s ease-out forwards;pointer-events:none}

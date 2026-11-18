@@ -11,11 +11,18 @@
         "source": "github",
         "repo": "addyosmani/agent-skills"
       }
+    },
+    "chrome-devtools-plugins": {
+      "source": {
+        "source": "github",
+        "repo": "ChromeDevTools/chrome-devtools-mcp"
+      }
     }
   },
   "enabledPlugins": {
     "ponytail@ponytail": true,
-    "agent-skills@addy-agent-skills": true
+    "agent-skills@addy-agent-skills": true,
+    "chrome-devtools-mcp@chrome-devtools-plugins": true
   },
   "hooks": {
     "PreToolUse": [
