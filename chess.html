@@ -1,20 +1,17 @@
 <title>Шахматы Силы</title>
 <meta name="claude:viewport-fit-sides" content="cover">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Spectral+SC:wght@600;700&family=Manrope:wght@400;600;700&display=swap">
 <style>
-/* Layout: board as the hero on the left, a war-council panel on the right; stacks on phones. Single dark "candlelit war table" look. */
+/* Layout: one centered board, nothing else; a small choice popup grows from the tapped piece. Single dark "war table" look. */
 :root{
   color-scheme: dark;
   --bg:#14121a;
-  --panel:#1e1b26;
+  --panel:#211d2a;
   --line:#3a3446;
   --fg:#ece6d8;
-  --muted:#9f97ab;
+  --muted:#8d859a;
   --light:#d9c8a4;
   --dark:#8a6a4c;
   --gold:#e7b54a;
-  --gold-soft:rgba(231,181,74,.18);
   --sel:rgba(231,181,74,.55);
   --move:rgba(20,18,26,.42);
   --danger:#e0574a;
@@ -22,128 +19,119 @@
   --ice:#a8e6ff;
   --white-piece:#fbf7ee;
   --black-piece:#1c1820;
-  --display:"Spectral SC", Georgia, serif;
-  --body:"Manrope", system-ui, sans-serif;
+  --body:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
 }
 html,body{height:100%}
-body{background:var(--bg);color:var(--fg);font-family:var(--body);font-size:15px;
-  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:20px;box-sizing:border-box}
 *{box-sizing:border-box}
-.wrap{max-width:1000px;margin:0 auto;display:flex;flex-wrap:wrap;gap:24px;align-items:flex-start;justify-content:center}
-h1{font-family:var(--display);font-weight:700;letter-spacing:.04em;font-size:28px;margin:0 0 4px;text-wrap:balance}
-.sub{color:var(--muted);margin:0 0 16px;font-size:14px}
-.boardCol{flex:1 1 420px;max-width:600px;min-width:0}
-.board{position:relative;width:100%;aspect-ratio:1;max-width:100%;display:grid;grid-template-columns:repeat(8,1fr);grid-template-rows:repeat(8,1fr);
-  border:3px solid #4a3a2c;border-radius:6px;overflow:hidden;container-type:inline-size;box-shadow:0 20px 50px rgba(0,0,0,.5)}
+body{background:var(--bg);color:var(--fg);font-family:var(--body);margin:0;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:16px;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;min-height:100%}
+.stage{position:relative;width:min(100%,640px,calc(100vh - 110px));min-width:240px}
+.board{position:relative;width:100%;aspect-ratio:1;display:grid;grid-template-columns:repeat(8,1fr);grid-template-rows:repeat(8,1fr);
+  border:3px solid #4a3a2c;border-radius:6px;overflow:hidden;container-type:inline-size;box-shadow:0 20px 50px rgba(0,0,0,.5);transition:box-shadow .4s}
+.board.tw{box-shadow:0 0 0 3px #fbf7ee55,0 20px 50px rgba(0,0,0,.5)}
+.board.tb{box-shadow:0 0 0 3px #00000099,0 20px 50px rgba(0,0,0,.5)}
 .sq{position:relative;display:flex;align-items:center;justify-content:center;cursor:pointer;user-select:none;-webkit-tap-highlight-color:transparent}
 .sq.l{background:var(--light)}.sq.d{background:var(--dark)}
 .sq.last::before{content:"";position:absolute;inset:0;background:rgba(231,181,74,.28)}
 .sq.selected::before{content:"";position:absolute;inset:0;background:var(--sel)}
-.sq.check::before{content:"";position:absolute;inset:0;background:radial-gradient(circle,rgba(224,87,74,.9) 0,rgba(224,87,74,.35) 55%,transparent 75%)}
-.sq .coord{position:absolute;font-size:2.1cqw;font-weight:700;opacity:.7;pointer-events:none}
-.sq .coord.f{bottom:1px;right:3px}.sq .coord.r{top:1px;left:3px}
-.sq.l .coord{color:var(--dark)}.sq.d .coord{color:var(--light)}
+.sq.check::before{content:"";position:absolute;inset:0;background:radial-gradient(circle,rgba(224,87,74,.95) 0,rgba(224,87,74,.35) 55%,transparent 75%)}
 .dot{position:absolute;width:30%;height:30%;border-radius:50%;background:var(--move);pointer-events:none}
 .ring{position:absolute;inset:6%;border-radius:50%;border:.9cqw solid var(--move);pointer-events:none}
-.target{position:absolute;inset:8%;border-radius:8px;border:.8cqw dashed var(--danger);animation:pulse 1s infinite;pointer-events:none}
-.pc{position:relative;font-size:9.6cqw;line-height:1;z-index:1;pointer-events:none;transition:transform .15s}
+.target{position:absolute;inset:6%;border-radius:8px;border:.7cqw dashed var(--danger);background:rgba(224,87,74,.18);animation:pulse 1s infinite;pointer-events:none;z-index:4}
+.target.gold{border-color:var(--gold);background:rgba(231,181,74,.22);border-radius:50%}
+.pc{position:relative;font-size:9.6cqw;line-height:1;z-index:1;pointer-events:none;transition:transform .15s;font-family:"Segoe UI Symbol","Noto Sans Symbols 2","DejaVu Sans",serif}
 .pc.w{color:var(--white-piece);text-shadow:0 0 1px #000,0 0 1px #000,0 2px 2px rgba(0,0,0,.6),0 0 .4cqw #000}
 .pc.b{color:var(--black-piece);text-shadow:0 0 1px #fff8,0 2px 2px rgba(0,0,0,.4)}
 .sq.selected .pc{transform:scale(1.1)}
 .pc.shielded{filter:drop-shadow(0 0 .8cqw var(--shield))}
 .pc.frozen{filter:drop-shadow(0 0 .8cqw var(--ice)) saturate(.4);opacity:.85}
-.badge{position:absolute;z-index:2;font-size:2.6cqw;line-height:1;pointer-events:none}
-.badge.sh{top:4%;right:5%}
-.badge.fr{bottom:4%;left:5%}
-.badge.sw{top:4%;left:5%}
-.badge.cd{bottom:4%;right:5%;background:#000a;color:#fff;border-radius:99px;padding:.3cqw .7cqw;font-size:1.9cqw;font-weight:700;font-family:var(--body)}
-.fx{position:absolute;inset:0;z-index:3;pointer-events:none}
+.pc.soldier{font-size:8.2cqw;transform:translate(10%,4%)}
+.gear{position:absolute;pointer-events:none;z-index:2}
+.gear.shieldS{left:0;bottom:8%;width:40%;filter:drop-shadow(0 1px 1px #0008)}
+.gear.sword{right:0;top:4%;width:44%;filter:drop-shadow(0 1px 1px #0008)}
+.gear.miniShield{right:4%;top:4%;width:28%}
+.badge{position:absolute;z-index:2;font-size:2.6cqw;line-height:1;pointer-events:none;bottom:4%;left:5%}
+.fx{position:absolute;inset:0;z-index:3;pointer-events:none;opacity:0}
 .fx.boom{animation:boom .6s ease-out forwards;background:radial-gradient(circle,#fff 0,#ffb347 30%,#e0574a 55%,transparent 72%)}
-.fx.summon{animation:summon .8s ease-out forwards;background:radial-gradient(circle,#fff6 0,var(--gold) 40%,transparent 70%)}
-.fx.bless{animation:summon .8s ease-out forwards;background:radial-gradient(circle,#fff8 0,var(--shield) 45%,transparent 72%)}
-.fx.ice{animation:summon .8s ease-out forwards;background:radial-gradient(circle,#fff 0,var(--ice) 45%,transparent 72%)}
-.fx.clang{animation:summon .6s ease-out forwards;background:radial-gradient(circle,#fff 0,#cfd8e3 35%,transparent 65%)}
+.fx.summon{animation:pop .8s ease-out forwards;background:radial-gradient(circle,#fff6 0,var(--gold) 40%,transparent 70%)}
+.fx.bless{animation:pop .8s ease-out forwards;background:radial-gradient(circle,#fff8 0,var(--shield) 45%,transparent 72%)}
+.fx.ice{animation:pop .8s ease-out forwards;background:radial-gradient(circle,#fff 0,var(--ice) 45%,transparent 72%)}
+.fx.clang{animation:pop .6s ease-out forwards;background:radial-gradient(circle,#fff 0,#cfd8e3 35%,transparent 65%)}
+.fx.gold{animation:pop .9s ease-out forwards;background:radial-gradient(circle,#fff 0,var(--gold) 40%,transparent 72%)}
 @keyframes boom{0%{transform:scale(.2);opacity:1}100%{transform:scale(1.5);opacity:0}}
-@keyframes summon{0%{transform:scale(.3);opacity:1}100%{transform:scale(1.25);opacity:0}}
-@keyframes pulse{50%{opacity:.35}}
-@keyframes rise{0%{transform:translateY(40%) scale(.4);opacity:0}100%{transform:none;opacity:1}}
-.pc.spawn{animation:rise .5s ease-out}
+@keyframes pop{0%{transform:scale(.3);opacity:1}100%{transform:scale(1.25);opacity:0}}
+@keyframes pulse{50%{opacity:.4}}
+@keyframes rise{0%{transform:translateY(60%) scale(.3);opacity:0}100%{transform:none;opacity:1}}
+@keyframes toW{0%{color:var(--black-piece);transform:rotateY(0)}50%{transform:rotateY(90deg) scale(1.2)}100%{transform:rotateY(360deg)}}
+@keyframes toB{0%{color:var(--white-piece);transform:rotateY(0)}50%{transform:rotateY(90deg) scale(1.2)}100%{transform:rotateY(360deg)}}
+.spawn{animation:rise .5s ease-out backwards}
+.flip.w{animation:toW .8s ease-in-out .55s backwards}
+.flip.b{animation:toB .8s ease-in-out .55s backwards}
+.coin{position:absolute;z-index:8;font-size:6cqw;line-height:1;pointer-events:none;transform:translate(-50%,-50%)}
 
-.panel{flex:0 1 330px;min-width:0;width:100%;display:flex;flex-direction:column;gap:14px}
-.card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px}
-.turn{display:flex;align-items:center;gap:10px;font-family:var(--display);font-size:20px}
-.turn .chip{width:18px;height:18px;border-radius:50%;border:2px solid var(--gold)}
-.turn .chip.w{background:var(--white-piece)}.turn .chip.b{background:var(--black-piece)}
-.status{color:var(--danger);font-weight:700;font-size:13px;min-height:18px;margin-top:6px}
-.label{font-size:11px;text-transform:uppercase;letter-spacing:.12em;color:var(--muted);margin-bottom:6px}
-.selName{font-family:var(--display);font-size:18px;margin-bottom:2px}
-.abName{color:var(--gold);font-weight:700;margin-top:10px}
-.abDesc{color:var(--muted);font-size:13px;line-height:1.45;margin:4px 0 12px}
-button{font-family:var(--body);font-weight:700;font-size:14px;border-radius:8px;cursor:pointer;border:1px solid var(--line);background:#2a2633;color:var(--fg);padding:10px 14px}
-button:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
-.abBtn{width:100%;background:linear-gradient(180deg,#f0c35d,#c8902a);color:#231a08;border:none;font-size:15px;padding:12px;box-shadow:0 4px 14px rgba(231,181,74,.3)}
-.abBtn:hover:not(:disabled){filter:brightness(1.08)}
-.abBtn:disabled{background:#2a2633;color:var(--muted);box-shadow:none;cursor:not-allowed;border:1px solid var(--line)}
-.abBtn.active{background:var(--danger);color:#fff}
-.hint{font-size:12px;color:var(--muted);margin-top:8px}
-.log{max-height:220px;overflow:auto;font-size:13px;display:flex;flex-direction:column;gap:4px;font-variant-numeric:tabular-nums}
-.log div{padding:3px 0;border-bottom:1px solid #ffffff0d}
-.log .ab{color:var(--gold)}
-.legend{display:grid;grid-template-columns:auto 1fr;gap:6px 10px;font-size:13px;color:var(--muted);align-items:start}
-.legend b{color:var(--fg);font-weight:600}
-.over{position:absolute;inset:0;z-index:10;background:rgba(10,8,14,.72);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;text-align:center;padding:20px}
-.over h2{font-family:var(--display);font-size:clamp(22px,6cqw,40px);margin:0;color:var(--gold)}
+.pop{position:absolute;z-index:20;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:6px;display:flex;flex-direction:column;gap:4px;
+  min-width:150px;box-shadow:0 12px 30px rgba(0,0,0,.55);animation:popIn .14s ease-out}
+@keyframes popIn{from{transform:scale(.85);opacity:0}}
+.opt{display:flex;align-items:center;gap:10px;border:0;background:transparent;color:var(--fg);font:600 14px var(--body);padding:8px 10px;border-radius:8px;cursor:pointer;text-align:left;width:100%}
+.opt:hover:not(:disabled),.opt.on{background:#e7b54a26}
+.opt.on{outline:1px solid var(--gold)}
+.opt:focus-visible{outline:2px solid var(--gold)}
+.opt .ic{font-size:20px;width:24px;text-align:center}
+.opt .nm{flex:1}
+.opt .cd{font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums}
+.opt:disabled{color:var(--muted);cursor:not-allowed}
+.opt:disabled .ic{filter:grayscale(1);opacity:.5}
+
+.bar{display:flex;align-items:center;gap:12px}
+.side{font-size:30px;line-height:1;padding:4px 10px;border-radius:10px;opacity:.35;transition:all .3s;font-family:"Segoe UI Symbol","Noto Sans Symbols 2","DejaVu Sans",serif}
+.side.w{color:var(--white-piece);text-shadow:0 0 1px #000}
+.side.b{color:var(--black-piece);text-shadow:0 0 1px #fff8;background:#ffffff10}
+.side.on{opacity:1;box-shadow:0 0 0 2px var(--gold)}
+.icoBtn{font-size:22px;width:44px;height:44px;border-radius:50%;border:1px solid var(--line);background:var(--panel);color:var(--fg);cursor:pointer}
+.icoBtn:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+.over{position:absolute;inset:0;z-index:30;background:rgba(10,8,14,.72);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px}
+.over .big{font-size:22cqw;line-height:1;animation:pop2 .6s ease-out}
+@keyframes pop2{from{transform:scale(.3);opacity:0}}
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 </style>
 
-<div class="wrap">
-  <div class="boardCol">
-    <h1>Шахматы Силы</h1>
-    <p class="sub">Обычные шахматы, но у каждой фигуры есть способность. Нажми на свою фигуру, затем на золотую кнопку справа. Способность тратит ход.</p>
-    <div class="board" id="board"></div>
-  </div>
-  <div class="panel">
-    <div class="card">
-      <div class="turn"><span class="chip w" id="chip"></span><span id="turnText">Ход белых</span></div>
-      <div class="status" id="status"></div>
-    </div>
-    <div class="card" id="selCard">
-      <div class="label">Выбранная фигура</div>
-      <div id="selBody"><div class="abDesc">Нажми на свою фигуру на доске.</div></div>
-    </div>
-    <div class="card">
-      <div class="label">Летопись битвы</div>
-      <div class="log" id="log"></div>
-    </div>
-    <div class="card">
-      <div class="label">Способности</div>
-      <div class="legend" id="legend"></div>
-    </div>
-    <button id="reset">Новая игра</button>
-  </div>
+<div class="stage" id="stage">
+  <div class="board" id="board"></div>
+</div>
+<div class="bar">
+  <span class="side w" id="sideW">♚</span>
+  <span class="side b" id="sideB">♚</span>
+  <button class="icoBtn" id="reset" aria-label="Новая игра">↻</button>
 </div>
 
 <script>
 const GLYPH={k:'♚',q:'♛',r:'♜',b:'♝',n:'♞',p:'♟︎'};
-const NAME={k:'Король',q:'Ферзь',r:'Ладья',b:'Слон',n:'Конь',p:'Пешка'};
-const FILES='abcdefgh';
 const KN=[[1,2],[2,1],[-1,2],[-2,1],[1,-2],[2,-1],[-1,-2],[-2,-1]];
 const K8=[[1,0],[-1,0],[0,1],[0,-1],[1,1],[1,-1],[-1,1],[-1,-1]];
+const ORTH=K8.slice(0,4);
 const inb=(r,c)=>r>=0&&r<8&&c>=0&&c<8;
 const at=(b,r,c)=>inb(r,c)?b[r][c]:null;
-const sqName=(r,c)=>FILES[c]+(8-r);
 const fwd=col=>col==='w'?-1:1;
 const enemy=col=>col==='w'?'b':'w';
-const cloneB=b=>b.map(row=>row.map(p=>p?{...p}:null));
+const cloneB=b=>b.map(row=>row.map(p=>p?{...p,cd:{...p.cd}}:null));
+const reduced=matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-let S; // game state
-function P(t,c,x){return Object.assign({t,c,cd:0,shield:false,frozen:false,moved:false,soldier:false},x||{})}
+/* ---------- gear art ---------- */
+function shieldSVG(col){
+  const face=col==='w'?'#3d7fd1':'#b3362c',rim=col==='w'?'#dfe9f5':'#e7b54a';
+  return `<svg viewBox="0 0 40 48"><path d="M20 2 L37 8 V22 C37 34 29 42 20 46 C11 42 3 34 3 22 V8 Z" fill="${face}" stroke="${rim}" stroke-width="3"/><path d="M20 10 V38 M10 20 H30" stroke="${rim}" stroke-width="4" stroke-linecap="round"/></svg>`;
+}
+const SWORD=`<svg viewBox="0 0 40 40"><g transform="rotate(45 20 20)"><path d="M18 2 H22 V26 H18 Z" fill="#e8edf3" stroke="#6b7480" stroke-width="1"/><path d="M20 2 L22 5 H18 Z" fill="#fff"/><rect x="11" y="25" width="18" height="4" rx="2" fill="#e7b54a" stroke="#7a5a1c" stroke-width="1"/><rect x="18.3" y="29" width="3.4" height="7" fill="#6b3f1d"/><circle cx="20" cy="37.5" r="2.4" fill="#e7b54a"/></g></svg>`;
+
+/* ---------- state ---------- */
+let S;
+function P(t,c,x){return Object.assign({t,c,cd:{},shield:false,frozen:false,moved:false,soldier:false},x||{})}
 function newGame(){
   const b=[...Array(8)].map(()=>Array(8).fill(null));
   const back='rnbqkbnr';
   for(let c=0;c<8;c++){b[0][c]=P(back[c],'b');b[1][c]=P('p','b');b[6][c]=P('p','w');b[7][c]=P(back[c],'w');}
-  S={b,turn:'w',ep:null,last:null,sel:null,aiming:null,over:null,log:[],moveNo:1,spawn:[]};
-  addLog('Битва началась. Белые ходят первыми.');
+  S={b,turn:'w',ep:null,last:null,sel:null,aim:null,over:null};
 }
 
 /* ---------- rules ---------- */
@@ -152,298 +140,275 @@ function attacked(b,r,c,by){
   for(const dc of[-1,1]){const p=at(b,r+pd,c+dc);if(p&&p.c===by&&p.t==='p')return true;}
   for(const[dr,dc]of KN){const p=at(b,r+dr,c+dc);if(p&&p.c===by&&p.t==='n')return true;}
   for(const[dr,dc]of K8){const p=at(b,r+dr,c+dc);if(p&&p.c===by&&p.t==='k')return true;}
-  for(const[dr,dc]of K8){
-    let rr=r+dr,cc=c+dc;
+  for(const[dr,dc]of K8){let rr=r+dr,cc=c+dc;
     while(inb(rr,cc)){const p=b[rr][cc];
-      if(p){if(p.c===by){const diag=dr&&dc;if(p.t==='q'||(diag&&p.t==='b')||(!diag&&p.t==='r'))return true;}break;}
-      rr+=dr;cc+=dc;}
-  }
+      if(p){if(p.c===by){const dg=dr&&dc;if(p.t==='q'||(dg&&p.t==='b')||(!dg&&p.t==='r'))return true;}break;}
+      rr+=dr;cc+=dc;}}
   return false;
 }
 function kingPos(b,col){for(let r=0;r<8;r++)for(let c=0;c<8;c++){const p=b[r][c];if(p&&p.t==='k'&&p.c===col)return[r,c];}return null}
 function inCheck(b,col){const k=kingPos(b,col);return k?attacked(b,k[0],k[1],enemy(col)):false}
-
 function pseudo(b,r,c,ep){
-  const p=b[r][c],out=[],col=p.c;
-  const add=(rr,cc,x)=>out.push(Object.assign({r:rr,c:cc},x||{}));
+  const p=b[r][c],out=[],col=p.c,add=(rr,cc,x)=>out.push(Object.assign({r:rr,c:cc},x||{}));
   if(p.t==='p'){
     const d=fwd(col),start=col==='w'?6:1;
     if(inb(r+d,c)&&!b[r+d][c]){add(r+d,c);if(r===start&&!b[r+2*d][c])add(r+2*d,c);}
     for(const dc of[-1,1]){const t=at(b,r+d,c+dc);
-      if(t&&t.c!==col)add(r+d,c+dc);
-      else if(ep&&ep.r===r+d&&ep.c===c+dc)add(r+d,c+dc,{ep:true});}
+      if(t&&t.c!==col)add(r+d,c+dc);else if(ep&&ep.r===r+d&&ep.c===c+dc)add(r+d,c+dc,{ep:true});}
   }else if(p.t==='n'||p.t==='k'){
     for(const[dr,dc]of(p.t==='n'?KN:K8)){const rr=r+dr,cc=c+dc;if(!inb(rr,cc))continue;const t=b[rr][cc];if(!t||t.c!==col)add(rr,cc);}
     if(p.t==='k'&&!p.moved&&!inCheck(b,col)){
       for(const side of[7,0]){const rk=b[r][side];if(!rk||rk.t!=='r'||rk.c!==col||rk.moved)continue;
-        const step=side===7?1:-1;let ok=true;
-        for(let cc=c+step;cc!==side;cc+=step)if(b[r][cc]){ok=false;break;}
-        if(ok&&!attacked(b,r,c+step,enemy(col))&&!attacked(b,r,c+2*step,enemy(col)))add(r,c+2*step,{castle:true});}
-    }
+        const st=side===7?1:-1;let ok=true;
+        for(let cc=c+st;cc!==side;cc+=st)if(b[r][cc]){ok=false;break;}
+        if(ok&&!attacked(b,r,c+st,enemy(col))&&!attacked(b,r,c+2*st,enemy(col)))add(r,c+2*st,{castle:true});}}
   }else{
-    const dirs=p.t==='r'?K8.slice(0,4):p.t==='b'?K8.slice(4):K8;
+    const dirs=p.t==='r'?ORTH:p.t==='b'?K8.slice(4):K8;
     for(const[dr,dc]of dirs){let rr=r+dr,cc=c+dc;
       while(inb(rr,cc)){const t=b[rr][cc];if(t){if(t.c!==col)add(rr,cc);break;}add(rr,cc);rr+=dr;cc+=dc;}}
   }
   return out;
 }
-// mutates b; returns info
+function promote(p,r){if(p.t==='p'&&r===(p.c==='w'?0:7)){p.t='q';p.soldier=false;return true}return false}
 function doMove(b,fr,fc,m){
-  const p=b[fr][fc];
-  const tr=m.ep?fr:m.r,tc=m.c;
-  const target=b[tr][tc];
-  if(target&&target.c!==p.c&&target.shield){target.shield=false;return{ep:null,bounced:true,target,tr,tc};}
+  const p=b[fr][fc],tr=m.ep?fr:m.r,tc=m.c,target=b[tr][tc];
+  if(target&&target.c!==p.c&&target.shield){target.shield=false;return{bounced:true,tr,tc};}
   if(m.ep)b[fr][m.c]=null;
   b[m.r][m.c]=p;b[fr][fc]=null;p.moved=true;
-  if(m.castle){const rc=m.c>fc?7:0,nc=m.c>fc?5:3;b[fr][nc]=b[fr][rc];b[fr][rc]=null;b[fr][nc].moved=true;}
-  let ep=null,promoted=false;
-  if(p.t==='p'){if(Math.abs(m.r-fr)===2)ep={r:(m.r+fr)/2,c:fc};if(m.r===0||m.r===7){p.t='q';promoted=true;}}
-  return{ep,captured:target,promoted};
+  let rook=null;
+  if(m.castle){const rc=m.c>fc?7:0,nc=m.c>fc?5:3;b[fr][nc]=b[fr][rc];b[fr][rc]=null;b[fr][nc].moved=true;rook={fr,fc:rc,tr:fr,tc:nc};}
+  let ep=null;
+  if(p.t==='p'&&Math.abs(m.r-fr)===2)ep={r:(m.r+fr)/2,c:fc};
+  promote(p,m.r);
+  return{ep,captured:target,rook};
 }
 function legal(b,r,c,ep,ignoreFreeze){
-  const p=b[r][c];if(!p)return[];
-  if(p.frozen&&!ignoreFreeze)return[];
+  const p=b[r][c];if(!p||(p.frozen&&!ignoreFreeze))return[];
   return pseudo(b,r,c,ep).filter(m=>{const nb=cloneB(b);doMove(nb,r,c,m);return!inCheck(nb,p.c);});
 }
-function anyLegal(col,ignoreFreeze){
-  for(let r=0;r<8;r++)for(let c=0;c<8;c++){const p=S.b[r][c];if(p&&p.c===col&&legal(S.b,r,c,S.ep,ignoreFreeze).length)return true;}
-  return false;
-}
+function anyLegal(col,ig){for(let r=0;r<8;r++)for(let c=0;c<8;c++){const p=S.b[r][c];if(p&&p.c===col&&legal(S.b,r,c,S.ep,ig).length)return true;}return false}
 
 /* ---------- abilities ---------- */
-const AB={
-  k:{name:'Армия щитоносцев',cd:8,icon:'⚔',desc:'Слева от короля выходит отряд из 3 пешек-рыцарей с мечами и щитами. Щит один раз отражает взятие.'},
-  q:{name:'Буря',cd:5,icon:'🌪',desc:'Вихрь вокруг ферзя: вражеские пешки рядом уничтожены, с остальных соседних врагов сорваны щиты.'},
-  r:{name:'Таран',cd:4,icon:'🐏',desc:'Выбери направление: ладья мчится по прямой и сносит первую вражескую фигуру на пути (кроме короля).'},
-  b:{name:'Благословение',cd:4,icon:'✨',desc:'Слон и все союзники вокруг него получают щит. Щит один раз отражает взятие.'},
-  n:{name:'Топот копыт',cd:4,icon:'💫',desc:'Все враги на клетках, куда мог бы прыгнуть конь, оглушены и пропускают свой следующий ход (король не оглушается).'},
-  p:{name:'Удар копьём',cd:3,icon:'🗡',desc:'Пешка пронзает врага прямо перед собой (кроме короля). Если у врага щит, ломается только щит.'},
-};
-// returns {ok, why, targets?}
-function abilityPlan(b,r,c){
-  const p=b[r][c],col=p.c,e=enemy(col);
-  if(p.cd>0)return{ok:false,why:`Перезарядка: ещё ${p.cd} ${plural(p.cd)}`};
-  if(p.frozen)return{ok:false,why:'Фигура оглушена'};
-  let cells=[];
-  switch(p.t){
-    case'k':cells=summonCells(b,r,c,col);if(!cells.length)return{ok:false,why:'Слева от короля нет свободного места'};break;
-    case'q':for(const[dr,dc]of K8){const t=at(b,r+dr,c+dc);if(t&&t.c===e&&t.t!=='k'&&(t.t==='p'||t.shield))cells.push([r+dr,c+dc]);}
-      if(!cells.length)return{ok:false,why:'Рядом нет вражеских пешек или щитов'};break;
-    case'r':{const tg=[];for(const[dr,dc]of K8.slice(0,4)){let rr=r+dr,cc=c+dc;
-        while(inb(rr,cc)&&!b[rr][cc]){rr+=dr;cc+=dc;}
-        const t=at(b,rr,cc);if(t&&t.c===e&&t.t!=='k')tg.push({r:rr,c:cc,dr,dc});}
-      if(!tg.length)return{ok:false,why:'На прямых линиях нет врагов для тарана'};
-      return{ok:true,targets:tg};}
-    case'b':for(const[dr,dc]of[[0,0],...K8]){const t=at(b,r+dr,c+dc);if(t&&t.c===col&&t.t!=='k'&&!t.shield)cells.push([r+dr,c+dc]);}
-      if(!cells.length)return{ok:false,why:'Все союзники рядом уже под щитом'};break;
-    case'n':for(const[dr,dc]of KN){const t=at(b,r+dr,c+dc);if(t&&t.c===e&&t.t!=='k'&&!t.frozen)cells.push([r+dr,c+dc]);}
-      if(!cells.length)return{ok:false,why:'Нет врагов в зоне прыжка коня'};break;
-    case'p':{const t=at(b,r+fwd(col),c);if(t&&t.c===e&&t.t!=='k')cells.push([r+fwd(col),c]);
-      if(!cells.length)return{ok:false,why:'Прямо перед пешкой нет врага'};break;}
-  }
-  // safety: own king must not stay in check
-  const nb=cloneB(b);execAbility(nb,r,c,null,true);
-  if(inCheck(nb,col))return{ok:false,why:'Нельзя: король останется под шахом'};
-  return{ok:true};
-}
 function summonCells(b,r,c,col){
   const promo=col==='w'?0:7,out=[];
-  for(let d=0;d<4&&out.length<3;d++){
-    const rr=r+d*fwd(col);if(!inb(rr,0)||rr===promo)continue;
-    for(let cc=c-1;cc>=0&&out.length<3;cc--)if(!b[rr][cc])out.push([rr,cc]);
+  for(let d=0;d<4&&out.length<3;d++){const rr=r+d*fwd(col);if(!inb(rr,0)||rr===promo)continue;
+    for(let cc=c-1;cc>=0&&out.length<3;cc--)if(!b[rr][cc])out.push([rr,cc]);}
+  return out;
+}
+function rayTargets(b,r,c,dirs,mode){
+  const col=b[r][c].c,e=enemy(col),out=[];
+  for(const[dr,dc]of dirs){
+    let rr=r+dr,cc=c+dc,cells=[],hits=0;
+    while(inb(rr,cc)){const t=b[rr][cc];
+      if(!t){cells.push([rr,cc]);}
+      else if(t.c===e&&t.t!=='k'){hits++;cells.push([rr,cc]);if(mode==='ram'||t.shield)break;}
+      else break;
+      rr+=dr;cc+=dc;}
+    if(hits)out.push({dr,dc,cells});
   }
   return out;
 }
-// mutates b; returns {msg,fx:[[r,c,cls]],spawn:[[r,c]]}
-function execAbility(b,r,c,tgt,dry){
-  const p=b[r][c],col=p.c,e=enemy(col),fx=[],spawn=[];let msg='';
-  const nm=sqName(r,c);
-  switch(p.t){
-    case'k':{const cells=summonCells(b,r,c,col);
-      for(const[rr,cc]of cells){b[rr][cc]=P('p',col,{shield:true,soldier:true,moved:true});fx.push([rr,cc,'summon']);spawn.push([rr,cc]);}
-      msg=`Король ${nm} призвал армию: ${cells.length} щитоносца встали в строй`;break;}
-    case'q':{let k=0,s=0;for(const[dr,dc]of K8){const rr=r+dr,cc=c+dc,t=at(b,rr,cc);
-        if(!t||t.c!==e||t.t==='k')continue;
-        if(t.shield){t.shield=false;s++;fx.push([rr,cc,'clang']);}
-        else if(t.t==='p'){b[rr][cc]=null;k++;fx.push([rr,cc,'boom']);}}
-      msg=`Буря ферзя ${nm}: уничтожено пешек ${k}, сорвано щитов ${s}`;break;}
-    case'r':{if(!tgt){tgt=abilityTargetsRaw(b,r,c)[0];if(!tgt)break;}
-      const t=b[tgt.r][tgt.c];
-      if(t.shield){t.shield=false;const lr=tgt.r-tgt.dr,lc=tgt.c-tgt.dc;
-        if(lr!==r||lc!==c){b[lr][lc]=p;b[r][c]=null;}fx.push([tgt.r,tgt.c,'clang']);
-        msg=`Таран ладьи ${nm}: щит ${NAME[t.t].toLowerCase()} на ${sqName(tgt.r,tgt.c)} разбит`;}
-      else{b[tgt.r][tgt.c]=p;b[r][c]=null;fx.push([tgt.r,tgt.c,'boom']);
-        msg=`Таран ладьи ${nm}: снесён ${NAME[t.t].toLowerCase()} на ${sqName(tgt.r,tgt.c)}`;}
-      p.moved=true;break;}
-    case'b':{let n=0;for(const[dr,dc]of[[0,0],...K8]){const rr=r+dr,cc=c+dc,t=at(b,rr,cc);
-        if(t&&t.c===col&&t.t!=='k'&&!t.shield){t.shield=true;n++;fx.push([rr,cc,'bless']);}}
-      msg=`Благословение слона ${nm}: щиты получили ${n} фигур`;break;}
-    case'n':{let n=0;for(const[dr,dc]of KN){const rr=r+dr,cc=c+dc,t=at(b,rr,cc);
-        if(t&&t.c===e&&t.t!=='k'&&!t.frozen){t.frozen=true;n++;fx.push([rr,cc,'ice']);}}
-      msg=`Топот коня ${nm}: оглушено врагов ${n}`;break;}
-    case'p':{const rr=r+fwd(col),t=at(b,rr,c);
-      if(t.shield){t.shield=false;fx.push([rr,c,'clang']);msg=`Копьё пешки ${nm} сломало щит на ${sqName(rr,c)}`;}
-      else{b[rr][c]=null;fx.push([rr,c,'boom']);msg=`Копьё пешки ${nm} пронзило ${NAME[t.t].toLowerCase()} на ${sqName(rr,c)}`;}
-      break;}
+
+const AB={
+  k:[{id:'army',icon:'⚔️',name:'Армия',cd:0,
+      plan:(b,r,c)=>summonCells(b,r,c,b[r][c].c).length?{}:null,
+      exec(b,r,c){const col=b[r][c].c,fx=[],spawn=[];
+        summonCells(b,r,c,col).forEach(([rr,cc],i)=>{b[rr][cc]=P('p',col,{shield:true,soldier:true,moved:true});fx.push([rr,cc,'summon',i*120]);spawn.push([rr,cc,i*120]);});
+        return{fx,spawn};}}],
+  q:[{id:'dash',icon:'💨',name:'Рывок',cd:5,targeted:true,
+      plan:(b,r,c)=>{const t=rayTargets(b,r,c,K8,'dash');return t.length?{targets:t}:null},
+      exec(b,r,c,t){const p=b[r][c],e=enemy(p.c),fx=[];let rr=r+t.dr,cc=c+t.dc,land=[r,c],i=0;
+        while(inb(rr,cc)){const x=b[rr][cc];
+          if(!x)land=[rr,cc];
+          else if(x.c===e&&x.t!=='k'){if(x.shield){x.shield=false;fx.push([rr,cc,'clang',i*70]);break;}b[rr][cc]=null;fx.push([rr,cc,'boom',i*70]);land=[rr,cc];}
+          else break;
+          rr+=t.dr;cc+=t.dc;i++;}
+        b[r][c]=null;b[land[0]][land[1]]=p;p.moved=true;
+        return{fx,slide:{fr:r,fc:c,tr:land[0],tc:land[1],dur:90*Math.max(1,i)}};}},
+     {id:'storm',icon:'🌪️',name:'Буря',cd:5,
+      plan:(b,r,c)=>{const e=enemy(b[r][c].c);return K8.some(([dr,dc])=>{const t=at(b,r+dr,c+dc);return t&&t.c===e&&t.t!=='k'&&(t.t==='p'||t.shield)})?{}:null},
+      exec(b,r,c){const e=enemy(b[r][c].c),fx=[];
+        for(const[dr,dc]of K8){const rr=r+dr,cc=c+dc,t=at(b,rr,cc);if(!t||t.c!==e||t.t==='k')continue;
+          if(t.shield){t.shield=false;fx.push([rr,cc,'clang',0]);}else if(t.t==='p'){b[rr][cc]=null;fx.push([rr,cc,'boom',0]);}}
+        return{fx};}}],
+  r:[{id:'ram',icon:'🐏',name:'Таран',cd:4,targeted:true,
+      plan:(b,r,c)=>{const t=rayTargets(b,r,c,ORTH,'ram');return t.length?{targets:t}:null},
+      exec(b,r,c,t){const p=b[r][c],[er,ec]=t.cells.at(-1),x=b[er][ec],fx=[];let land;
+        if(x.shield){x.shield=false;fx.push([er,ec,'clang',150]);land=[er-t.dr,ec-t.dc];}
+        else{b[er][ec]=null;fx.push([er,ec,'boom',150]);land=[er,ec];}
+        b[r][c]=null;b[land[0]][land[1]]=p;p.moved=true;
+        return{fx,slide:{fr:r,fc:c,tr:land[0],tc:land[1],dur:200}};}}],
+  b:[{id:'bless',icon:'✨',name:'Благословение',cd:4,
+      plan:(b,r,c)=>{const col=b[r][c].c;return[[0,0],...K8].some(([dr,dc])=>{const t=at(b,r+dr,c+dc);return t&&t.c===col&&t.t!=='k'&&!t.shield})?{}:null},
+      exec(b,r,c){const col=b[r][c].c,fx=[];
+        for(const[dr,dc]of[[0,0],...K8]){const rr=r+dr,cc=c+dc,t=at(b,rr,cc);if(t&&t.c===col&&t.t!=='k'&&!t.shield){t.shield=true;fx.push([rr,cc,'bless',0]);}}
+        return{fx};}}],
+  n:[{id:'stomp',icon:'💫',name:'Топот',cd:4,
+      plan:(b,r,c)=>{const e=enemy(b[r][c].c);return KN.some(([dr,dc])=>{const t=at(b,r+dr,c+dc);return t&&t.c===e&&t.t!=='k'&&!t.frozen})?{}:null},
+      exec(b,r,c){const e=enemy(b[r][c].c),fx=[];
+        for(const[dr,dc]of KN){const rr=r+dr,cc=c+dc,t=at(b,rr,cc);if(t&&t.c===e&&t.t!=='k'&&!t.frozen){t.frozen=true;fx.push([rr,cc,'ice',0]);}}
+        return{fx};}}],
+  p:[{id:'bribe',icon:'💰',name:'Подкуп',cd:3,targeted:true,
+      plan:(b,r,c)=>{const e=enemy(b[r][c].c),t=[];
+        for(const[dr,dc]of K8){const x=at(b,r+dr,c+dc);if(x&&x.c===e&&x.t==='p')t.push({cells:[[r+dr,c+dc]],gold:true});}
+        return t.length?{targets:t}:null},
+      exec(b,r,c,t){const col=b[r][c].c,[tr,tc]=t.cells[0],x=b[tr][tc];
+        x.c=col;x.frozen=false;x.cd={};x.moved=true;promote(x,tr);
+        return{fx:[[tr,tc,'gold',550]],coin:{fr:r,fc:c,tr,tc},flip:[tr,tc]};}},
+     {id:'spear',icon:'🗡️',name:'Копьё',cd:3,
+      plan:(b,r,c)=>{const p=b[r][c],t=at(b,r+fwd(p.c),c);return t&&t.c!==p.c&&t.t!=='k'?{}:null},
+      exec(b,r,c){const rr=r+fwd(b[r][c].c),t=b[rr][c];
+        if(t.shield){t.shield=false;return{fx:[[rr,c,'clang',0]]};}
+        b[rr][c]=null;return{fx:[[rr,c,'boom',0]]};}}],
+};
+function abilityState(b,r,c,ab){
+  const p=b[r][c];
+  if(p.cd[ab.id]>0)return{ok:false,cd:p.cd[ab.id]};
+  if(p.frozen)return{ok:false};
+  const plan=ab.plan(b,r,c);if(!plan)return{ok:false};
+  if(ab.targeted){
+    const tg=plan.targets.filter(t=>{const nb=cloneB(b);ab.exec(nb,r,c,t);return!inCheck(nb,p.c)});
+    return tg.length?{ok:true,targets:tg}:{ok:false};
   }
-  p.cd=AB[p.t].cd;
-  return{msg,fx,spawn};
+  const nb=cloneB(b);ab.exec(nb,r,c);
+  return inCheck(nb,p.c)?{ok:false}:{ok:true};
 }
-function abilityTargetsRaw(b,r,c){
-  const p=b[r][c],e=enemy(p.c),tg=[];
-  for(const[dr,dc]of K8.slice(0,4)){let rr=r+dr,cc=c+dc;while(inb(rr,cc)&&!b[rr][cc]){rr+=dr;cc+=dc;}
-    const t=at(b,rr,cc);if(t&&t.c===e&&t.t!=='k')tg.push({r:rr,c:cc,dr,dc});}
-  return tg;
-}
-function plural(n){return n%10===1&&n%100!==11?'ход':(n%10>=2&&n%10<=4&&(n%100<10||n%100>=20))?'хода':'ходов'}
 
 /* ---------- turn flow ---------- */
-function addLog(t,cls){S.log.unshift({t,cls});}
 function endTurn(){
   const me=S.turn;
-  for(const row of S.b)for(const p of row)if(p&&p.c===me&&p.frozen)p.frozen=false;
+  for(const row of S.b)for(const p of row)if(p&&p.c===me)p.frozen=false;
   S.turn=enemy(me);
-  for(const row of S.b)for(const p of row)if(p&&p.c===S.turn&&p.cd>0)p.cd--;
-  S.sel=null;S.aiming=null;
-  const chk=inCheck(S.b,S.turn);
+  for(const row of S.b)for(const p of row)if(p&&p.c===S.turn)for(const k in p.cd)if(p.cd[k]>0)p.cd[k]--;
+  S.sel=null;S.aim=null;
   if(!anyLegal(S.turn,false)){
-    if(anyLegal(S.turn,true)){
-      for(const row of S.b)for(const p of row)if(p&&p.c===S.turn)p.frozen=false;
-      addLog('Оглушение спало: иначе у стороны не было бы ходов');
-    }else{
-      S.over=chk?{title:`Мат! Победили ${me==='w'?'белые':'чёрные'}`}:{title:'Пат. Ничья'};
-      addLog(S.over.title,'ab');
-    }
+    if(anyLegal(S.turn,true)){for(const row of S.b)for(const p of row)if(p&&p.c===S.turn)p.frozen=false;}
+    else S.over={win:inCheck(S.b,S.turn)?me:null};
   }
-  if(!S.over&&!kingPos(S.b,S.turn)){S.over={title:`Победили ${me==='w'?'белые':'чёрные'}`};}
 }
 function clickSq(r,c){
   if(S.over)return;
   const p=S.b[r][c];
-  if(S.aiming){
-    const t=S.aiming.targets.find(t=>t.r===r&&t.c===c);
-    if(t){useAbility(t);return;}
-    S.aiming=null;
+  if(S.aim){
+    const t=S.aim.targets.find(t=>t.cells.some(([a,b])=>a===r&&b===c));
+    if(t){useAbility(S.aim.r,S.aim.c,S.aim.ab,t);return;}
+    S.aim=null;
   }
-  if(S.sel){
-    const m=S.sel.moves.find(m=>m.r===r&&m.c===c);
-    if(m){makeMove(S.sel.r,S.sel.c,m);return;}
-  }
-  if(p&&p.c===S.turn){
-    if(S.sel&&S.sel.r===r&&S.sel.c===c){S.sel=null;}
-    else S.sel={r,c,moves:legal(S.b,r,c,S.ep,false)};
-  }else S.sel=null;
+  if(S.sel){const m=S.sel.moves.find(m=>m.r===r&&m.c===c);if(m){makeMove(S.sel.r,S.sel.c,m);return;}}
+  if(p&&p.c===S.turn&&!(S.sel&&S.sel.r===r&&S.sel.c===c))S.sel={r,c,moves:legal(S.b,r,c,S.ep,false)};
+  else S.sel=null;
   render();
 }
 function makeMove(fr,fc,m){
-  const p=S.b[fr][fc];const pname=NAME[p.t];
   const info=doMove(S.b,fr,fc,m);
-  S.fx=[];S.spawn=[];
-  if(info.bounced){
-    S.fx.push([info.tr,info.tc,'clang']);
-    addLog(`${pname} ${sqName(fr,fc)}: удар в щит на ${sqName(info.tr,info.tc)}. Щит разбит, атакующий остался на месте`);
-    S.ep=null;S.last={fr,fc,tr:fr,tc:fc};
-  }else{
-    let t=`${pname} ${sqName(fr,fc)}→${sqName(m.r,m.c)}`;
-    if(info.captured)t+=` ✕ ${NAME[info.captured.t].toLowerCase()}`;
-    if(m.castle)t='Рокировка';
-    if(info.promoted)t+=' → ферзь';
-    addLog(t);
-    S.ep=info.ep;S.last={fr,fc,tr:m.r,tc:m.c};
-  }
-  endTurn();
-  if(!S.over&&inCheck(S.b,S.turn))addLog('Шах!');
-  render();
+  const anim={fx:[],slides:[]};
+  if(info.bounced){anim.fx.push([info.tr,info.tc,'clang',0]);S.ep=null;S.last={fr,fc,tr:fr,tc:fc};}
+  else{S.ep=info.ep;S.last={fr,fc,tr:m.r,tc:m.c};anim.slides.push({fr,fc,tr:m.r,tc:m.c,dur:200});if(info.rook)anim.slides.push({...info.rook,dur:200});
+    if(info.captured)anim.fx.push([m.ep?fr:m.r,m.c,'boom',120]);}
+  endTurn();render(anim);
 }
-function pressAbility(){
-  if(!S.sel||S.over)return;
-  const{r,c}=S.sel;const plan=abilityPlan(S.b,r,c);
-  if(!plan.ok)return;
-  if(plan.targets){
-    if(S.aiming){S.aiming=null;render();return;}
-    // filter targets that keep the king safe
-    const tg=plan.targets.filter(t=>{const nb=cloneB(S.b);execAbility(nb,r,c,t);return!inCheck(nb,S.turn);});
-    S.aiming={r,c,targets:tg};render();return;
+function pickAbility(i){
+  const{r,c}=S.sel,ab=AB[S.b[r][c].t][i],st=abilityState(S.b,r,c,ab);
+  if(!st.ok)return;
+  if(ab.targeted){
+    if(S.aim&&S.aim.ab===ab){S.aim=null;render();return;}
+    S.aim={r,c,ab,targets:st.targets};render();return;
   }
-  useAbility(null);
+  useAbility(r,c,ab,null);
 }
-function useAbility(t){
-  const r=S.aiming?S.aiming.r:S.sel.r,c=S.aiming?S.aiming.c:S.sel.c;
-  const res=execAbility(S.b,r,c,t);
-  S.fx=res.fx;S.spawn=res.spawn;
-  addLog('⚡ '+res.msg,'ab');
-  S.ep=null;S.last=null;
+function useAbility(r,c,ab,t){
+  const res=ab.exec(S.b,r,c,t);
+  const p=S.b[res.slide?res.slide.tr:r][res.slide?res.slide.tc:c];
+  if(p&&ab.cd)p.cd[ab.id]=ab.cd;
+  S.ep=null;S.last=res.slide?{fr:r,fc:c,tr:res.slide.tr,tc:res.slide.tc}:null;
   endTurn();
-  if(!S.over&&inCheck(S.b,S.turn))addLog('Шах!');
-  render();
+  render({fx:res.fx||[],spawn:res.spawn||[],slides:res.slide?[res.slide]:[],coin:res.coin,flip:res.flip});
 }
 
 /* ---------- render ---------- */
-const boardEl=document.getElementById('board');
-function render(){
-  const b=S.b;
-  const chkPos=inCheck(b,S.turn)?kingPos(b,S.turn):null;
+const boardEl=document.getElementById('board'),stage=document.getElementById('stage');
+function pieceHTML(p,extra){
+  const cls=['pc',p.c];
+  if(p.shield&&!p.soldier)cls.push('shielded');
+  if(p.frozen)cls.push('frozen');
+  if(p.soldier&&p.t==='p')cls.push('soldier');
+  let h=`<span class="${cls.concat(extra||[]).join(' ')}">${GLYPH[p.t]}</span>`;
+  if(p.soldier&&p.t==='p'){h+=`<span class="gear sword">${SWORD}</span>`;if(p.shield)h+=`<span class="gear shieldS">${shieldSVG(p.c)}</span>`;}
+  else if(p.shield)h+=`<span class="gear miniShield">${shieldSVG(p.c)}</span>`;
+  if(p.frozen)h+='<span class="badge">❄️</span>';
+  return h;
+}
+function render(anim){
+  anim=anim||{};
+  const b=S.b,chk=inCheck(b,S.turn)?kingPos(b,S.turn):null;
+  const moves=new Map();if(S.sel&&!S.aim)for(const m of S.sel.moves)moves.set(m.r*8+m.c,m);
+  const tg=new Map();if(S.aim)for(const t of S.aim.targets)for(const[a,c]of t.cells)tg.set(a*8+c,t.gold);
+  const fx=new Map((anim.fx||[]).map(f=>[f[0]*8+f[1],f]));
+  const spawn=new Map((anim.spawn||[]).map(s=>[s[0]*8+s[1],s[2]]));
+  const flipK=anim.flip?anim.flip[0]*8+anim.flip[1]:-1;
   let html='';
-  const moveSet=new Map();
-  if(S.sel&&!S.aiming)for(const m of S.sel.moves)moveSet.set(m.r*8+m.c,m);
-  const tgSet=new Set(S.aiming?S.aiming.targets.map(t=>t.r*8+t.c):[]);
-  const fxMap=new Map((S.fx||[]).map(f=>[f[0]*8+f[1],f[2]]));
-  const spawnSet=new Set((S.spawn||[]).map(s=>s[0]*8+s[1]));
   for(let r=0;r<8;r++)for(let c=0;c<8;c++){
-    const p=b[r][c],k=r*8+c;
-    const cls=['sq',(r+c)%2?'d':'l'];
+    const p=b[r][c],k=r*8+c,cls=['sq',(r+c)%2?'d':'l'];
     if(S.last&&((S.last.fr===r&&S.last.fc===c)||(S.last.tr===r&&S.last.tc===c)))cls.push('last');
     if(S.sel&&S.sel.r===r&&S.sel.c===c)cls.push('selected');
-    if(chkPos&&chkPos[0]===r&&chkPos[1]===c)cls.push('check');
+    if(chk&&chk[0]===r&&chk[1]===c)cls.push('check');
     let inner='';
-    if(c===0)inner+=`<span class="coord r">${8-r}</span>`;
-    if(r===7)inner+=`<span class="coord f">${FILES[c]}</span>`;
-    if(p){
-      const pc=['pc',p.c];if(p.shield)pc.push('shielded');if(p.frozen)pc.push('frozen');if(spawnSet.has(k))pc.push('spawn');
-      inner+=`<span class="${pc.join(' ')}">${GLYPH[p.t]}</span>`;
-      if(p.shield)inner+='<span class="badge sh">🛡</span>';
-      if(p.soldier&&p.t==='p')inner+='<span class="badge sw">⚔</span>';
-      if(p.frozen)inner+='<span class="badge fr">❄</span>';
-      if(p.c===S.turn&&p.cd>0)inner+=`<span class="badge cd">${p.cd}</span>`;
-    }
-    if(moveSet.has(k))inner+=p||moveSet.get(k).ep?'<span class="ring"></span>':'<span class="dot"></span>';
-    if(tgSet.has(k))inner+='<span class="target"></span>';
-    if(fxMap.has(k))inner+=`<span class="fx ${fxMap.get(k)}"></span>`;
-    html+=`<div class="${cls.join(' ')}" data-r="${r}" data-c="${c}" role="button" aria-label="${sqName(r,c)}${p?' '+NAME[p.t]:''}"></div>`.replace('></div>',`>${inner}</div>`);
+    if(p){const ex=[];if(k===flipK)ex.push('flip');
+      inner+=pieceHTML(p,ex);
+      if(spawn.has(k))inner=`<span class="spawn" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;animation-delay:${spawn.get(k)}ms">${inner}</span>`;}
+    if(moves.has(k))inner+=(p||moves.get(k).ep)?'<span class="ring"></span>':'<span class="dot"></span>';
+    if(tg.has(k))inner+=`<span class="target${tg.get(k)?' gold':''}"></span>`;
+    if(fx.has(k)){const f=fx.get(k);inner+=`<span class="fx ${f[2]}" style="animation-delay:${f[3]||0}ms"></span>`;}
+    html+=`<div class="${cls.join(' ')}" data-r="${r}" data-c="${c}">${inner}</div>`;
   }
-  if(S.over)html+=`<div class="over"><h2>${S.over.title}</h2><button onclick="restart()">Сыграть ещё</button></div>`;
+  if(S.over)html+=`<div class="over"><div class="big" style="color:${S.over.win==='w'?'var(--white-piece)':S.over.win==='b'?'var(--black-piece)':'var(--gold)'};text-shadow:0 0 2px ${S.over.win==='b'?'#fff':'#000'}">${S.over.win?'♚':'½'}</div><div style="font-size:40px">${S.over.win?'🏆':'🤝'}</div><button class="icoBtn" onclick="restart()" aria-label="Новая игра">↻</button></div>`;
   boardEl.innerHTML=html;
-  S.fx=[];S.spawn=[];
-
-  document.getElementById('chip').className='chip '+S.turn;
-  document.getElementById('turnText').textContent=S.turn==='w'?'Ход белых':'Ход чёрных';
-  document.getElementById('status').textContent=S.over?S.over.title:(chkPos?'Шах! Защити короля.':'');
-
-  const body=document.getElementById('selBody');
-  if(S.sel&&!S.over){
-    const p=b[S.sel.r][S.sel.c],ab=AB[p.t],plan=abilityPlan(b,S.sel.r,S.sel.c);
-    const title=`${NAME[p.t]}${p.soldier&&p.t==='p'?'-щитоносец':''} · ${sqName(S.sel.r,S.sel.c)}`;
-    const extra=[p.shield?'🛡 под щитом':'',p.frozen?'❄ оглушена, не может ходить':''].filter(Boolean).join(' · ');
-    body.innerHTML=`<div class="selName">${title}</div>
-      ${extra?`<div class="hint">${extra}</div>`:''}
-      <div class="abName">${ab.icon} ${ab.name}</div>
-      <div class="abDesc">${ab.desc} Перезарядка: ${ab.cd} ${plural(ab.cd)}.</div>
-      <button class="abBtn ${S.aiming?'active':''}" id="abBtn" ${plan.ok?'':'disabled'}>${S.aiming?'Отмена: выбери цель на доске':plan.ok?'⚡ Применить способность':'Недоступно'}</button>
-      <div class="hint">${plan.ok?(S.aiming?'Нажми на врага, обведённого красным.':'Способность тратит весь ход.'):plan.why}</div>`;
-    const btn=document.getElementById('abBtn');btn.onclick=pressAbility;
-  }else body.innerHTML='<div class="abDesc">Нажми на свою фигуру на доске. Появятся её ходы и кнопка способности.</div>';
-
-  document.getElementById('log').innerHTML=S.log.slice(0,60).map(l=>`<div class="${l.cls||''}">${l.t}</div>`).join('');
+  boardEl.className='board '+(S.turn==='w'?'tw':'tb');
+  document.getElementById('sideW').classList.toggle('on',S.turn==='w'&&!S.over);
+  document.getElementById('sideB').classList.toggle('on',S.turn==='b'&&!S.over);
+  renderPop();
+  if(!reduced){for(const s of anim.slides||[])slide(s);if(anim.coin)coin(anim.coin);}
+}
+function cellEl(r,c){return boardEl.querySelector(`.sq[data-r="${r}"][data-c="${c}"]`)}
+function slide(s){
+  const sq=cellEl(s.tr,s.tc);if(!sq)return;const el=sq.querySelector('.pc');if(!el)return;
+  const cell=boardEl.clientWidth/8;
+  const parts=[el,...sq.querySelectorAll('.gear,.badge')];
+  sq.style.zIndex=6;
+  for(const e of parts)e.animate([{translate:`${(s.fc-s.tc)*cell}px ${(s.fr-s.tr)*cell}px`},{translate:'0 0'}],{duration:s.dur||200,easing:'cubic-bezier(.3,.7,.2,1)'});
+  setTimeout(()=>sq.style.zIndex='',s.dur||200);
+}
+function coin(m){
+  const cell=boardEl.clientWidth/8,el=document.createElement('span');
+  el.className='coin';el.textContent='💰';boardEl.appendChild(el);
+  const x0=(m.fc+.5)*cell,y0=(m.fr+.5)*cell,x1=(m.tc+.5)*cell,y1=(m.tr+.5)*cell;
+  const a=el.animate([
+    {left:x0+'px',top:y0+'px',transform:'translate(-50%,-50%) scale(.4)',opacity:0},
+    {left:(x0+x1)/2+'px',top:Math.min(y0,y1)-cell*.9+'px',transform:'translate(-50%,-50%) scale(1.2) rotate(-20deg)',opacity:1,offset:.5},
+    {left:x1+'px',top:y1+'px',transform:'translate(-50%,-50%) scale(.6) rotate(10deg)',opacity:0}],{duration:600,easing:'ease-in-out',fill:'forwards'});
+  a.onfinish=()=>el.remove();
+}
+function renderPop(){
+  const old=stage.querySelector('.pop');if(old)old.remove();
+  if(!S.sel||S.over)return;
+  const{r,c}=S.sel,p=S.b[r][c],list=AB[p.t];
+  const pop=document.createElement('div');pop.className='pop';
+  pop.innerHTML=list.map((ab,i)=>{const st=abilityState(S.b,r,c,ab);
+    return `<button class="opt${S.aim&&S.aim.ab===ab?' on':''}" data-i="${i}" ${st.ok?'':'disabled'}><span class="ic">${ab.icon}</span><span class="nm">${ab.name}</span>${st.cd?`<span class="cd">⏳${st.cd}</span>`:''}</button>`}).join('');
+  stage.appendChild(pop);
+  pop.addEventListener('click',e=>{const o=e.target.closest('.opt');if(o&&!o.disabled)pickAbility(+o.dataset.i);});
+  const cell=boardEl.clientWidth/8,W=stage.clientWidth,H=boardEl.clientHeight,pw=pop.offsetWidth,ph=pop.offsetHeight;
+  let x=c<=4?(c+1)*cell+4:c*cell-pw-4;x=Math.max(0,Math.min(W-pw,x));
+  let y=(r+.5)*cell-ph/2;y=Math.max(0,Math.min(H-ph,y));
+  pop.style.left=x+'px';pop.style.top=y+'px';
 }
 boardEl.addEventListener('click',e=>{const sq=e.target.closest('.sq');if(sq)clickSq(+sq.dataset.r,+sq.dataset.c);});
+document.addEventListener('keydown',e=>{if(e.key==='Escape'&&S.sel){S.sel=null;S.aim=null;render();}});
+addEventListener('resize',()=>renderPop());
 function restart(){newGame();render();}
 document.getElementById('reset').onclick=restart;
-document.getElementById('legend').innerHTML=Object.keys(AB).map(t=>`<span style="font-size:20px">${GLYPH[t]}</span><span><b>${AB[t].name}</b> — ${AB[t].desc}</span>`).join('');
 
-function start(data){
-  if(data&&data.S){S=data.S;}else newGame();
-  render();
-}
-window.claude?.hot?.snapshot?.(()=>({S}));
+function start(data){if(data&&data.S2)S=data.S2;else newGame();render();}
+window.claude?.hot?.snapshot?.(()=>({S2:{...S,aim:null}}));
 window.claude?.hot?.ready?window.claude.hot.ready(start):start(window.claude?.hot?.data??{});
 </script>
