@@ -69,6 +69,13 @@ body{background:var(--bg);color:var(--fg);font-family:var(--body);margin:0;
 .flip.w{animation:toW .8s ease-in-out .55s backwards}
 .flip.b{animation:toB .8s ease-in-out .55s backwards}
 .coin{position:absolute;z-index:8;font-size:6cqw;line-height:1;pointer-events:none;transform:translate(-50%,-50%)}
+.ghost{position:absolute;animation:vanish .35s ease-in forwards}
+@keyframes vanish{0%{opacity:1;transform:none}100%{opacity:0;transform:scale(1.5) rotate(25deg)}}
+.target.path{border-style:dotted;background:rgba(224,87,74,.08)}
+.gun{position:absolute;z-index:12;font-size:7cqw;line-height:1;pointer-events:none;left:0;top:0}
+.bullet{position:absolute;z-index:11;width:1.6cqw;height:.6cqw;border-radius:99px;background:linear-gradient(90deg,transparent,#ffe27a,#fff);box-shadow:0 0 1cqw #ffb347;pointer-events:none;left:0;top:0}
+.flash{position:absolute;z-index:13;width:4cqw;height:4cqw;margin:-2cqw 0 0 -2cqw;border-radius:50%;background:radial-gradient(circle,#fff,#ffcf4a 40%,transparent 70%);pointer-events:none;left:0;top:0}
+@keyframes fadeIn{from{opacity:0}}
 
 .pop{position:absolute;z-index:20;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:6px;display:flex;flex-direction:column;gap:4px;
   min-width:150px;box-shadow:0 12px 30px rgba(0,0,0,.55);animation:popIn .14s ease-out}
@@ -90,7 +97,7 @@ body{background:var(--bg);color:var(--fg);font-family:var(--body);margin:0;
 .side.on{opacity:1;box-shadow:0 0 0 2px var(--gold)}
 .icoBtn{font-size:22px;width:44px;height:44px;border-radius:50%;border:1px solid var(--line);background:var(--panel);color:var(--fg);cursor:pointer}
 .icoBtn:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
-.over{position:absolute;inset:0;z-index:30;background:rgba(10,8,14,.72);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px}
+.over{animation:fadeIn .4s backwards;position:absolute;inset:0;z-index:30;background:rgba(10,8,14,.72);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px}
 .over .big{font-size:22cqw;line-height:1;animation:pop2 .6s ease-out}
 @keyframes pop2{from{transform:scale(.3);opacity:0}}
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
@@ -209,6 +216,32 @@ function rayTargets(b,r,c,dirs,mode){
   return out;
 }
 
+function lTargets(b,r,c){
+  const p=b[r][c],e=enemy(p.c),out=[];
+  for(const[dr,dc]of KN){const tr=r+dr,tc=c+dc;if(!inb(tr,tc))continue;
+    const path=Math.abs(dr)===2?[[r+Math.sign(dr),c],[r+dr,c],[tr,tc]]:[[r,c+Math.sign(dc)],[r,c+dc],[tr,tc]];
+    if(!path.every(([a,b2])=>inb(a,b2)))continue;
+    const d=b[tr][tc];if(d&&(d.c===p.c||d.t==='k'))continue;
+    if(!path.some(([a,b2])=>{const x=b[a][b2];return x&&x.c===e&&x.t!=='k'}))continue;
+    out.push({cells:[[tr,tc]],show:path,dest:[tr,tc],path});}
+  return out;
+}
+function attackers(b,r,c,by){const out=[];
+  for(let i=0;i<8;i++)for(let j=0;j<8;j++){const x=b[i][j];if(x&&x.c===by&&pseudo(b,i,j,null).some(m=>m.r===r&&m.c===c))out.push([i,j]);}
+  return out;}
+// King's last stand: when mated, he pulls out a machine gun once per game
+function lastStand(kr,kc){
+  const b=S.b,k=b[kr][kc],e=enemy(k.c),seen=new Set(),shots=[];
+  const add=(i,j)=>{const x=b[i][j];if(!x||x.c!==e||x.t==='k'||seen.has(i*8+j))return;seen.add(i*8+j);shots.push([i,j,x]);};
+  attackers(b,kr,kc,e).forEach(([i,j])=>add(i,j));
+  for(let j=0;j<8;j++)add(kr,j);
+  for(let i=0;i<8;i++)add(i,kc);
+  shots.sort((a,b2)=>Math.hypot(a[0]-kr,a[1]-kc)-Math.hypot(b2[0]-kr,b2[1]-kc));
+  for(const[i,j]of shots)b[i][j]=null;
+  k.gunUsed=true;
+  return{kr,kc,shots};
+}
+
 const AB={
   k:[{id:'army',icon:'⚔️',name:'Армия',cd:0,
       plan:(b,r,c)=>summonCells(b,r,c,b[r][c].c).length?{}:null,
@@ -243,7 +276,16 @@ const AB={
       exec(b,r,c){const col=b[r][c].c,fx=[];
         for(const[dr,dc]of[[0,0],...K8]){const rr=r+dr,cc=c+dc,t=at(b,rr,cc);if(t&&t.c===col&&t.t!=='k'&&!t.shield){t.shield=true;fx.push([rr,cc,'bless',0]);}}
         return{fx};}}],
-  n:[{id:'stomp',icon:'💫',name:'Топот',cd:4,
+  n:[{id:'lstrike',icon:'🐎',name:'Удар «Г»',cd:4,targeted:true,
+      plan:(b,r,c)=>{const t=lTargets(b,r,c);return t.length?{targets:t}:null},
+      exec(b,r,c,t){const p=b[r][c],fx=[],ghosts=[];
+        t.path.forEach(([rr,cc],i)=>{const x=b[rr][cc];if(!x||x.c===p.c||x.t==='k')return;
+          if(x.shield){x.shield=false;fx.push([rr,cc,'clang',i*90]);}
+          else{b[rr][cc]=null;fx.push([rr,cc,'boom',i*90]);ghosts.push([rr,cc,x,i*90]);}});
+        const[dr,dc]=t.dest;let land=[r,c];
+        if(!b[dr][dc]){b[r][c]=null;b[dr][dc]=p;p.moved=true;land=[dr,dc];}
+        return{fx,ghosts,slide:{fr:r,fc:c,tr:land[0],tc:land[1],dur:260}};}},
+     {id:'stomp',icon:'💫',name:'Топот',cd:4,
       plan:(b,r,c)=>{const e=enemy(b[r][c].c);return KN.some(([dr,dc])=>{const t=at(b,r+dr,c+dc);return t&&t.c===e&&t.t!=='k'&&!t.frozen})?{}:null},
       exec(b,r,c){const e=enemy(b[r][c].c),fx=[];
         for(const[dr,dc]of KN){const rr=r+dr,cc=c+dc,t=at(b,rr,cc);if(t&&t.c===e&&t.t!=='k'&&!t.frozen){t.frozen=true;fx.push([rr,cc,'ice',0]);}}
@@ -276,15 +318,22 @@ function abilityState(b,r,c,ab){
 
 /* ---------- turn flow ---------- */
 function endTurn(){
-  const me=S.turn;
+  const me=S.turn;let gun=null;
   for(const row of S.b)for(const p of row)if(p&&p.c===me)p.frozen=false;
   S.turn=enemy(me);
   for(const row of S.b)for(const p of row)if(p&&p.c===S.turn)for(const k in p.cd)if(p.cd[k]>0)p.cd[k]--;
   S.sel=null;S.aim=null;
   if(!anyLegal(S.turn,false)){
     if(anyLegal(S.turn,true)){for(const row of S.b)for(const p of row)if(p&&p.c===S.turn)p.frozen=false;}
-    else S.over={win:inCheck(S.b,S.turn)?me:null};
+    else if(inCheck(S.b,S.turn)){
+      const[kr,kc]=kingPos(S.b,S.turn);
+      if(!S.b[kr][kc].gunUsed){
+        gun=lastStand(kr,kc);
+        if(!anyLegal(S.turn,true))S.over={win:inCheck(S.b,S.turn)?me:null};
+      }else S.over={win:me};
+    }else S.over={win:null};
   }
+  return gun;
 }
 function clickSq(r,c){
   if(S.over)return;
@@ -305,7 +354,7 @@ function makeMove(fr,fc,m){
   if(info.bounced){anim.fx.push([info.tr,info.tc,'clang',0]);S.ep=null;S.last={fr,fc,tr:fr,tc:fc};}
   else{S.ep=info.ep;S.last={fr,fc,tr:m.r,tc:m.c};anim.slides.push({fr,fc,tr:m.r,tc:m.c,dur:200});if(info.rook)anim.slides.push({...info.rook,dur:200});
     if(info.captured)anim.fx.push([m.ep?fr:m.r,m.c,'boom',120]);}
-  endTurn();render(anim);
+  anim.gun=endTurn();render(anim);
 }
 function pickAbility(i){
   const{r,c}=S.sel,ab=AB[S.b[r][c].t][i],st=abilityState(S.b,r,c,ab);
@@ -321,8 +370,8 @@ function useAbility(r,c,ab,t){
   const p=S.b[res.slide?res.slide.tr:r][res.slide?res.slide.tc:c];
   if(p&&ab.cd)p.cd[ab.id]=ab.cd;
   S.ep=null;S.last=res.slide?{fr:r,fc:c,tr:res.slide.tr,tc:res.slide.tc}:null;
-  endTurn();
-  render({fx:res.fx||[],spawn:res.spawn||[],slides:res.slide?[res.slide]:[],coin:res.coin,flip:res.flip});
+  const gun=endTurn();
+  render({fx:res.fx||[],ghosts:res.ghosts||[],spawn:res.spawn||[],slides:res.slide?[res.slide]:[],coin:res.coin,flip:res.flip,gun});
 }
 
 /* ---------- render ---------- */
@@ -342,7 +391,9 @@ function render(anim){
   anim=anim||{};
   const b=S.b,chk=inCheck(b,S.turn)?kingPos(b,S.turn):null;
   const moves=new Map();if(S.sel&&!S.aim)for(const m of S.sel.moves)moves.set(m.r*8+m.c,m);
-  const tg=new Map();if(S.aim)for(const t of S.aim.targets)for(const[a,c]of t.cells)tg.set(a*8+c,t.gold);
+  const tg=new Map();if(S.aim)for(const t of S.aim.targets){for(const[a,c]of t.show||[])if(!tg.has(a*8+c))tg.set(a*8+c,'path');for(const[a,c]of t.cells)tg.set(a*8+c,t.gold?'gold':'');}
+  const ghosts=new Map();for(const g of anim.ghosts||[])ghosts.set(g[0]*8+g[1],g);
+  if(anim.gun)anim.gun.shots.forEach(([i,j,x],n)=>ghosts.set(i*8+j,[i,j,x,GUN0+n*GUNSTEP+GUNSTEP*.6]));
   const fx=new Map((anim.fx||[]).map(f=>[f[0]*8+f[1],f]));
   const spawn=new Map((anim.spawn||[]).map(s=>[s[0]*8+s[1],s[2]]));
   const flipK=anim.flip?anim.flip[0]*8+anim.flip[1]:-1;
@@ -357,17 +408,50 @@ function render(anim){
       inner+=pieceHTML(p,ex);
       if(spawn.has(k))inner=`<span class="spawn" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;animation-delay:${spawn.get(k)}ms">${inner}</span>`;}
     if(moves.has(k))inner+=(p||moves.get(k).ep)?'<span class="ring"></span>':'<span class="dot"></span>';
-    if(tg.has(k))inner+=`<span class="target${tg.get(k)?' gold':''}"></span>`;
+    if(tg.has(k))inner+=`<span class="target ${tg.get(k)}"></span>`;
+    if(ghosts.has(k)){const g=ghosts.get(k);inner+=`<span class="pc ${g[2].c} ghost" style="animation-delay:${g[3]}ms">${GLYPH[g[2].t]}</span>`;}
     if(fx.has(k)){const f=fx.get(k);inner+=`<span class="fx ${f[2]}" style="animation-delay:${f[3]||0}ms"></span>`;}
     html+=`<div class="${cls.join(' ')}" data-r="${r}" data-c="${c}">${inner}</div>`;
   }
-  if(S.over)html+=`<div class="over"><div class="big" style="color:${S.over.win==='w'?'var(--white-piece)':S.over.win==='b'?'var(--black-piece)':'var(--gold)'};text-shadow:0 0 2px ${S.over.win==='b'?'#fff':'#000'}">${S.over.win?'♚':'½'}</div><div style="font-size:40px">${S.over.win?'🏆':'🤝'}</div><button class="icoBtn" onclick="restart()" aria-label="Новая игра">↻</button></div>`;
+  if(S.over)html+=`<div class="over" style="animation-delay:${anim.gun?GUN0+anim.gun.shots.length*GUNSTEP+300:0}ms"><div class="big" style="color:${S.over.win==='w'?'var(--white-piece)':S.over.win==='b'?'var(--black-piece)':'var(--gold)'};text-shadow:0 0 2px ${S.over.win==='b'?'#fff':'#000'}">${S.over.win?'♚':'½'}</div><div style="font-size:40px">${S.over.win?'🏆':'🤝'}</div><button class="icoBtn" onclick="restart()" aria-label="Новая игра">↻</button></div>`;
   boardEl.innerHTML=html;
   boardEl.className='board '+(S.turn==='w'?'tw':'tb');
   document.getElementById('sideW').classList.toggle('on',S.turn==='w'&&!S.over);
   document.getElementById('sideB').classList.toggle('on',S.turn==='b'&&!S.over);
   renderPop();
-  if(!reduced){for(const s of anim.slides||[])slide(s);if(anim.coin)coin(anim.coin);}
+  if(!reduced){for(const s of anim.slides||[])slide(s);if(anim.coin)coin(anim.coin);if(anim.gun)shoot(anim.gun);}
+}
+const GUN0=450,GUNSTEP=380;
+function shoot(g){
+  const cell=boardEl.clientWidth/8,kx=(g.kc+.5)*cell,ky=(g.kr+.5)*cell;
+  const gun=document.createElement('span');gun.className='gun';gun.textContent='🔫';boardEl.appendChild(gun);
+  const size=()=>gun.getBoundingClientRect();
+  const pose=(ang,flip,sc)=>`translate(${kx}px,${ky}px) translate(-50%,-50%) rotate(${ang}rad) translateX(-${cell*.5}px) scaleY(${flip}) scale(${sc})`;
+  let ang=Math.PI,flip=1;
+  gun.style.transform=pose(0,1,0);
+  gun.animate([{transform:pose(0,1,0)},{transform:pose(0,1,1.3)}],{duration:250,delay:GUN0-280,fill:'forwards',easing:'ease-out'});
+  boardEl.animate([{translate:'0 0'},{translate:'-4px 2px'},{translate:'3px -2px'},{translate:'0 0'}],{duration:120,delay:GUN0,iterations:Math.max(1,g.shots.length*3)});
+  g.shots.forEach(([i,j],n)=>{
+    const tx=(j+.5)*cell,ty=(i+.5)*cell,a=Math.atan2(ty-ky,tx-kx);
+    const t0=GUN0+n*GUNSTEP;
+    // the emoji points left, so rotate by (a - PI) and flip when aiming right
+    const ga=a-Math.PI,gf=Math.cos(a)>0?-1:1;
+    gun.animate([{transform:pose(ang,flip,1.3)},{transform:pose(ga,gf,1.3)}],{duration:120,delay:t0-120,fill:'forwards'});
+    ang=ga;flip=gf;
+    for(let s=0;s<3;s++){
+      const bl=document.createElement('span');bl.className='bullet';boardEl.appendChild(bl);
+      const ox=kx+Math.cos(a)*cell*.7,oy=ky+Math.sin(a)*cell*.7;
+      const an=bl.animate([{transform:`translate(${ox}px,${oy}px) rotate(${a}rad)`,opacity:1},{transform:`translate(${tx}px,${ty}px) rotate(${a}rad)`,opacity:1}],
+        {duration:Math.max(90,Math.hypot(tx-ox,ty-oy)/cell*45),delay:t0+s*70,fill:'both',easing:'linear'});
+      an.onfinish=()=>bl.remove();
+      const fl=document.createElement('span');fl.className='flash';boardEl.appendChild(fl);
+      const fa=fl.animate([{transform:`translate(${ox}px,${oy}px) scale(1)`,opacity:1},{transform:`translate(${ox}px,${oy}px) scale(.3)`,opacity:0}],{duration:80,delay:t0+s*70,fill:'both'});
+      fa.onfinish=()=>fl.remove();
+    }
+    const fx=document.createElement('span');fx.className='fx boom';fx.style.cssText=`inset:auto;left:${j*cell}px;top:${i*cell}px;width:${cell}px;height:${cell}px;animation-delay:${t0+GUNSTEP*.6}ms`;boardEl.appendChild(fx);
+  });
+  const end=GUN0+g.shots.length*GUNSTEP+250;
+  gun.animate([{opacity:1},{opacity:0}],{duration:250,delay:end,fill:'forwards'}).onfinish=()=>gun.remove();
 }
 function cellEl(r,c){return boardEl.querySelector(`.sq[data-r="${r}"][data-c="${c}"]`)}
 function slide(s){
