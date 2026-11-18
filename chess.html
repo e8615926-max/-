@@ -1,0 +1,449 @@
+<title>Шахматы Силы</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Spectral+SC:wght@600;700&family=Manrope:wght@400;600;700&display=swap">
+<style>
+/* Layout: board as the hero on the left, a war-council panel on the right; stacks on phones. Single dark "candlelit war table" look. */
+:root{
+  color-scheme: dark;
+  --bg:#14121a;
+  --panel:#1e1b26;
+  --line:#3a3446;
+  --fg:#ece6d8;
+  --muted:#9f97ab;
+  --light:#d9c8a4;
+  --dark:#8a6a4c;
+  --gold:#e7b54a;
+  --gold-soft:rgba(231,181,74,.18);
+  --sel:rgba(231,181,74,.55);
+  --move:rgba(20,18,26,.42);
+  --danger:#e0574a;
+  --shield:#6fb7ff;
+  --ice:#a8e6ff;
+  --white-piece:#fbf7ee;
+  --black-piece:#1c1820;
+  --display:"Spectral SC", Georgia, serif;
+  --body:"Manrope", system-ui, sans-serif;
+}
+html,body{height:100%}
+body{background:var(--bg);color:var(--fg);font-family:var(--body);font-size:15px;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:20px;box-sizing:border-box}
+*{box-sizing:border-box}
+.wrap{max-width:1000px;margin:0 auto;display:flex;flex-wrap:wrap;gap:24px;align-items:flex-start;justify-content:center}
+h1{font-family:var(--display);font-weight:700;letter-spacing:.04em;font-size:28px;margin:0 0 4px;text-wrap:balance}
+.sub{color:var(--muted);margin:0 0 16px;font-size:14px}
+.boardCol{flex:1 1 420px;max-width:600px;min-width:0}
+.board{position:relative;width:100%;aspect-ratio:1;max-width:100%;display:grid;grid-template-columns:repeat(8,1fr);grid-template-rows:repeat(8,1fr);
+  border:3px solid #4a3a2c;border-radius:6px;overflow:hidden;container-type:inline-size;box-shadow:0 20px 50px rgba(0,0,0,.5)}
+.sq{position:relative;display:flex;align-items:center;justify-content:center;cursor:pointer;user-select:none;-webkit-tap-highlight-color:transparent}
+.sq.l{background:var(--light)}.sq.d{background:var(--dark)}
+.sq.last::before{content:"";position:absolute;inset:0;background:rgba(231,181,74,.28)}
+.sq.selected::before{content:"";position:absolute;inset:0;background:var(--sel)}
+.sq.check::before{content:"";position:absolute;inset:0;background:radial-gradient(circle,rgba(224,87,74,.9) 0,rgba(224,87,74,.35) 55%,transparent 75%)}
+.sq .coord{position:absolute;font-size:2.1cqw;font-weight:700;opacity:.7;pointer-events:none}
+.sq .coord.f{bottom:1px;right:3px}.sq .coord.r{top:1px;left:3px}
+.sq.l .coord{color:var(--dark)}.sq.d .coord{color:var(--light)}
+.dot{position:absolute;width:30%;height:30%;border-radius:50%;background:var(--move);pointer-events:none}
+.ring{position:absolute;inset:6%;border-radius:50%;border:.9cqw solid var(--move);pointer-events:none}
+.target{position:absolute;inset:8%;border-radius:8px;border:.8cqw dashed var(--danger);animation:pulse 1s infinite;pointer-events:none}
+.pc{position:relative;font-size:9.6cqw;line-height:1;z-index:1;pointer-events:none;transition:transform .15s}
+.pc.w{color:var(--white-piece);text-shadow:0 0 1px #000,0 0 1px #000,0 2px 2px rgba(0,0,0,.6),0 0 .4cqw #000}
+.pc.b{color:var(--black-piece);text-shadow:0 0 1px #fff8,0 2px 2px rgba(0,0,0,.4)}
+.sq.selected .pc{transform:scale(1.1)}
+.pc.shielded{filter:drop-shadow(0 0 .8cqw var(--shield))}
+.pc.frozen{filter:drop-shadow(0 0 .8cqw var(--ice)) saturate(.4);opacity:.85}
+.badge{position:absolute;z-index:2;font-size:2.6cqw;line-height:1;pointer-events:none}
+.badge.sh{top:4%;right:5%}
+.badge.fr{bottom:4%;left:5%}
+.badge.sw{top:4%;left:5%}
+.badge.cd{bottom:4%;right:5%;background:#000a;color:#fff;border-radius:99px;padding:.3cqw .7cqw;font-size:1.9cqw;font-weight:700;font-family:var(--body)}
+.fx{position:absolute;inset:0;z-index:3;pointer-events:none}
+.fx.boom{animation:boom .6s ease-out forwards;background:radial-gradient(circle,#fff 0,#ffb347 30%,#e0574a 55%,transparent 72%)}
+.fx.summon{animation:summon .8s ease-out forwards;background:radial-gradient(circle,#fff6 0,var(--gold) 40%,transparent 70%)}
+.fx.bless{animation:summon .8s ease-out forwards;background:radial-gradient(circle,#fff8 0,var(--shield) 45%,transparent 72%)}
+.fx.ice{animation:summon .8s ease-out forwards;background:radial-gradient(circle,#fff 0,var(--ice) 45%,transparent 72%)}
+.fx.clang{animation:summon .6s ease-out forwards;background:radial-gradient(circle,#fff 0,#cfd8e3 35%,transparent 65%)}
+@keyframes boom{0%{transform:scale(.2);opacity:1}100%{transform:scale(1.5);opacity:0}}
+@keyframes summon{0%{transform:scale(.3);opacity:1}100%{transform:scale(1.25);opacity:0}}
+@keyframes pulse{50%{opacity:.35}}
+@keyframes rise{0%{transform:translateY(40%) scale(.4);opacity:0}100%{transform:none;opacity:1}}
+.pc.spawn{animation:rise .5s ease-out}
+
+.panel{flex:0 1 330px;min-width:0;width:100%;display:flex;flex-direction:column;gap:14px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px}
+.turn{display:flex;align-items:center;gap:10px;font-family:var(--display);font-size:20px}
+.turn .chip{width:18px;height:18px;border-radius:50%;border:2px solid var(--gold)}
+.turn .chip.w{background:var(--white-piece)}.turn .chip.b{background:var(--black-piece)}
+.status{color:var(--danger);font-weight:700;font-size:13px;min-height:18px;margin-top:6px}
+.label{font-size:11px;text-transform:uppercase;letter-spacing:.12em;color:var(--muted);margin-bottom:6px}
+.selName{font-family:var(--display);font-size:18px;margin-bottom:2px}
+.abName{color:var(--gold);font-weight:700;margin-top:10px}
+.abDesc{color:var(--muted);font-size:13px;line-height:1.45;margin:4px 0 12px}
+button{font-family:var(--body);font-weight:700;font-size:14px;border-radius:8px;cursor:pointer;border:1px solid var(--line);background:#2a2633;color:var(--fg);padding:10px 14px}
+button:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+.abBtn{width:100%;background:linear-gradient(180deg,#f0c35d,#c8902a);color:#231a08;border:none;font-size:15px;padding:12px;box-shadow:0 4px 14px rgba(231,181,74,.3)}
+.abBtn:hover:not(:disabled){filter:brightness(1.08)}
+.abBtn:disabled{background:#2a2633;color:var(--muted);box-shadow:none;cursor:not-allowed;border:1px solid var(--line)}
+.abBtn.active{background:var(--danger);color:#fff}
+.hint{font-size:12px;color:var(--muted);margin-top:8px}
+.log{max-height:220px;overflow:auto;font-size:13px;display:flex;flex-direction:column;gap:4px;font-variant-numeric:tabular-nums}
+.log div{padding:3px 0;border-bottom:1px solid #ffffff0d}
+.log .ab{color:var(--gold)}
+.legend{display:grid;grid-template-columns:auto 1fr;gap:6px 10px;font-size:13px;color:var(--muted);align-items:start}
+.legend b{color:var(--fg);font-weight:600}
+.over{position:absolute;inset:0;z-index:10;background:rgba(10,8,14,.72);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;text-align:center;padding:20px}
+.over h2{font-family:var(--display);font-size:clamp(22px,6cqw,40px);margin:0;color:var(--gold)}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+
+<div class="wrap">
+  <div class="boardCol">
+    <h1>Шахматы Силы</h1>
+    <p class="sub">Обычные шахматы, но у каждой фигуры есть способность. Нажми на свою фигуру, затем на золотую кнопку справа. Способность тратит ход.</p>
+    <div class="board" id="board"></div>
+  </div>
+  <div class="panel">
+    <div class="card">
+      <div class="turn"><span class="chip w" id="chip"></span><span id="turnText">Ход белых</span></div>
+      <div class="status" id="status"></div>
+    </div>
+    <div class="card" id="selCard">
+      <div class="label">Выбранная фигура</div>
+      <div id="selBody"><div class="abDesc">Нажми на свою фигуру на доске.</div></div>
+    </div>
+    <div class="card">
+      <div class="label">Летопись битвы</div>
+      <div class="log" id="log"></div>
+    </div>
+    <div class="card">
+      <div class="label">Способности</div>
+      <div class="legend" id="legend"></div>
+    </div>
+    <button id="reset">Новая игра</button>
+  </div>
+</div>
+
+<script>
+const GLYPH={k:'♚',q:'♛',r:'♜',b:'♝',n:'♞',p:'♟︎'};
+const NAME={k:'Король',q:'Ферзь',r:'Ладья',b:'Слон',n:'Конь',p:'Пешка'};
+const FILES='abcdefgh';
+const KN=[[1,2],[2,1],[-1,2],[-2,1],[1,-2],[2,-1],[-1,-2],[-2,-1]];
+const K8=[[1,0],[-1,0],[0,1],[0,-1],[1,1],[1,-1],[-1,1],[-1,-1]];
+const inb=(r,c)=>r>=0&&r<8&&c>=0&&c<8;
+const at=(b,r,c)=>inb(r,c)?b[r][c]:null;
+const sqName=(r,c)=>FILES[c]+(8-r);
+const fwd=col=>col==='w'?-1:1;
+const enemy=col=>col==='w'?'b':'w';
+const cloneB=b=>b.map(row=>row.map(p=>p?{...p}:null));
+
+let S; // game state
+function P(t,c,x){return Object.assign({t,c,cd:0,shield:false,frozen:false,moved:false,soldier:false},x||{})}
+function newGame(){
+  const b=[...Array(8)].map(()=>Array(8).fill(null));
+  const back='rnbqkbnr';
+  for(let c=0;c<8;c++){b[0][c]=P(back[c],'b');b[1][c]=P('p','b');b[6][c]=P('p','w');b[7][c]=P(back[c],'w');}
+  S={b,turn:'w',ep:null,last:null,sel:null,aiming:null,over:null,log:[],moveNo:1,spawn:[]};
+  addLog('Битва началась. Белые ходят первыми.');
+}
+
+/* ---------- rules ---------- */
+function attacked(b,r,c,by){
+  const pd=by==='w'?1:-1;
+  for(const dc of[-1,1]){const p=at(b,r+pd,c+dc);if(p&&p.c===by&&p.t==='p')return true;}
+  for(const[dr,dc]of KN){const p=at(b,r+dr,c+dc);if(p&&p.c===by&&p.t==='n')return true;}
+  for(const[dr,dc]of K8){const p=at(b,r+dr,c+dc);if(p&&p.c===by&&p.t==='k')return true;}
+  for(const[dr,dc]of K8){
+    let rr=r+dr,cc=c+dc;
+    while(inb(rr,cc)){const p=b[rr][cc];
+      if(p){if(p.c===by){const diag=dr&&dc;if(p.t==='q'||(diag&&p.t==='b')||(!diag&&p.t==='r'))return true;}break;}
+      rr+=dr;cc+=dc;}
+  }
+  return false;
+}
+function kingPos(b,col){for(let r=0;r<8;r++)for(let c=0;c<8;c++){const p=b[r][c];if(p&&p.t==='k'&&p.c===col)return[r,c];}return null}
+function inCheck(b,col){const k=kingPos(b,col);return k?attacked(b,k[0],k[1],enemy(col)):false}
+
+function pseudo(b,r,c,ep){
+  const p=b[r][c],out=[],col=p.c;
+  const add=(rr,cc,x)=>out.push(Object.assign({r:rr,c:cc},x||{}));
+  if(p.t==='p'){
+    const d=fwd(col),start=col==='w'?6:1;
+    if(inb(r+d,c)&&!b[r+d][c]){add(r+d,c);if(r===start&&!b[r+2*d][c])add(r+2*d,c);}
+    for(const dc of[-1,1]){const t=at(b,r+d,c+dc);
+      if(t&&t.c!==col)add(r+d,c+dc);
+      else if(ep&&ep.r===r+d&&ep.c===c+dc)add(r+d,c+dc,{ep:true});}
+  }else if(p.t==='n'||p.t==='k'){
+    for(const[dr,dc]of(p.t==='n'?KN:K8)){const rr=r+dr,cc=c+dc;if(!inb(rr,cc))continue;const t=b[rr][cc];if(!t||t.c!==col)add(rr,cc);}
+    if(p.t==='k'&&!p.moved&&!inCheck(b,col)){
+      for(const side of[7,0]){const rk=b[r][side];if(!rk||rk.t!=='r'||rk.c!==col||rk.moved)continue;
+        const step=side===7?1:-1;let ok=true;
+        for(let cc=c+step;cc!==side;cc+=step)if(b[r][cc]){ok=false;break;}
+        if(ok&&!attacked(b,r,c+step,enemy(col))&&!attacked(b,r,c+2*step,enemy(col)))add(r,c+2*step,{castle:true});}
+    }
+  }else{
+    const dirs=p.t==='r'?K8.slice(0,4):p.t==='b'?K8.slice(4):K8;
+    for(const[dr,dc]of dirs){let rr=r+dr,cc=c+dc;
+      while(inb(rr,cc)){const t=b[rr][cc];if(t){if(t.c!==col)add(rr,cc);break;}add(rr,cc);rr+=dr;cc+=dc;}}
+  }
+  return out;
+}
+// mutates b; returns info
+function doMove(b,fr,fc,m){
+  const p=b[fr][fc];
+  const tr=m.ep?fr:m.r,tc=m.c;
+  const target=b[tr][tc];
+  if(target&&target.c!==p.c&&target.shield){target.shield=false;return{ep:null,bounced:true,target,tr,tc};}
+  if(m.ep)b[fr][m.c]=null;
+  b[m.r][m.c]=p;b[fr][fc]=null;p.moved=true;
+  if(m.castle){const rc=m.c>fc?7:0,nc=m.c>fc?5:3;b[fr][nc]=b[fr][rc];b[fr][rc]=null;b[fr][nc].moved=true;}
+  let ep=null,promoted=false;
+  if(p.t==='p'){if(Math.abs(m.r-fr)===2)ep={r:(m.r+fr)/2,c:fc};if(m.r===0||m.r===7){p.t='q';promoted=true;}}
+  return{ep,captured:target,promoted};
+}
+function legal(b,r,c,ep,ignoreFreeze){
+  const p=b[r][c];if(!p)return[];
+  if(p.frozen&&!ignoreFreeze)return[];
+  return pseudo(b,r,c,ep).filter(m=>{const nb=cloneB(b);doMove(nb,r,c,m);return!inCheck(nb,p.c);});
+}
+function anyLegal(col,ignoreFreeze){
+  for(let r=0;r<8;r++)for(let c=0;c<8;c++){const p=S.b[r][c];if(p&&p.c===col&&legal(S.b,r,c,S.ep,ignoreFreeze).length)return true;}
+  return false;
+}
+
+/* ---------- abilities ---------- */
+const AB={
+  k:{name:'Армия щитоносцев',cd:8,icon:'⚔',desc:'Слева от короля выходит отряд из 3 пешек-рыцарей с мечами и щитами. Щит один раз отражает взятие.'},
+  q:{name:'Буря',cd:5,icon:'🌪',desc:'Вихрь вокруг ферзя: вражеские пешки рядом уничтожены, с остальных соседних врагов сорваны щиты.'},
+  r:{name:'Таран',cd:4,icon:'🐏',desc:'Выбери направление: ладья мчится по прямой и сносит первую вражескую фигуру на пути (кроме короля).'},
+  b:{name:'Благословение',cd:4,icon:'✨',desc:'Слон и все союзники вокруг него получают щит. Щит один раз отражает взятие.'},
+  n:{name:'Топот копыт',cd:4,icon:'💫',desc:'Все враги на клетках, куда мог бы прыгнуть конь, оглушены и пропускают свой следующий ход (король не оглушается).'},
+  p:{name:'Удар копьём',cd:3,icon:'🗡',desc:'Пешка пронзает врага прямо перед собой (кроме короля). Если у врага щит, ломается только щит.'},
+};
+// returns {ok, why, targets?}
+function abilityPlan(b,r,c){
+  const p=b[r][c],col=p.c,e=enemy(col);
+  if(p.cd>0)return{ok:false,why:`Перезарядка: ещё ${p.cd} ${plural(p.cd)}`};
+  if(p.frozen)return{ok:false,why:'Фигура оглушена'};
+  let cells=[];
+  switch(p.t){
+    case'k':cells=summonCells(b,r,c,col);if(!cells.length)return{ok:false,why:'Слева от короля нет свободного места'};break;
+    case'q':for(const[dr,dc]of K8){const t=at(b,r+dr,c+dc);if(t&&t.c===e&&t.t!=='k'&&(t.t==='p'||t.shield))cells.push([r+dr,c+dc]);}
+      if(!cells.length)return{ok:false,why:'Рядом нет вражеских пешек или щитов'};break;
+    case'r':{const tg=[];for(const[dr,dc]of K8.slice(0,4)){let rr=r+dr,cc=c+dc;
+        while(inb(rr,cc)&&!b[rr][cc]){rr+=dr;cc+=dc;}
+        const t=at(b,rr,cc);if(t&&t.c===e&&t.t!=='k')tg.push({r:rr,c:cc,dr,dc});}
+      if(!tg.length)return{ok:false,why:'На прямых линиях нет врагов для тарана'};
+      return{ok:true,targets:tg};}
+    case'b':for(const[dr,dc]of[[0,0],...K8]){const t=at(b,r+dr,c+dc);if(t&&t.c===col&&t.t!=='k'&&!t.shield)cells.push([r+dr,c+dc]);}
+      if(!cells.length)return{ok:false,why:'Все союзники рядом уже под щитом'};break;
+    case'n':for(const[dr,dc]of KN){const t=at(b,r+dr,c+dc);if(t&&t.c===e&&t.t!=='k'&&!t.frozen)cells.push([r+dr,c+dc]);}
+      if(!cells.length)return{ok:false,why:'Нет врагов в зоне прыжка коня'};break;
+    case'p':{const t=at(b,r+fwd(col),c);if(t&&t.c===e&&t.t!=='k')cells.push([r+fwd(col),c]);
+      if(!cells.length)return{ok:false,why:'Прямо перед пешкой нет врага'};break;}
+  }
+  // safety: own king must not stay in check
+  const nb=cloneB(b);execAbility(nb,r,c,null,true);
+  if(inCheck(nb,col))return{ok:false,why:'Нельзя: король останется под шахом'};
+  return{ok:true};
+}
+function summonCells(b,r,c,col){
+  const promo=col==='w'?0:7,out=[];
+  for(let d=0;d<4&&out.length<3;d++){
+    const rr=r+d*fwd(col);if(!inb(rr,0)||rr===promo)continue;
+    for(let cc=c-1;cc>=0&&out.length<3;cc--)if(!b[rr][cc])out.push([rr,cc]);
+  }
+  return out;
+}
+// mutates b; returns {msg,fx:[[r,c,cls]],spawn:[[r,c]]}
+function execAbility(b,r,c,tgt,dry){
+  const p=b[r][c],col=p.c,e=enemy(col),fx=[],spawn=[];let msg='';
+  const nm=sqName(r,c);
+  switch(p.t){
+    case'k':{const cells=summonCells(b,r,c,col);
+      for(const[rr,cc]of cells){b[rr][cc]=P('p',col,{shield:true,soldier:true,moved:true});fx.push([rr,cc,'summon']);spawn.push([rr,cc]);}
+      msg=`Король ${nm} призвал армию: ${cells.length} щитоносца встали в строй`;break;}
+    case'q':{let k=0,s=0;for(const[dr,dc]of K8){const rr=r+dr,cc=c+dc,t=at(b,rr,cc);
+        if(!t||t.c!==e||t.t==='k')continue;
+        if(t.shield){t.shield=false;s++;fx.push([rr,cc,'clang']);}
+        else if(t.t==='p'){b[rr][cc]=null;k++;fx.push([rr,cc,'boom']);}}
+      msg=`Буря ферзя ${nm}: уничтожено пешек ${k}, сорвано щитов ${s}`;break;}
+    case'r':{if(!tgt){tgt=abilityTargetsRaw(b,r,c)[0];if(!tgt)break;}
+      const t=b[tgt.r][tgt.c];
+      if(t.shield){t.shield=false;const lr=tgt.r-tgt.dr,lc=tgt.c-tgt.dc;
+        if(lr!==r||lc!==c){b[lr][lc]=p;b[r][c]=null;}fx.push([tgt.r,tgt.c,'clang']);
+        msg=`Таран ладьи ${nm}: щит ${NAME[t.t].toLowerCase()} на ${sqName(tgt.r,tgt.c)} разбит`;}
+      else{b[tgt.r][tgt.c]=p;b[r][c]=null;fx.push([tgt.r,tgt.c,'boom']);
+        msg=`Таран ладьи ${nm}: снесён ${NAME[t.t].toLowerCase()} на ${sqName(tgt.r,tgt.c)}`;}
+      p.moved=true;break;}
+    case'b':{let n=0;for(const[dr,dc]of[[0,0],...K8]){const rr=r+dr,cc=c+dc,t=at(b,rr,cc);
+        if(t&&t.c===col&&t.t!=='k'&&!t.shield){t.shield=true;n++;fx.push([rr,cc,'bless']);}}
+      msg=`Благословение слона ${nm}: щиты получили ${n} фигур`;break;}
+    case'n':{let n=0;for(const[dr,dc]of KN){const rr=r+dr,cc=c+dc,t=at(b,rr,cc);
+        if(t&&t.c===e&&t.t!=='k'&&!t.frozen){t.frozen=true;n++;fx.push([rr,cc,'ice']);}}
+      msg=`Топот коня ${nm}: оглушено врагов ${n}`;break;}
+    case'p':{const rr=r+fwd(col),t=at(b,rr,c);
+      if(t.shield){t.shield=false;fx.push([rr,c,'clang']);msg=`Копьё пешки ${nm} сломало щит на ${sqName(rr,c)}`;}
+      else{b[rr][c]=null;fx.push([rr,c,'boom']);msg=`Копьё пешки ${nm} пронзило ${NAME[t.t].toLowerCase()} на ${sqName(rr,c)}`;}
+      break;}
+  }
+  p.cd=AB[p.t].cd;
+  return{msg,fx,spawn};
+}
+function abilityTargetsRaw(b,r,c){
+  const p=b[r][c],e=enemy(p.c),tg=[];
+  for(const[dr,dc]of K8.slice(0,4)){let rr=r+dr,cc=c+dc;while(inb(rr,cc)&&!b[rr][cc]){rr+=dr;cc+=dc;}
+    const t=at(b,rr,cc);if(t&&t.c===e&&t.t!=='k')tg.push({r:rr,c:cc,dr,dc});}
+  return tg;
+}
+function plural(n){return n%10===1&&n%100!==11?'ход':(n%10>=2&&n%10<=4&&(n%100<10||n%100>=20))?'хода':'ходов'}
+
+/* ---------- turn flow ---------- */
+function addLog(t,cls){S.log.unshift({t,cls});}
+function endTurn(){
+  const me=S.turn;
+  for(const row of S.b)for(const p of row)if(p&&p.c===me&&p.frozen)p.frozen=false;
+  S.turn=enemy(me);
+  for(const row of S.b)for(const p of row)if(p&&p.c===S.turn&&p.cd>0)p.cd--;
+  S.sel=null;S.aiming=null;
+  const chk=inCheck(S.b,S.turn);
+  if(!anyLegal(S.turn,false)){
+    if(anyLegal(S.turn,true)){
+      for(const row of S.b)for(const p of row)if(p&&p.c===S.turn)p.frozen=false;
+      addLog('Оглушение спало: иначе у стороны не было бы ходов');
+    }else{
+      S.over=chk?{title:`Мат! Победили ${me==='w'?'белые':'чёрные'}`}:{title:'Пат. Ничья'};
+      addLog(S.over.title,'ab');
+    }
+  }
+  if(!S.over&&!kingPos(S.b,S.turn)){S.over={title:`Победили ${me==='w'?'белые':'чёрные'}`};}
+}
+function clickSq(r,c){
+  if(S.over)return;
+  const p=S.b[r][c];
+  if(S.aiming){
+    const t=S.aiming.targets.find(t=>t.r===r&&t.c===c);
+    if(t){useAbility(t);return;}
+    S.aiming=null;
+  }
+  if(S.sel){
+    const m=S.sel.moves.find(m=>m.r===r&&m.c===c);
+    if(m){makeMove(S.sel.r,S.sel.c,m);return;}
+  }
+  if(p&&p.c===S.turn){
+    if(S.sel&&S.sel.r===r&&S.sel.c===c){S.sel=null;}
+    else S.sel={r,c,moves:legal(S.b,r,c,S.ep,false)};
+  }else S.sel=null;
+  render();
+}
+function makeMove(fr,fc,m){
+  const p=S.b[fr][fc];const pname=NAME[p.t];
+  const info=doMove(S.b,fr,fc,m);
+  S.fx=[];S.spawn=[];
+  if(info.bounced){
+    S.fx.push([info.tr,info.tc,'clang']);
+    addLog(`${pname} ${sqName(fr,fc)}: удар в щит на ${sqName(info.tr,info.tc)}. Щит разбит, атакующий остался на месте`);
+    S.ep=null;S.last={fr,fc,tr:fr,tc:fc};
+  }else{
+    let t=`${pname} ${sqName(fr,fc)}→${sqName(m.r,m.c)}`;
+    if(info.captured)t+=` ✕ ${NAME[info.captured.t].toLowerCase()}`;
+    if(m.castle)t='Рокировка';
+    if(info.promoted)t+=' → ферзь';
+    addLog(t);
+    S.ep=info.ep;S.last={fr,fc,tr:m.r,tc:m.c};
+  }
+  endTurn();
+  if(!S.over&&inCheck(S.b,S.turn))addLog('Шах!');
+  render();
+}
+function pressAbility(){
+  if(!S.sel||S.over)return;
+  const{r,c}=S.sel;const plan=abilityPlan(S.b,r,c);
+  if(!plan.ok)return;
+  if(plan.targets){
+    if(S.aiming){S.aiming=null;render();return;}
+    // filter targets that keep the king safe
+    const tg=plan.targets.filter(t=>{const nb=cloneB(S.b);execAbility(nb,r,c,t);return!inCheck(nb,S.turn);});
+    S.aiming={r,c,targets:tg};render();return;
+  }
+  useAbility(null);
+}
+function useAbility(t){
+  const r=S.aiming?S.aiming.r:S.sel.r,c=S.aiming?S.aiming.c:S.sel.c;
+  const res=execAbility(S.b,r,c,t);
+  S.fx=res.fx;S.spawn=res.spawn;
+  addLog('⚡ '+res.msg,'ab');
+  S.ep=null;S.last=null;
+  endTurn();
+  if(!S.over&&inCheck(S.b,S.turn))addLog('Шах!');
+  render();
+}
+
+/* ---------- render ---------- */
+const boardEl=document.getElementById('board');
+function render(){
+  const b=S.b;
+  const chkPos=inCheck(b,S.turn)?kingPos(b,S.turn):null;
+  let html='';
+  const moveSet=new Map();
+  if(S.sel&&!S.aiming)for(const m of S.sel.moves)moveSet.set(m.r*8+m.c,m);
+  const tgSet=new Set(S.aiming?S.aiming.targets.map(t=>t.r*8+t.c):[]);
+  const fxMap=new Map((S.fx||[]).map(f=>[f[0]*8+f[1],f[2]]));
+  const spawnSet=new Set((S.spawn||[]).map(s=>s[0]*8+s[1]));
+  for(let r=0;r<8;r++)for(let c=0;c<8;c++){
+    const p=b[r][c],k=r*8+c;
+    const cls=['sq',(r+c)%2?'d':'l'];
+    if(S.last&&((S.last.fr===r&&S.last.fc===c)||(S.last.tr===r&&S.last.tc===c)))cls.push('last');
+    if(S.sel&&S.sel.r===r&&S.sel.c===c)cls.push('selected');
+    if(chkPos&&chkPos[0]===r&&chkPos[1]===c)cls.push('check');
+    let inner='';
+    if(c===0)inner+=`<span class="coord r">${8-r}</span>`;
+    if(r===7)inner+=`<span class="coord f">${FILES[c]}</span>`;
+    if(p){
+      const pc=['pc',p.c];if(p.shield)pc.push('shielded');if(p.frozen)pc.push('frozen');if(spawnSet.has(k))pc.push('spawn');
+      inner+=`<span class="${pc.join(' ')}">${GLYPH[p.t]}</span>`;
+      if(p.shield)inner+='<span class="badge sh">🛡</span>';
+      if(p.soldier&&p.t==='p')inner+='<span class="badge sw">⚔</span>';
+      if(p.frozen)inner+='<span class="badge fr">❄</span>';
+      if(p.c===S.turn&&p.cd>0)inner+=`<span class="badge cd">${p.cd}</span>`;
+    }
+    if(moveSet.has(k))inner+=p||moveSet.get(k).ep?'<span class="ring"></span>':'<span class="dot"></span>';
+    if(tgSet.has(k))inner+='<span class="target"></span>';
+    if(fxMap.has(k))inner+=`<span class="fx ${fxMap.get(k)}"></span>`;
+    html+=`<div class="${cls.join(' ')}" data-r="${r}" data-c="${c}" role="button" aria-label="${sqName(r,c)}${p?' '+NAME[p.t]:''}"></div>`.replace('></div>',`>${inner}</div>`);
+  }
+  if(S.over)html+=`<div class="over"><h2>${S.over.title}</h2><button onclick="restart()">Сыграть ещё</button></div>`;
+  boardEl.innerHTML=html;
+  S.fx=[];S.spawn=[];
+
+  document.getElementById('chip').className='chip '+S.turn;
+  document.getElementById('turnText').textContent=S.turn==='w'?'Ход белых':'Ход чёрных';
+  document.getElementById('status').textContent=S.over?S.over.title:(chkPos?'Шах! Защити короля.':'');
+
+  const body=document.getElementById('selBody');
+  if(S.sel&&!S.over){
+    const p=b[S.sel.r][S.sel.c],ab=AB[p.t],plan=abilityPlan(b,S.sel.r,S.sel.c);
+    const title=`${NAME[p.t]}${p.soldier&&p.t==='p'?'-щитоносец':''} · ${sqName(S.sel.r,S.sel.c)}`;
+    const extra=[p.shield?'🛡 под щитом':'',p.frozen?'❄ оглушена, не может ходить':''].filter(Boolean).join(' · ');
+    body.innerHTML=`<div class="selName">${title}</div>
+      ${extra?`<div class="hint">${extra}</div>`:''}
+      <div class="abName">${ab.icon} ${ab.name}</div>
+      <div class="abDesc">${ab.desc} Перезарядка: ${ab.cd} ${plural(ab.cd)}.</div>
+      <button class="abBtn ${S.aiming?'active':''}" id="abBtn" ${plan.ok?'':'disabled'}>${S.aiming?'Отмена: выбери цель на доске':plan.ok?'⚡ Применить способность':'Недоступно'}</button>
+      <div class="hint">${plan.ok?(S.aiming?'Нажми на врага, обведённого красным.':'Способность тратит весь ход.'):plan.why}</div>`;
+    const btn=document.getElementById('abBtn');btn.onclick=pressAbility;
+  }else body.innerHTML='<div class="abDesc">Нажми на свою фигуру на доске. Появятся её ходы и кнопка способности.</div>';
+
+  document.getElementById('log').innerHTML=S.log.slice(0,60).map(l=>`<div class="${l.cls||''}">${l.t}</div>`).join('');
+}
+boardEl.addEventListener('click',e=>{const sq=e.target.closest('.sq');if(sq)clickSq(+sq.dataset.r,+sq.dataset.c);});
+function restart(){newGame();render();}
+document.getElementById('reset').onclick=restart;
+document.getElementById('legend').innerHTML=Object.keys(AB).map(t=>`<span style="font-size:20px">${GLYPH[t]}</span><span><b>${AB[t].name}</b> — ${AB[t].desc}</span>`).join('');
+
+function start(data){
+  if(data&&data.S){S=data.S;}else newGame();
+  render();
+}
+window.claude?.hot?.snapshot?.(()=>({S}));
+window.claude?.hot?.ready?window.claude.hot.ready(start):start(window.claude?.hot?.data??{});
+</script>
