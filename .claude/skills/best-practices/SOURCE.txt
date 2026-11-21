@@ -1,4 +1,0 @@
-Source: https://github.com/addyosmani/web-quality-skills/tree/afa8da9/skills/best-practices
-Copied unchanged on 2026-11-18.
-Inspected: Markdown only, no scripts, hooks or tool permissions.
-License: MIT (LICENSE.txt).

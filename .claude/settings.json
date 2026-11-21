@@ -1,29 +1,4 @@
 {
-  "extraKnownMarketplaces": {
-    "ponytail": {
-      "source": {
-        "source": "github",
-        "repo": "DietrichGebert/ponytail"
-      }
-    },
-    "addy-agent-skills": {
-      "source": {
-        "source": "github",
-        "repo": "addyosmani/agent-skills"
-      }
-    },
-    "chrome-devtools-plugins": {
-      "source": {
-        "source": "github",
-        "repo": "ChromeDevTools/chrome-devtools-mcp"
-      }
-    }
-  },
-  "enabledPlugins": {
-    "ponytail@ponytail": true,
-    "agent-skills@addy-agent-skills": true,
-    "chrome-devtools-mcp@chrome-devtools-plugins": true
-  },
   "hooks": {
     "PreToolUse": [
       {

@@ -1,4 +1,0 @@
-Source: https://github.com/anthropics/skills/tree/e4bb5d9/skills/webapp-testing
-Copied unchanged on 2026-11-18.
-Inspected: SKILL.md, scripts/with_server.py (starts local servers, waits for the port, runs a command, stops them), examples/*.py (Playwright samples). No hooks or tool permissions.
-License: Apache-2.0 (LICENSE.txt).
