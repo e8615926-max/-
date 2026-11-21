@@ -10,7 +10,7 @@
       "$uid": {
         ".read": "auth != null && auth.uid === $uid",
         ".write": "auth != null && auth.uid === $uid && newData.exists()",
-        ".validate": "newData.hasChildren(['n', 'av', 'c', 'g', 'r', 'b', 'tr', 't']) && newData.child('tr').val() <= newData.child('b').val() * (newData.child('sk').isNumber() ? newData.child('sk').val() : 1) && (!data.exists() ? (newData.child('b').val() <= 1000 && newData.child('tr').val() <= 3000 && newData.child('c').val() <= 200000 && newData.child('g').val() <= 20000 && newData.child('r').val() <= 2000) : (now - data.child('t').val() >= 1000 && newData.child('b').val() - data.child('b').val() <= (now - data.child('t').val()) * 0.06 + 30 && newData.child('tr').val() - data.child('tr').val() <= (now - data.child('t').val()) * 0.1 + 100 && newData.child('c').val() - data.child('c').val() <= (now - data.child('t').val()) * 1 + 100000 && newData.child('g').val() - data.child('g').val() <= (now - data.child('t').val()) * 0.05 + 5000 && newData.child('r').val() - data.child('r').val() <= (now - data.child('t').val()) * 0.005 + 500))",
+        ".validate": "newData.hasChildren(['n', 'av', 'c', 'g', 'r', 'b', 'tr', 't']) && newData.child('tr').val() <= newData.child('b').val() * (newData.child('sk').isNumber() ? newData.child('sk').val() : 1) + (newData.child('ar').isNumber() ? newData.child('ar').val() : 0) && (!data.exists() ? (newData.child('b').val() <= 1000 && newData.child('tr').val() <= 3000 && (!newData.child('ar').isNumber() || newData.child('ar').val() <= 3000) && newData.child('c').val() <= 200000 && newData.child('g').val() <= 20000 && newData.child('r').val() <= 2000) : (now - data.child('t').val() >= 1000 && newData.child('b').val() - data.child('b').val() <= (now - data.child('t').val()) * 0.06 + 30 && newData.child('tr').val() - data.child('tr').val() <= (now - data.child('t').val()) * 0.1 + 100 && (!newData.child('ar').isNumber() || newData.child('ar').val() - (data.child('ar').isNumber() ? data.child('ar').val() : 0) <= (now - data.child('t').val()) * 0.1 + 100) && newData.child('c').val() - data.child('c').val() <= (now - data.child('t').val()) * 1 + 100000 && newData.child('g').val() - data.child('g').val() <= (now - data.child('t').val()) * 0.05 + 5000 && newData.child('r').val() - data.child('r').val() <= (now - data.child('t').val()) * 0.005 + 500))",
         "n": {
           ".validate": "newData.isString() && newData.val().length >= 3 && newData.val().length <= 16 && !newData.val().matches(/^ /) && !newData.val().matches(/ $/) && !newData.val().matches(/  /) && !newData.val().matches(/[\u0001-\u001f\u007f-\u00a0\u00ad\u00a1-\u00a9\u00ab-\u00b4\u00b6-\u00b9\u00bb-\u00bf\u00d7\u00f7\u034f\u061c\u115f\u1160\u1680\u17b4\u17b5\u180b-\u180f\u2000-\u202f\u205f-\u206f\u2190-\u2bff\u2800\u3000\u3164\ud800-\udfff\ufe00-\ufe0f\ufeff\uffa0\ufff0-\uffff!-\\/:-@\\[-\\^`{-~]/)"
         },
@@ -46,6 +46,9 @@
         },
         "t": {
           ".validate": "newData.val() === now"
+        },
+        "ar": {
+          ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 100000000"
         },
         "$other": {
           ".validate": false
@@ -164,7 +167,7 @@
           ".validate": "newData.isString() && newData.val().length <= 44"
         },
         "st": {
-          ".validate": "newData.isString() && newData.val().matches(/^(menu|play)$/)"
+          ".validate": "newData.isString() && newData.val().matches(/^(menu|play|off)$/)"
         },
         "t": {
           ".validate": "newData.val() === now"
