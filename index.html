@@ -2215,13 +2215,12 @@ async function fbBoardPush(e) {
   const { own, ic, ach, show, tro, ...row } = e; row.n = netNick(row.n);   // в базе — без смайликов (её правила их не пропускают)
   // правила базы ещё старые (без поля ar) — пишем по-старому: кубки не больше «рекорд × герои»
   const oldRow = () => { if (row.ar === undefined) return; delete row.ar; row.tr = Math.min(row.tr, row.b * Math.max(1, row.sk || 1)); };
-  if (fbBoardPush.oldRules) oldRow();
+  if (fbBoardPush.oldRules && Date.now() - fbBoardPush.oldRules < 6e5) oldRow();   // старые правила — проверяем снова через 10 минут
   // строка рейтинга не изменилась с прошлой отправки — запрос не нужен (раньше уходил после каждого забега)
   const rowKey = FB.uid + JSON.stringify(row);
   if (rowKey !== fbBoardPush.lastRow)
   try {
-    try { await fbReq('PUT', 'board/' + FB.uid, { ...row, t: FB_NOW }); }
-    catch (x0) { if (!x0 || (x0.status !== 401 && x0.status !== 403) || row.ar === undefined) throw x0; fbBoardPush.oldRules = true; oldRow(); await fbReq('PUT', 'board/' + FB.uid, { ...row, t: FB_NOW }); }
+    await fbReq('PUT', 'board/' + FB.uid, { ...row, t: FB_NOW });   // отказ (403) — ниже: сперва урезаем рост, и только если и так нельзя — значит, правила старые
     fbBoardPush.n = 0; fbBoardPush.lastRow = rowKey;
   }
   catch (x) {
@@ -2234,11 +2233,15 @@ async function fbBoardPush(e) {
     if (row.ar !== undefined) part.ar = lim('ar', 0.1, 100, 3000);
     part.tr = Math.min(part.tr, part.b * Math.max(1, row.sk || 1) + (part.ar || 0));
     if (cur && Date.now() - (+cur.t || 0) < 1500) await new Promise(ok => setTimeout(ok, 1500));
-    await fbReq('PUT', 'board/' + FB.uid, { ...part, t: FB_NOW }).catch(() => {});
+    await fbReq('PUT', 'board/' + FB.uid, { ...part, t: FB_NOW }).catch(async () => {
+      if (part.ar === undefined) return;   // даже урезанная строка с ar не прошла — правила базы старые: пишем без ar
+      fbBoardPush.oldRules = Date.now(); delete part.ar; part.tr = Math.min(part.tr, part.b * Math.max(1, row.sk || 1));
+      await fbReq('PUT', 'board/' + FB.uid, { ...part, t: FB_NOW }).catch(() => {});
+    });
     clearTimeout(fbBoardPush.later); fbBoardPush.later = setTimeout(boardPush, 20000);
   }
   let map = null; try { const pm = edMaps().find(m => m.pub); if (pm) map = { ...pm, it: pm.it.slice(0, 120) }; } catch (x) {}   // открытая карта — в «Карты недели» других игроков
-  const pj = JSON.stringify({ own, ic, ach, show, tro, map, cl: myClubInfo(), tr: e.tr | 0, b: e.b | 0, at: troTotal() });   // кубки и рекорд — и в профиле: друзья видят их, даже если строки нет в топ-100   // клуб — в профиле (в рейтинге новых полей правила базы не пропускают)
+  const pj = JSON.stringify({ own, ic, ach, show, tro, map, cl: myClubInfo(), tr: e.tr | 0, b: e.b | 0 });   // кубки и рекорд — и в профиле: друзья видят их, даже если строки нет в топ-100   // клуб — в профиле (в рейтинге новых полей правила базы не пропускают)
   if (FB.uid + pj === fbBoardPush.lastPj) return;   // профиль (до 30 КБ) тот же, что уже в базе — не отправляем заново
   await fbReq('PUT', 'profiles/' + FB.uid, { p: pj.length <= 30000 ? pj : JSON.stringify({ own, ic, ach, show, tro }).slice(0, 30000), t: FB_NOW });
   fbBoardPush.lastPj = FB.uid + pj;
@@ -2248,7 +2251,7 @@ async function fbBoardTop(field) {
   return Object.entries(d || {}).map(([id, v]) => boardClean(id, { ...v, lazy: 1 })).filter(Boolean).map(r => (r.lazy = true, r)).sort((a, b) => b[field] - a[field]);
 }
 async function fbProfile(e) {
-  try { const d = await fbReq('GET', 'profiles/' + e.id); const p = d && typeof d.p === 'string' ? JSON.parse(d.p) : {}; return boardClean(e.id, { ...e, ...p }); } catch (x) { return e; }
+  try { const d = await fbReq('GET', 'profiles/' + e.id); const p = d && typeof d.p === 'string' ? JSON.parse(d.p) : {}; return boardClean(e.id, { ...e, ...p, tr: nat(e.tr) || nat(p.tr), b: nat(e.b) || nat(p.b) }); } catch (x) { return e; }   // кубки и рекорд — из строки рейтинга (как в таблице); нет их — из профиля
 }
 // ---- аккаунт: гость (анонимный вход) или Google ----
 // Окно входа Google и привязку делает официальный Firebase Auth SDK: он грузится только по кнопке «Google».
@@ -3497,7 +3500,7 @@ function pick(opts) {
 }
 
 // Пиксельные примитивы: «пиксель» = 2×2 точки
-const APP_VER = 'v92';
+const APP_VER = 'v93';
 let AV_HQ = false;   // рисуем аватарку: точные фигуры без привязки к сетке 2×2 (иначе глаза выходили разного размера)
 function prect(c, x, y, w, h, col) {
   if (AV_HQ) { c.fillStyle = col; c.fillRect(x, y, w, h); return; }
@@ -18135,12 +18138,13 @@ function profStats(e) {   // e — данные игрока (свои или и
 }
 function myClubInfo() { if (!CLAN.in) return null; const c = clanGet(CLAN.in); if (!c) return null;
   const o = { id: CLAN.in, nm: c.nm, bd: c.bd };
-  if (CLAN.in === 'my') Object.assign(o, { ds: String(c.ds || '').slice(0, 60), ty: c.type | 0, rq: c.req | 0, lg: String(c.lg || 'ru').slice(0, 2), m: c.mem.filter(m => !m.me).slice(0, CLAN_MAX).map(m => [m.idx | 0, m.tr | 0, m.r | 0]) });
+  if (CLAN.in === 'my') Object.assign(o, { ds: String(c.ds || '').slice(0, 80), ty: c.type | 0, rq: c.req | 0, lg: String(c.lg || 'ru').slice(0, 2), m: c.mem.filter(m => !m.me).slice(0, CLAN_MAX).map(m => [m.idx | 0, m.tr | 0, m.r | 0]) });
   return o; }
 // клубы других игроков, которые ты видел в профилях (друзья, рейтинг): их можно открыть и найти поиском
 let CLUB_SEEN = {}; try { CLUB_SEEN = JSON.parse(localStorage.getItem('clubseen') || '{}') || {}; } catch (x) {}
 function clubSeen(e) {
   const c = e && e.cl; if (!c || c.id !== 'my' || !c.m) return null;
+  if (e.id && FB.uid && e.id === FB.uid) return CLAN.in === 'my' ? 'my' : null;
   const id = 'u:' + String(e.id || e.n).slice(0, 40);
   CLUB_SEEN[id] = { ...c, own: { n: e.n, av: e.av, fr: e.fr, nc: e.nc, tr: e.tr | 0, avf: e.avf, bg: e.bg, ti: e.ti }, t: Date.now() };
   const ks = Object.keys(CLUB_SEEN).sort((a, b) => CLUB_SEEN[b].t - CLUB_SEEN[a].t); ks.slice(40).forEach(k => delete CLUB_SEEN[k]);
@@ -18154,8 +18158,8 @@ function clanExt(id) {
 }
 const clubOk = v => { if (!(v && typeof v === 'object' && typeof v.id === 'string' && /^(c\d{1,3}|my)$/.test(v.id) && typeof v.nm === 'string' && Array.isArray(v.bd))) return null;
   const o = { id: v.id, nm: v.nm.replace(/[\u0000-\u001f<>]/g, '').slice(0, 18), bd: v.bd.slice(0, 3).map(x => clamp(nat(x), 0, 30)) };
-  if (v.id === 'my' && Array.isArray(v.m)) Object.assign(o, { ds: String(v.ds || '').replace(/[\u0000-\u001f<>]/g, '').slice(0, 60), ty: clamp(nat(v.ty), 0, 2), rq: Math.min(nat(v.rq), 1e6), lg: typeof v.lg === 'string' && CL_LANG[v.lg] ? v.lg : 'ru',
-    m: v.m.filter(q => Array.isArray(q)).slice(0, CLAN_MAX - 1).map(q => [clamp(nat(q[0]), 0, 1e5), Math.min(nat(q[1]), 1e6), clamp(nat(q[2]), 0, 2)]) });
+  if (v.id === 'my' && Array.isArray(v.m)) Object.assign(o, { ds: String(v.ds || '').replace(/[\u0000-\u001f<>]/g, '').slice(0, 80), ty: clamp(nat(v.ty), 0, 2), rq: Math.min(nat(v.rq), 1e6), lg: typeof v.lg === 'string' && CL_LANG[v.lg] ? v.lg : 'ru',
+    m: v.m.filter(q => Array.isArray(q)).slice(0, CLAN_MAX - 1).map(q => [clamp(nat(q[0]), 0, 1e8), Math.min(nat(q[1]), 1e6), clamp(nat(q[2]), 0, 2)]) });
   return o; };
 // боты рейтинга тоже состоят в клубах (и видны в списке участников клуба)
 const botClubCi = i => botH(i, 701) < 0.72 ? Math.floor(botH(i, 700) * CLAN_N) : -1;
@@ -18201,7 +18205,7 @@ function profHead(e, me) {
   const trw = moEl('div', 'row'); trw.append(iconCnv('trophy', 0, 24), moTxt('span', 'ol', String(e.tr))); col.appendChild(trw);
   const club = me ? myClubInfo() : e.cl;   // клуб игрока: видно всем, нажми — откроется клуб
   if (club) { const cr = moEl('div', 'clubrow'); cr.append(clanBadgeCnv(club.bd, 22), moTxt('span', 'ol', club.nm)); const cid = me ? club.id : club.id === 'my' ? clubSeen(e) : club.id;
-    if (cid && (me || /^(c\d+|u:.+)$/.test(cid))) { cr.classList.add('tap'); cr.onclick = () => { sfx.click(); clanPage(cid, me ? null : e); }; cr.appendChild(moTxt('span', 'ol', '›')); } col.appendChild(cr); }
+    if (cid && (me || /^(c\d+|u:.+|my)$/.test(cid))) { cr.classList.add('tap'); cr.onclick = () => { sfx.click(); clanPage(cid, me ? null : e); }; cr.appendChild(moTxt('span', 'ol', '›')); } col.appendChild(cr); }
   inner.appendChild(col); card.appendChild(inner); return card;
 }
 function profBody(bd, e, me) {
@@ -19876,8 +19880,8 @@ async function frProfPeek(f) {
   const r = await fbReq('GET', 'profiles/' + f.u).catch(() => null); if (!r || typeof r !== 'object') return;
   if (r.t > 0) { f.lt = Math.max(f.lt || 0, +r.t); frSeenNote(f.u, +r.t); }
   let p = null; try { p = JSON.parse(String(r.p || '')); } catch (e) {} if (!p || typeof p !== 'object') return;
-  const tr0 = Math.max(nat(p.at), nat(p.tr), (Array.isArray(p.tro) ? p.tro : []).reduce((a, q) => a + (Array.isArray(q) ? Math.min(nat(q[1]), 99999) : 0), 0));
-  if (tr0 > (f.tr | 0)) f.tr = Math.min(1e8, tr0);
+  const tr0 = nat(p.tr) || (Array.isArray(p.tro) ? p.tro : []).reduce((a, q) => a + (Array.isArray(q) ? Math.min(nat(q[1]), 99999) : 0), 0);   // как в таблице рейтинга; у старой версии — сумма кубков героев
+  if (tr0 && (nat(p.tr) || tr0 > (f.tr | 0))) f.tr = Math.min(1e8, tr0);
   if (nat(p.b) > (f.b | 0)) f.b = Math.min(99999, nat(p.b));
 }
 frProfPeek.at = {};
@@ -19897,7 +19901,7 @@ function frSeen(f) {   // «в сети» или «был … назад»
 }
 async function frOpenProfile(f) {   // профиль друга: карточка из pres + подробности из profiles
   const d = FR.pres[f.u] || {};
-  let e = boardClean(f.u, { n: d.n || f.n, av: d.av || f.av, fr: d.fr, ti: d.ti, b: d.b, tr: d.tr, sk: d.sk, c: d.c, g: d.g });
+  let e = boardClean(f.u, { n: d.n || f.n, av: d.av || f.av, fr: d.fr, ti: d.ti, b: d.b != null ? d.b : f.b, tr: d.tr != null ? d.tr : f.tr, sk: d.sk, c: d.c, g: d.g });   // у старой версии в отметке нет цифр — берём последние известные
   e = await fbProfile(e);
   moOpen(e.n, bd => {
     profBody(bd, e, false);
@@ -22644,16 +22648,16 @@ if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) {
 // старая версия обновляется сама: раз в 5 минут и при возврате в игру смотрим версию на сайте; новее — тихо перезагружаемся в спокойный момент (в меню, без окон)
 {
   const verN = v => +String(v || '').replace(/\D/g, '') || 0, mine = verN(APP_VER);
-  let want = false;
+  let want = false, want0 = '';
   const calm = () => state === 'menu' && !moStack.length && !document.getElementById('dropov') && !document.getElementById('frpop') && !chest && !quiet && !(typeof TRN !== 'undefined' && TRN.on) && !(typeof mp !== 'undefined' && mp.active);
   const check = async () => {
     if (!navigator.onLine || !/^https?:$/.test(location.protocol)) return;
     try {
       const t = await (await fetch('sw.js?v=' + Date.now(), { cache: 'no-store' })).text(), m = /wall-play-(v\d+)/.exec(t);
-      if (m && verN(m[1]) > mine) { want = true; try { const r = await navigator.serviceWorker?.getRegistration(); r && r.update(); } catch (e) {} }
+      if (m && verN(m[1]) > mine) { want = true; want0 = m[1]; try { const r = await navigator.serviceWorker?.getRegistration(); r && r.update(); } catch (e) {} }
     } catch (e) {}
   };
-  setInterval(() => { if (want && calm() && !document.hidden) { want = false; try { sessionStorage.setItem('wk3_upd', APP_VER); } catch (e) {} location.reload(); } }, 2000);
+  setInterval(() => { if (want && calm() && !document.hidden) { want = false; let tried = ''; try { tried = sessionStorage.getItem('wk3_upd') || ''; } catch (e) {} if (tried === want0) return; try { sessionStorage.setItem('wk3_upd', want0); } catch (e) {} location.reload(); } }, 2000);   // одна попытка на версию: если после перезагрузки всё ещё старая — не крутимся по кругу
   setTimeout(check, 20000); setInterval(check, 5 * 60000);
   document.addEventListener('visibilitychange', () => { if (!document.hidden) check(); });
 }
