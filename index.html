@@ -3393,10 +3393,55 @@ function arenaStep(s, t) {
   noiseAt(t, 0.025, s % 2 ? 0.02 : 0.035, musicGain, 8000);   // хэт на каждый шаг
   if (s % 16 === 14) for (let k = 0; k < 3; k++) note(midi(root + 24 + [0, 7, 12][k]), midi(root + 24 + [0, 7, 12][k]), t + k * 0.03, 0.08, 'square', 0.015, musicGain);
 }
+// «Прыжок к звёздам» — новая главная тема: 16 тактов (куплет ×2 и припев ×2), аккорды C–G–Am–F → F–G–Em–Am → F–G–C,
+// протяжная мелодия с эхом, искристое арпеджио, прыгающий бас, барабаны со сбивкой и тарелкой перед припевом
+const SONG_MEL = [   // восьмые: нота, -1 — тянуть, 0 — пауза
+  76, -1, 79, 76, 72, -1, 74, 76,   74, -1, 71, 74, 79, -1, -1, 0,   72, -1, 76, 72, 69, -1, 72, 76,   77, 76, 74, 72, 74, -1, -1, 0,
+  76, -1, 79, 76, 84, -1, 83, 81,   79, -1, 74, 79, 83, -1, 81, 79,  81, -1, 76, 81, 84, 83, 81, 79,   77, -1, 76, 77, 79, -1, -1, 0,
+  81, -1, -1, 79, 77, -1, 79, 81,   83, -1, -1, 81, 79, -1, 74, -1,  79, -1, -1, 76, 83, -1, 81, 79,   81, -1, -1, -1, 76, -1, 79, 81,
+  84, -1, -1, 83, 81, -1, 79, 77,   79, -1, 81, 83, 86, -1, 83, -1,  84, -1, -1, -1, 79, -1, 76, -1,   72, -1, 76, 79, 84, 0, 0, 0,
+];
+const SONG_CH = [[36, 0], [43, 0], [45, 1], [41, 0], [36, 0], [43, 0], [45, 1], [41, 0], [41, 0], [43, 0], [40, 1], [45, 1], [41, 0], [43, 0], [36, 0], [36, 0]];   // корень и минор ли
+const SONG_STEP = 0.125, SONG_LEN = 256;   // шестнадцатые, 120 ударов в минуту, 32 с на круг
+function noteS(f, t, dur, type, vol, dest) {   // тянущаяся нота: мягкая атака, держится и плавно гаснет
+  if (quiet) return;
+  const o = ac.createOscillator(), g = ac.createGain(); o.type = type; o.frequency.setValueAtTime(f, t);
+  g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(vol, t + 0.012); g.gain.linearRampToValueAtTime(vol * 0.6, t + Math.min(dur * 0.5, 0.15)); g.gain.setValueAtTime(vol * 0.6, t + dur * 0.8); g.gain.linearRampToValueAtTime(0.0001, t + dur);
+  o.connect(g); g.connect(dest || musicGain); o.start(t); o.stop(t + dur + 0.02);
+}
+function songStep(s, t, tr) {
+  const bar = s >> 4, b16 = s & 15, [root, mi] = SONG_CH[bar], chorus = bar >= 8, R = root + tr, tri = [0, mi ? 3 : 4, 7];
+  if (!(s & 1)) {   // мелодия — по восьмым
+    const i = s >> 1, n = SONG_MEL[i];
+    if (n > 0) {
+      let len = 1; while (i + len < SONG_MEL.length && SONG_MEL[i + len] === -1) len++;
+      const d = len * SONG_STEP * 2 * 0.95, f = midi(n + tr);
+      noteS(f, t, d, 'square', chorus ? 0.042 : 0.036);
+      noteS(f * 2, t, Math.min(d, 0.3), 'triangle', 0.012);
+      noteS(f, t + SONG_STEP * 3, Math.min(d, 0.5), 'square', 0.011);   // эхо
+      if (chorus) noteS(midi(n + tr - (mi ? 3 : 4)), t, d, 'triangle', 0.02);   // второй голос в припеве
+    }
+    const bn = R + [0, 12, 7, 12][(s >> 1) & 3]; note(midi(bn), midi(bn), t, SONG_STEP * 1.8, 'triangle', 0.085, musicGain);   // бас прыгает по октавам
+    if (chorus && !(b16 & 3)) note(midi(R - 12), midi(R - 12), t, SONG_STEP * 3.5, 'sawtooth', 0.025, musicGain);
+  }
+  const an = R + 36 + tri[s % 3] + (b16 >= 8 ? 12 : 0) - 12; note(midi(an), midi(an), t, SONG_STEP * 0.9, 'sine', chorus ? 0.02 : 0.014, musicGain);   // искры-арпеджио
+  if (b16 === 0) noteS(midi(R + 24 + tri[1]), t, SONG_STEP * 15, 'sine', 0.012);   // подушка аккорда
+  // барабаны
+  const fill = bar === 7 || bar === 15;
+  if (b16 === 0 || b16 === 8 || (b16 === 10 && !chorus) || (chorus && b16 === 4 || chorus && b16 === 12)) note(150, 42, t, 0.13, 'sine', 0.2, musicGain);
+  if (b16 === 4 || b16 === 12) { noiseAt(t, 0.13, 0.065, musicGain, 1400); note(210, 160, t, 0.07, 'triangle', 0.05, musicGain); }
+  if (fill && b16 >= 12) noiseAt(t, 0.07, 0.03 + (b16 - 12) * 0.012, musicGain, 1200);   // сбивка
+  if (s & 1) noiseAt(t, 0.03, 0.02, musicGain, 7000); else if (b16 === 14) noiseAt(t, 0.18, 0.028, musicGain, 6000);   // хэт, открытый в конце такта
+  if (s === 0 || s === 128) noiseAt(t, 1.2, 0.05, musicGain, 4500);   // тарелка: начало и припев
+}
+let musSong = 0, musLoops = 0;   // главная тема два круга, потом старая песенка — для разнообразия
+const musLen = k => k === 'm' && !musSong ? SONG_LEN : 64;
+const musDt = k => k === 'a' ? ARENA_STEP : k === 'm' && !musSong ? SONG_STEP : STEP;
 function scheduleStep(s, t) {
   if (arenaMusic()) { arenaStep(s, t); return; }
   if (state === 'tent') { tentStep(s, t); return; }
   const tr = ZONES[zoneIdx || 0].tr;
+  if (!musSong) { songStep(s, t, tr); return; }
   const n = MEL[s];
   if (n) { note(midi(n + tr), midi(n + tr), t, STEP * 0.95, 'square', 0.045, musicGain); note(midi(n + tr + 12), midi(n + tr + 12), t, STEP * 0.5, 'triangle', 0.015, musicGain); }
   if (s % 2 === 0) {
@@ -3422,7 +3467,7 @@ setInterval(() => {
   musKind = kind;
   if (mTime < ac.currentTime) mTime = ac.currentTime + 0.05;
   // запас 0.7 с: пока игра занята загрузкой (экран, рейтинг, первый показ героев), ноты уже стоят в очереди
-  while (mTime < ac.currentTime + 0.7) { scheduleStep(mStep, mTime); mTime += arenaMusic() ? ARENA_STEP : STEP; mStep = (mStep + 1) % 64; }
+  while (mTime < ac.currentTime + 0.7) { scheduleStep(mStep, mTime); mTime += musDt(kind); mStep = (mStep + 1) % musLen(kind); if (!mStep && kind === 'm') { musLoops++; musSong = musLoops % 3 === 2 ? 1 : 0; } }
 }, 40);
 function startMusic() { musicOn = true; audio(); }
 function toggleMute() { muted = !muted; store.set('muted', muted); applyVolumes(); }
@@ -3452,7 +3497,7 @@ function pick(opts) {
 }
 
 // Пиксельные примитивы: «пиксель» = 2×2 точки
-const APP_VER = 'v90';
+const APP_VER = 'v91';
 let AV_HQ = false;   // рисуем аватарку: точные фигуры без привязки к сетке 2×2 (иначе глаза выходили разного размера)
 function prect(c, x, y, w, h, col) {
   if (AV_HQ) { c.fillStyle = col; c.fillRect(x, y, w, h); return; }
