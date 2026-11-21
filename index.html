@@ -2238,7 +2238,7 @@ async function fbBoardPush(e) {
     clearTimeout(fbBoardPush.later); fbBoardPush.later = setTimeout(boardPush, 20000);
   }
   let map = null; try { const pm = edMaps().find(m => m.pub); if (pm) map = { ...pm, it: pm.it.slice(0, 120) }; } catch (x) {}   // открытая карта — в «Карты недели» других игроков
-  const pj = JSON.stringify({ own, ic, ach, show, tro, map, cl: myClubInfo() });   // клуб — в профиле (в рейтинге новых полей правила базы не пропускают)
+  const pj = JSON.stringify({ own, ic, ach, show, tro, map, cl: myClubInfo(), tr: e.tr | 0, b: e.b | 0, at: troTotal() });   // кубки и рекорд — и в профиле: друзья видят их, даже если строки нет в топ-100   // клуб — в профиле (в рейтинге новых полей правила базы не пропускают)
   if (FB.uid + pj === fbBoardPush.lastPj) return;   // профиль (до 30 КБ) тот же, что уже в базе — не отправляем заново
   await fbReq('PUT', 'profiles/' + FB.uid, { p: pj.length <= 30000 ? pj : JSON.stringify({ own, ic, ach, show, tro }).slice(0, 30000), t: FB_NOW });
   fbBoardPush.lastPj = FB.uid + pj;
@@ -3452,7 +3452,7 @@ function pick(opts) {
 }
 
 // Пиксельные примитивы: «пиксель» = 2×2 точки
-const APP_VER = 'v89';
+const APP_VER = 'v90';
 let AV_HQ = false;   // рисуем аватарку: точные фигуры без привязки к сетке 2×2 (иначе глаза выходили разного размера)
 function prect(c, x, y, w, h, col) {
   if (AV_HQ) { c.fillStyle = col; c.fillRect(x, y, w, h); return; }
@@ -19765,9 +19765,21 @@ async function frPoll() {   // письма: заявки в друзья и о�
 async function frPresAll() {
   const ok = FR.list.filter(f => f.st === 'ok').slice(0, 60);
   await Promise.all(ok.map(async f => { try { const d = await fbReq('GET', 'pres/' + f.u); FR.pres[f.u] = d && typeof d === 'object' ? d : null; if (d && d.n) { f.n = frClean(d.n, 16); f.av = frClean(d.av, 44); }
-    if (d && typeof d === 'object') { if (d.b >= 0) f.b = Math.min(99999, d.b | 0); if (d.tr >= 0) f.tr = Math.min(1e8, d.tr | 0); if (d.t > 0) { f.lt = +d.t; frSeenNote(f.u, +d.t); } } } catch (e) {} }));   // последние известные цифры — у себя
+    if (d && typeof d === 'object') { if (d.b >= 0) f.b = Math.min(99999, d.b | 0); if (d.tr >= 0) f.tr = Math.min(1e8, d.tr | 0); if (d.t > 0) { f.lt = +d.t; frSeenNote(f.u, +d.t); } }
+    if (!(d && d.tr >= 0 && d.t > 0)) await frProfPeek(f); } catch (e) {} }));   // последние известные цифры — у себя; у старой версии или без отметки — из профиля
   frSave();
 }
+// друг на старой версии (в его отметке нет кубков) или давно не заходил: кубки, рекорд и время последнего входа — из его профиля (не чаще раза в 10 минут)
+async function frProfPeek(f) {
+  if (frProfPeek.at[f.u] && Date.now() - frProfPeek.at[f.u] < 6e5) return; frProfPeek.at[f.u] = Date.now();
+  const r = await fbReq('GET', 'profiles/' + f.u).catch(() => null); if (!r || typeof r !== 'object') return;
+  if (r.t > 0) { f.lt = Math.max(f.lt || 0, +r.t); frSeenNote(f.u, +r.t); }
+  let p = null; try { p = JSON.parse(String(r.p || '')); } catch (e) {} if (!p || typeof p !== 'object') return;
+  const tr0 = Math.max(nat(p.at), nat(p.tr), (Array.isArray(p.tro) ? p.tro : []).reduce((a, q) => a + (Array.isArray(q) ? Math.min(nat(q[1]), 99999) : 0), 0));
+  if (tr0 > (f.tr | 0)) f.tr = Math.min(1e8, tr0);
+  if (nat(p.b) > (f.b | 0)) f.b = Math.min(99999, nat(p.b));
+}
+frProfPeek.at = {};
 const frOpenNow = () => moStack.length && moStack[moStack.length - 1].fr;
 const frOnline = f => { const d = FR.pres[f.u]; return !!d && d.st !== 'off' && frNow() - (+d.t || 0) < 50000; };
 // когда друг был в сети: запоминаем у себя (своя отметка друга стирается, когда он выходит из игры)
