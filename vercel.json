@@ -64,6 +64,10 @@
     {
       "path": "/api/push?cron=daily",
       "schedule": "7 15 * * *"
+    },
+    {
+      "path": "/api/push?cron=remind",
+      "schedule": "17 */3 * * *"
     }
   ],
   "functions": {

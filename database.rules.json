@@ -288,6 +288,12 @@
         },
         "$other": {
           ".validate": false
+        },
+        "r": {
+          ".validate": "newData.isBoolean()"
+        },
+        "z": {
+          ".validate": "newData.isNumber() && newData.val() >= -840 && newData.val() <= 840"
         }
       }
     }
