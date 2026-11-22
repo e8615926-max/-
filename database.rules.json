@@ -262,6 +262,34 @@
           }
         }
       }
+    },
+    "push": {
+      "$uid": {
+        ".read": "auth != null && auth.uid === $uid",
+        ".write": "auth != null && auth.uid === $uid",
+        ".validate": "newData.hasChildren(['k', 't'])",
+        "k": {
+          ".validate": "newData.isString() && newData.val().length >= 20 && newData.val().length <= 400"
+        },
+        "l": {
+          ".validate": "newData.isString() && newData.val().length <= 5"
+        },
+        "d": {
+          ".validate": "newData.isBoolean()"
+        },
+        "f": {
+          ".validate": "newData.isBoolean()"
+        },
+        "t": {
+          ".validate": "newData.val() === now"
+        },
+        "lf": {
+          ".validate": "newData.isNumber()"
+        },
+        "$other": {
+          ".validate": false
+        }
+      }
     }
   }
 }

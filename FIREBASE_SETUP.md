@@ -141,3 +141,31 @@ npx firebase-tools emulators:start --only auth,database --project demo-wallplay
 `FIREBASE.apiKey = 'demo'`, `FIREBASE.databaseURL = 'http://127.0.0.1:9000'`, `FIREBASE.emu = { auth: 'http://127.0.0.1:9099', ns: 'demo-wallplay-default-rtdb' }`.
 
 Эмулятор работает, только если страница открыта без строки CSP или если в `connect-src` добавлен `http://127.0.0.1:*`.
+
+## Push-уведомления (Firebase Cloud Messaging, версия 104)
+
+Код уже в игре (`index.html`, `sw.js`) и на сервере (`api/push.mjs`). Пока не заданы переменные ниже, кнопка в игре пишет «ещё не настроены», и ничего не ломается.
+
+1. **Ключ Web Push (VAPID).** Firebase → ⚙ Project settings → **Cloud Messaging** → внизу **Web configuration → Web Push certificates → Generate key pair**. Скопируй строку **Key pair** (начинается на `B…`).
+   Если вверху написано, что **Firebase Cloud Messaging API (V1)** выключен, нажми ⋮ → **Manage API in Google Cloud Console** → **Enable**.
+2. **appId.** ⚙ Project settings → **General** → **Your apps** → веб-приложение Wall Play → **appId** (вида `1:629511160238:web:…`).
+3. **Ключ сервисного аккаунта (секрет!).** ⚙ Project settings → **Service accounts** → **Generate new private key** → скачается JSON. Никому его не показывай и не клади в репозиторий.
+4. **Переменные в Vercel.** vercel.com → проект **wall-play** → **Settings → Environment Variables** → для **Production** добавь:
+   - `FIREBASE_SERVICE_ACCOUNT` — всё содержимое скачанного JSON целиком (отметь **Sensitive**);
+   - `FCM_VAPID_KEY` — ключ из шага 1;
+   - `FIREBASE_APP_ID` — appId из шага 2;
+   - `PUSH_ADMIN_KEY` — любой свой длинный пароль (для ручной рассылки, **Sensitive**);
+   - `CRON_SECRET` — любая длинная случайная строка (**Sensitive**). Vercel сам подставит её в ежедневный запуск.
+   Потом **Deployments → последняя → ⋮ → Redeploy**: переменные начинают действовать только после новой выкладки.
+5. **Правила базы.** Realtime Database → Rules → вставь целиком новый `database.rules.json` (появилась ветка `push`) → **Publish**.
+6. **Проверь.** Открой `https://wall-play.vercel.app/api/push?cfg=1`: там должно быть `"on":true`. На Android в Chrome: игра → ≡ → **Уведомления** → **Включить** → разреши. Закрой игру и попроси друга отправить тебе заявку по Wall Play ID: придёт уведомление.
+
+**Ручная рассылка всем** (новость, событие), например из терминала:
+```
+curl -X POST https://wall-play.vercel.app/api/push \
+  -H "Authorization: Bearer ТВОЙ_PUSH_ADMIN_KEY" -H "Content-Type: application/json" \
+  -d '{"title":"Wall Play","body":"Новое событие уже в игре!"}'
+```
+Одному игроку: добавь `"uid":"<uid игрока>"`. Ежедневное «Новые скины дня» уходит само в 15:07 UTC (18:07 по Москве): расписание в `vercel.json` → `crons`.
+
+Ограничения: на iPhone уведомления работают только если игра добавлена на экран «Домой» (iOS 16.4+) и открыта оттуда; в обычном Safari — нет.

@@ -25,12 +25,14 @@ button{font:inherit;text-transform:uppercase;cursor:pointer}
 #ldmsg{font-size:11px;color:#c8b8ff;opacity:0;animation:fin .4s 1.2s forwards}
 #intro .px{position:absolute;width:10px;height:10px;background:var(--gold);animation:fall 3s linear infinite;opacity:.6}
 @keyframes fin{to{opacity:1}} @keyframes pop{to{transform:none;opacity:1}} @keyframes fall{from{transform:translateY(-10vh)}to{transform:translateY(110vh) rotate(360deg)}}
-header{position:sticky;top:0;z-index:20;display:flex;align-items:center;gap:8px;padding:10px 12px;padding-top:max(10px,env(safe-area-inset-top));background:#1a0a40ee;backdrop-filter:blur(8px);border-bottom:3px solid var(--ol)}
+header{position:sticky;top:0;z-index:20;display:flex;flex-wrap:wrap;align-items:center;gap:8px;padding:10px 12px;padding-top:max(10px,env(safe-area-inset-top));background:#1a0a40ee;backdrop-filter:blur(8px);border-bottom:3px solid var(--ol)}
 #home{background:none;border:0;color:var(--gold);font-size:15px;line-height:1;text-shadow:0 2px 0 var(--ol);padding:0;text-align:left}
 #home small{display:block;font-size:8px;color:#c8b8ff;letter-spacing:2px}
+#home{margin-right:auto}
 #q{flex:1;min-width:0;font:inherit;font-size:12px;padding:9px 12px;border:3px solid var(--ol);border-radius:12px;background:#fff;color:#2a1408;text-transform:none}
 #cbtn,#me{border:3px solid var(--ol);border-radius:12px;padding:8px 9px;font-size:10px;color:#fff;background:linear-gradient(#ff7ac0,#c01f6a);box-shadow:0 3px 0 var(--ol);white-space:nowrap;max-width:110px;overflow:hidden;text-overflow:ellipsis;text-transform:none}
 #me{background:linear-gradient(#5ac8ff,#1a70c0)}
+#mbtn{border:3px solid var(--ol);border-radius:12px;padding:6px 7px;font-size:14px;line-height:1;background:linear-gradient(#ffe27a,#f0a000);box-shadow:0 3px 0 var(--ol);flex:none}
 main{max-width:1100px;margin:0 auto;padding:12px}
 .hero{margin:4px 0 12px;padding:14px;border:3px solid var(--ol);border-radius:16px;background:linear-gradient(135deg,#ff5ab0,#7a3ad8 60%,#3a8ae8);box-shadow:0 5px 0 var(--ol);cursor:pointer;position:relative;overflow:hidden}
 .hero::after{content:'';position:absolute;inset:0;background:repeating-linear-gradient(115deg,#ffffff14 0 14px,transparent 14px 40px);animation:sh 6s linear infinite}
@@ -95,6 +97,7 @@ main{max-width:1100px;margin:0 auto;padding:12px}
 .toast{position:fixed;left:50%;bottom:100px;transform:translateX(-50%);z-index:90;padding:12px 16px;border:3px solid var(--ol);border-radius:14px;background:linear-gradient(#ffe27a,#f0a000);color:#2a1408;font-size:12px;box-shadow:0 4px 0 var(--ol);transition:opacity .4s;text-align:center;max-width:90vw}
 .toast.out{opacity:0}
 footer{text-align:center;font-size:10px;color:#8a7ab8;padding:20px}
+@media (max-width:520px){#q{order:5;flex:1 0 100%;padding:7px 12px}}
 </style>
 </head>
 <body>
@@ -107,7 +110,7 @@ footer{text-align:center;font-size:10px;color:#8a7ab8;padding:20px}
 <header>
   <button id="home">WALL PLAY<small>SKIN MAKER</small></button>
   <input id="q" type="search" autocomplete="off">
-  <button id="cbtn">🏆</button><button id="me">@</button>
+  <button id="mbtn" aria-label="music">🔊</button><button id="cbtn">🏆</button><button id="me">@</button>
 </header>
 <main id="main"></main>
 <button id="fab" aria-label="+">+</button>

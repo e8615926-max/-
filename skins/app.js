@@ -13,6 +13,61 @@ const lang = (() => { try { const v = JSON.parse(localStorage.getItem('wk3_lang'
 const RU = lang === 'ru' || lang === 'uk' || lang === 'kk';
 const T = (ru, en) => RU ? ru : en;
 
+// ---------- звук: своя чиптюн-музыка и звуки кнопок, кисти, лайков (Web Audio, без файлов) ----------
+const SND = (() => {
+  let ac = null, master = null, mus = null, musOn = ls.get('mus', true), sfxOn = ls.get('sfx', true), timer = 0, step = 0, next = 0, lastPaint = 0;
+  const ctx = () => { if (!ac) { try { ac = new (window.AudioContext || window.webkitAudioContext)(); master = ac.createGain(); master.gain.value = 0.55; master.connect(ac.destination); mus = ac.createGain(); mus.gain.value = 0.22; mus.connect(master); } catch (e) { ac = null; } } if (ac && ac.state === 'suspended') ac.resume().catch(() => {}); return ac; };
+  const note = (f, t0, d, type = 'square', v = 0.08, to = master, f2 = 0) => { const a = ac; if (!a || !f) return; const o = a.createOscillator(), g = a.createGain(); o.type = type; o.frequency.setValueAtTime(f, t0); if (f2) o.frequency.exponentialRampToValueAtTime(f2, t0 + d); g.gain.setValueAtTime(0.0001, t0); g.gain.linearRampToValueAtTime(v, t0 + 0.008); g.gain.exponentialRampToValueAtTime(0.0001, t0 + d); o.connect(g); g.connect(to); o.start(t0); o.stop(t0 + d + 0.02); };
+  const noise = (t0, d, v = 0.05, to = master, hp = 4000) => { const a = ac; if (!a) return; const n = Math.floor(a.sampleRate * d), b = a.createBuffer(1, n, a.sampleRate), ch = b.getChannelData(0); for (let i = 0; i < n; i++) ch[i] = (Math.random() * 2 - 1) * (1 - i / n); const s = a.createBufferSource(), f = a.createBiquadFilter(), g = a.createGain(); f.type = 'highpass'; f.frequency.value = hp; g.gain.value = v; s.buffer = b; s.connect(f); f.connect(g); g.connect(to); s.start(t0); };
+  const hz = m => m ? 440 * Math.pow(2, (m - 69) / 12) : 0;
+  // мелодия «Пиксельная мастерская»: 4 такта по 8 шагов, бас, арпеджио и лёгкий ритм — по кругу
+  const MEL = [72, 0, 76, 79, 81, 79, 76, 0, 74, 0, 77, 81, 79, 77, 74, 0, 72, 76, 79, 84, 83, 79, 76, 74, 72, 0, 74, 76, 72, 0, 0, 0];
+  const BAS = [48, 48, 55, 55, 50, 50, 57, 57, 53, 53, 60, 60, 55, 55, 50, 43];
+  const ARP = [[60, 64, 67], [62, 65, 69], [57, 60, 64], [55, 59, 62]];
+  const BPM = 112, SPB = 60 / BPM / 2;   // шаг — восьмая
+  const tick = () => {
+    if (!ac || !musOn) return;
+    while (next < ac.currentTime + 0.25) {
+      const i = step % 32, bar = Math.floor(i / 8);
+      note(hz(MEL[i]), next, SPB * 0.9, 'square', 0.06, mus);
+      if (i % 2 === 0) note(hz(BAS[i / 2]), next, SPB * 1.8, 'triangle', 0.11, mus);
+      const ar = ARP[bar]; note(hz(ar[i % 3] + 12), next + SPB / 2, SPB * 0.4, 'square', 0.022, mus);
+      if (i % 4 === 2) noise(next, 0.05, 0.05, mus, 6000);
+      if (i % 8 === 0) note(110, next, 0.09, 'sine', 0.12, mus, 45);
+      next += SPB; step++;
+    }
+  };
+  const startMus = () => { if (!ctx() || !musOn || timer) return; next = ac.currentTime + 0.08; timer = setInterval(tick, 60); tick(); };
+  const stopMus = () => { clearInterval(timer); timer = 0; };
+  const fx = fn => { if (!sfxOn || !ctx()) return; try { fn(ac.currentTime); } catch (e) {} };
+  const api = {
+    unlock() { ctx(); startMus(); },
+    get mus() { return musOn; },
+    toggleMus() { musOn = !musOn; ls.set('mus', musOn); if (musOn) startMus(); else stopMus(); return musOn; },
+    toggleSfx() { sfxOn = !sfxOn; ls.set('sfx', sfxOn); return sfxOn; },
+    click: () => fx(t => { note(880, t, 0.05, 'square', 0.05); note(1320, t + 0.03, 0.04, 'square', 0.03); }),
+    paint: (col) => { const n = performance.now(); if (n - lastPaint < 45) return; lastPaint = n; fx(t => { let v = 0.5; if (col && col[0] === '#') { const x = parseInt(col.slice(1), 16); v = (((x >> 16) & 255) + ((x >> 8) & 255) + (x & 255)) / 765; } note(500 + v * 900, t, 0.04, 'square', 0.035); }); },
+    erase: () => { const n = performance.now(); if (n - lastPaint < 60) return; lastPaint = n; fx(t => noise(t, 0.05, 0.05, master, 2500)); },
+    fill: () => fx(t => { note(300, t, 0.22, 'triangle', 0.08, master, 1200); noise(t, 0.15, 0.03, master, 3000); }),
+    pick: () => fx(t => { note(1200, t, 0.06, 'sine', 0.07, master, 1800); }),
+    undo: () => fx(t => { note(700, t, 0.08, 'square', 0.04, master, 400); }),
+    like: () => fx(t => { [880, 1109, 1319, 1760].forEach((f, i) => note(f, t + i * 0.05, 0.12, 'square', 0.045)); }),
+    unlike: () => fx(t => { note(660, t, 0.1, 'triangle', 0.06, master, 330); }),
+    page: () => fx(t => { note(520, t, 0.07, 'triangle', 0.05, master, 780); }),
+    frame: () => fx(t => { note(990, t, 0.05, 'square', 0.04); note(740, t + 0.05, 0.05, 'square', 0.03); }),
+    error: () => fx(t => { note(220, t, 0.15, 'square', 0.06); note(180, t + 0.12, 0.2, 'square', 0.06); }),
+    publish: () => fx(t => { [523, 659, 784, 1047, 784, 1047, 1319].forEach((f, i) => note(f, t + i * 0.08, i === 6 ? 0.5 : 0.12, 'square', 0.06)); noise(t + 0.48, 0.3, 0.04, master, 5000); }),
+    intro: () => fx(t => { [392, 523, 659, 784, 1047].forEach((f, i) => note(f, t + i * 0.09, 0.18, 'square', 0.05)); note(131, t, 0.6, 'triangle', 0.1); }),
+  };
+  // браузер разрешает звук только после касания: первое касание включает и музыку
+  const first = () => { api.unlock(); for (const e of ['pointerdown', 'keydown', 'touchstart']) removeEventListener(e, first, true); };
+  for (const e of ['pointerdown', 'keydown', 'touchstart']) addEventListener(e, first, true);
+  // щелчок у любой кнопки сайта
+  addEventListener('click', e => { const b = e.target.closest && e.target.closest('button,.card,.chip,label.chk'); if (b && !b.dataset.mute) api.click(); }, true);
+  document.addEventListener('visibilitychange', () => { if (!ac) return; if (document.hidden) { stopMus(); ac.suspend().catch(() => {}); } else { ac.resume().catch(() => {}); startMus(); } });
+  return api;
+})();
+
 // ---------- шаблон: хомяк из игры, 4 кадра дыхания ----------
 const TPL = {"pal":["#4a2410","#f0a040","#ff9fb0","#ffffff","#1a1010","#ffe6b0","#ff5a8a","#ff9ab8","#ff3d7f","#c01f5a","#c06a20"],"frames":["..........................................................................................................................................000....00000...................01110..0011110.................0111110.0112110.................012221000122210.................012211111111110..................01111111111100.................0011111111111100................0111111113411340................0111111114411440................0111111114411440................0111111115555566................0111111155555550................0111117755555550................8911111155555550...............9898888888888880................9..8888888888880...............8...0999999999990..............98...01115555511110.............9....01115555511110..................0111555555110...................0111555555100...................001155555500....................0aaaa55aaaaa0..................0aaaaaa0aaaaa0...................0aaaa00aaaaa0....................0000..00000..........................................................................","..........................................................................000....00000...................01110..0011110.................0111110.0112110.................012221000122210.................012211111111110..................01111111111100.................0011111111111100................0111111113411340................0111111114411440................0111111114411440................0111111115555566................0111111155555550................0111117755555550................0011111155555550.............98..08888888888880..............989..8888888888880................98909999999999910................8911115555551110.................011155555551110.................011155555551110.................01115555555510..................01115555555510..................00115555555500...................011155555510....................0aaaa55aaaaa0..................0aaaaaa1aaaaa0...................0aaaa00aaaaa0....................0000..00000..........................................................................","..........................................................................................................................................000....00000...................01110..0011110.................0111110.0112110.................012221000122210.................012211111111110..................01111111111100.................0011111111111100................0111111113411340................0111111114411440................0111111114411440................0111111115555566................0111111155555550................0111117755555550................0981111155555550................898888888888880................98.0888888888880................9..0999999999990..............98...01115555511110.............98...01115555511110..................0111555555110...................0111555555100...................001155555500....................0aaaa55aaaaa0..................0aaaaaa0aaaaa0...................0aaaa00aaaaa0....................0000..00000..........................................................................","..........................................................................................................................................000....00000...................01110..0011110.................0111110.0112110.................012221000122210.................012211111111110..................01111111111100.................0011111111111100................0111111111111110................0111111111111110................0111111114411440................0111111115555566................0111111155555550................0111117755555550................0011111155555550..............89.00888888888880..............9898.8888888888880..............9..898999999999990..................901115555511110..................01115555511110..................0111555555110...................0111555555100...................001155555500....................0aaaa55aaaaa0..................0aaaaaa0aaaaa0...................0aaaa00aaaaa0....................0000..00000.........................................................................."]};
 const tplFrames = () => TPL.frames.map(s => [...s].map(ch => ch === '.' ? null : TPL.pal[parseInt(ch, 36)]));
@@ -94,6 +149,7 @@ async function load() {
 const likesOf = s => (S.likes[s.id] | 0) + botLikes(s) + (S.my.has(s.id) && !S.online ? 1 : 0);
 async function toggleLike(s, btn) {
   const on = !S.my.has(s.id); if (on) S.my.add(s.id); else S.my.delete(s.id); ls.set('myLikes', [...S.my]);
+  if (on) SND.like(); else SND.unlike();
   if (btn) { btn.classList.toggle('on', on); btn.querySelector('b').textContent = likesOf(s); btn.animate([{ transform: 'scale(1.4)' }, { transform: 'scale(1)' }], 300); if (on) heartBurst(btn); }
   if (s.bot || !S.online) return;
   try { await db('PUT', 'sm/l/' + s.id + '/' + ME.uid, on ? true : null); const cur = (await db('GET', 'sm/c/' + s.id)) | 0; await db('PUT', 'sm/c/' + s.id, Math.max(0, cur + (on ? 1 : -1))); S.likes[s.id] = Math.max(0, cur + (on ? 1 : -1)); if (btn) btn.querySelector('b').textContent = likesOf(s); } catch (e) {}
@@ -198,7 +254,7 @@ async function viewUser(uid) {
   let plk = 0; if (uid.startsWith('bot_')) plk = Math.floor(30 + hash(strHash(uid)) * 400); else { try { const d = await db('GET', 'sm/pl/' + uid); plk = Object.keys(d || {}).length; } catch (e) {} plk += Math.floor(hash(strHash(uid)) * 6); }
   const lk = el('button', 'lk big' + (S.myPl.has(uid) ? ' on' : '')); lk.append(el('span', '', '❤'), el('b', '', String(plk + (S.myPl.has(uid) && !S.online ? 1 : 0))));
   lk.title = T('ЛАЙК ПРОФИЛЮ — ЗА ИДЕИ СКИНОВ И АВАТАРОК', 'LIKE THIS PROFILE');
-  lk.onclick = async () => { const on = !S.myPl.has(uid); if (on) S.myPl.add(uid); else S.myPl.delete(uid); ls.set('myPl', [...S.myPl]); lk.classList.toggle('on', on); const b = lk.querySelector('b'); b.textContent = (+b.textContent) + (on ? 1 : -1); if (on) heartBurst(lk); if (!uid.startsWith('bot_') && S.online) try { await db('PUT', 'sm/pl/' + uid + '/' + ME.uid, on ? true : null); } catch (e) {} };
+  lk.onclick = async () => { const on = !S.myPl.has(uid); if (on) SND.like(); else SND.unlike(); if (on) S.myPl.add(uid); else S.myPl.delete(uid); ls.set('myPl', [...S.myPl]); lk.classList.toggle('on', on); const b = lk.querySelector('b'); b.textContent = (+b.textContent) + (on ? 1 : -1); if (on) heartBurst(lk); if (!uid.startsWith('bot_') && S.online) try { await db('PUT', 'sm/pl/' + uid + '/' + ME.uid, on ? true : null); } catch (e) {} };
   if (uid !== ME.uid) info.appendChild(lk); else info.appendChild(el('div', 'ps', T('ЭТО ТВОЙ ПРОФИЛЬ · ', 'THIS IS YOU · ') + plk + ' ❤'));
   head.appendChild(info); m.appendChild(head); m.appendChild(grid(mine.sort((a, b) => b.ts - a.ts)));
 }
@@ -247,7 +303,7 @@ function viewEditor(kind) {
   const fill = (x, y, c) => { const F = fr(), t = F[y * G + x]; if (t === c) return; const q = [[x, y]]; while (q.length) { const [a, b] = q.pop(); if (a < 0 || b < 0 || a >= G || b >= G || F[b * G + a] !== t) continue; F[b * G + a] = c; q.push([a + 1, b], [a - 1, b], [a, b + 1], [a, b - 1]); } };
   let down = false;
   const at = e => { const r = cv.getBoundingClientRect(); return [Math.floor((e.clientX - r.left) / r.width * G), Math.floor((e.clientY - r.top) / r.height * G)]; };
-  const act = (e, first) => { const [x, y] = at(e); if (st.tool === 'pick') { const c = fr()[y * G + x]; if (c) { st.col = c; st.tool = 'pen'; tools(); colors(); } return; } if (st.tool === 'fill') { if (first) { snap(); fill(x, y, st.col); paint(); } return; } setPx(x, y, st.tool === 'erase' ? null : st.col); paint(); };
+  const act = (e, first) => { const [x, y] = at(e); if (st.tool === 'pick') { const c = fr()[y * G + x]; if (c) { SND.pick(); st.col = c; st.tool = 'pen'; tools(); colors(); } return; } if (st.tool === 'fill') { if (first) { snap(); fill(x, y, st.col); SND.fill(); paint(); } return; } if (st.tool === 'erase') SND.erase(); else SND.paint(st.col); setPx(x, y, st.tool === 'erase' ? null : st.col); paint(); };
   cv.addEventListener('pointerdown', e => { e.preventDefault(); cv.setPointerCapture(e.pointerId); down = true; if (st.tool !== 'fill' && st.tool !== 'pick') snap(); act(e, true); });
   cv.addEventListener('pointermove', e => { if (down && st.tool !== 'fill' && st.tool !== 'pick') act(e); });
   cv.addEventListener('pointerup', () => { down = false; });
@@ -291,11 +347,11 @@ function viewEditor(kind) {
   const form = el('div', 'form'); const nm = el('input', 'inp'); nm.placeholder = T('НАЗВАНИЕ (ДО 30)', 'TITLE (UP TO 30)'); nm.maxLength = 30; const ds = el('textarea', 'inp'); ds.placeholder = T('ОПИСАНИЕ (ДО 140)', 'DESCRIPTION (UP TO 140)'); ds.maxLength = 140;
   const pub = el('button', 'btn gold big', T('ОПУБЛИКОВАТЬ', 'PUBLISH'));
   pub.onclick = async () => {
-    const title = nm.value.replace(/[<>]/g, '').trim(); if (title.length < 2) { toast(T('НАПИШИ НАЗВАНИЕ', 'ADD A TITLE')); nm.focus(); return; }
-    if (!st.frames.some(F => F.some(Boolean))) { toast(T('НАРИСУЙ ХОТЬ ЧТО-НИБУДЬ', 'DRAW SOMETHING')); return; }
+    const title = nm.value.replace(/[<>]/g, '').trim(); if (title.length < 2) { SND.error(); toast(T('НАПИШИ НАЗВАНИЕ', 'ADD A TITLE')); nm.focus(); return; }
+    if (!st.frames.some(F => F.some(Boolean))) { SND.error(); toast(T('НАРИСУЙ ХОТЬ ЧТО-НИБУДЬ', 'DRAW SOMETHING')); return; }
     pub.disabled = true; pub.textContent = T('ПУБЛИКУЮ…', 'PUBLISHING…');
     const sk = { ...skinObj(), t: title, d: ds.value.replace(/[<>]/g, '').trim() }, r = await publish(sk);
-    S.list.unshift({ ...sk, id: r.id, u: ME.uid || 'me', n: ME.nick, ts: Date.now() });
+    S.list.unshift({ ...sk, id: r.id, u: ME.uid || 'me', n: ME.nick, ts: Date.now() }); SND.publish();
     toast(r.online ? T('ГОТОВО! СКИН В ОБЩЕЙ ЛЕНТЕ', 'DONE! YOUR SKIN IS LIVE') : T('СОХРАНЕНО НА УСТРОЙСТВЕ', 'SAVED ON THIS DEVICE')); go('#s=' + r.id);
   };
   form.append(nm, ds, pub); wrap.appendChild(form);
@@ -312,7 +368,7 @@ function chooser() {
 // ---------- маршруты ----------
 function go(h) { if (location.hash === h) route(); else location.hash = h; }
 function route() {
-  const h = location.hash.slice(1), [k, v] = h.split('='); window.scrollTo(0, 0);
+  const h = location.hash.slice(1), [k, v] = h.split('='); window.scrollTo(0, 0); SND.page();
   $('#fab').style.display = k === 'new' ? 'none' : '';
   if (k === 's' && v) viewSkin(v); else if (k === 'u' && v) viewUser(decodeURIComponent(v)); else if (k === 'contest') viewContest(); else if (k === 'new') viewEditor(v === 'a' ? 'a' : 's'); else viewFeed();
 }
@@ -322,10 +378,11 @@ function route() {
   msg.textContent = T('ЗАГРУЖАЕМ СКИНЫ…', 'LOADING SKINS…');
   await Promise.all([load(), new Promise(r => setTimeout(r, 2400))]);
   clearInterval(pr); bar.style.width = '100%'; msg.textContent = T('ГОТОВО!', 'READY!');
-  await new Promise(r => setTimeout(r, 350)); $('#intro').classList.add('out'); setTimeout(() => $('#intro').remove(), 600);
+  await new Promise(r => setTimeout(r, 350)); SND.intro(); $('#intro').classList.add('out'); setTimeout(() => $('#intro').remove(), 600);
   $('#me').textContent = '@' + ME.nick; $('#me').onclick = () => go('#u=' + encodeURIComponent(ME.uid || 'me'));
   $('#q').oninput = e => { S.q = e.target.value; if (location.hash && location.hash !== '#') location.hash = '#'; else viewFeed(); };
   $('#q').placeholder = T('ПОИСК СКИНОВ, АВТОРОВ…', 'SEARCH SKINS, AUTHORS…');
+  { const mb = $('#mbtn'); const upd = () => { mb.textContent = SND.mus ? '🔊' : '🔇'; mb.title = SND.mus ? T('ВЫКЛЮЧИТЬ МУЗЫКУ', 'MUSIC OFF') : T('ВКЛЮЧИТЬ МУЗЫКУ', 'MUSIC ON'); }; upd(); mb.dataset.mute = '1'; mb.onclick = () => { SND.toggleMus(); upd(); }; }
   $('#fab').onclick = chooser; $('#home').onclick = () => go('#'); $('#cbtn').onclick = () => go('#contest'); $('#cbtn').textContent = '🏆 ' + T('КОНКУРС', 'CONTEST');
   addEventListener('hashchange', route); route();
 })();
