@@ -66,8 +66,36 @@
       "schedule": "7 15 * * *"
     },
     {
-      "path": "/api/push?cron=remind",
-      "schedule": "17 */3 * * *"
+      "path": "/api/push?cron=remind&h=0",
+      "schedule": "17 0 * * *"
+    },
+    {
+      "path": "/api/push?cron=remind&h=3",
+      "schedule": "17 3 * * *"
+    },
+    {
+      "path": "/api/push?cron=remind&h=6",
+      "schedule": "17 6 * * *"
+    },
+    {
+      "path": "/api/push?cron=remind&h=9",
+      "schedule": "17 9 * * *"
+    },
+    {
+      "path": "/api/push?cron=remind&h=12",
+      "schedule": "17 12 * * *"
+    },
+    {
+      "path": "/api/push?cron=remind&h=15",
+      "schedule": "17 15 * * *"
+    },
+    {
+      "path": "/api/push?cron=remind&h=18",
+      "schedule": "17 18 * * *"
+    },
+    {
+      "path": "/api/push?cron=remind&h=21",
+      "schedule": "17 21 * * *"
     }
   ],
   "functions": {
