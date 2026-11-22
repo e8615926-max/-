@@ -3504,7 +3504,7 @@ function pick(opts) {
 }
 
 // Пиксельные примитивы: «пиксель» = 2×2 точки
-const APP_VER = 'v100';
+const APP_VER = 'v101';
 let AV_HQ = false;   // рисуем аватарку: точные фигуры без привязки к сетке 2×2 (иначе глаза выходили разного размера)
 function prect(c, x, y, w, h, col) {
   if (AV_HQ) { c.fillStyle = col; c.fillRect(x, y, w, h); return; }
@@ -12263,10 +12263,339 @@ function drawEntsPx() {
   ctx = pxg;
   try { drawEnts(); } finally { ctx = main; }
   ctx.save(); ctx.imageSmoothingEnabled = false; ctx.globalAlpha = 1; ctx.drawImage(PXB, 0, s0, PXB.width, s1 - s0, 0, cE + s0 * 2, W, (s1 - s0) * 2); ctx.restore();
+  if (ENHI.length) { const L = ENHI; ENHI = []; for (const e of L) { try { enArtDraw(e); } catch (x) {} } }   // враги с новой внешностью — поверх, чётко
 }
+// ======================= ВРАГИ: НОВАЯ ВНЕШНОСТЬ =======================
+// Каждый враг — своя пиксельная картинка в двойном разрешении (клетка = 1 единица игры, раньше 2), с объёмом:
+// тело шарами со светотенью и дизерингом, блики, тени, своя тёмная обводка; кадровая анимация (крылья, лапки, моргание,
+// шипы, щупальца) и живые эффекты поверх (огненные хвосты, искры, покачивание). Кадры рисуются один раз и берутся из кэша.
+const ENA_F = 8;   // кадров анимации на врага
+const BAYER = [[0, 8, 2, 10], [12, 4, 14, 6], [3, 11, 1, 9], [15, 7, 13, 5]];
+const enHx = h => { h = h.replace('#', ''); if (h.length === 3) h = h.split('').map(c => c + c).join(''); return [parseInt(h.slice(0, 2), 16), parseInt(h.slice(2, 4), 16), parseInt(h.slice(4, 6), 16)]; };
+const enRgb = (r, g, b) => '#' + [r, g, b].map(v => Math.max(0, Math.min(255, Math.round(v))).toString(16).padStart(2, '0')).join('');
+const entn = (h, a) => { const [r, g, b] = enHx(h); return a >= 0 ? enRgb(r + (255 - r) * a, g + (255 - g) * a, b + (255 - b) * a) : enRgb(r * (1 + a), g * (1 + a), b * (1 + a)); };
+const enRamp = h => [entn(h, -0.45), entn(h, -0.22), h, entn(h, 0.28), entn(h, 0.55)];   // 5 тонов от тени к блику
+function enKit(g) {
+  const K = {
+    g,
+    ell(x, y, rx, ry, c, rot = 0) { g.fillStyle = c; g.beginPath(); g.ellipse(x, y, Math.max(0.5, rx), Math.max(0.5, ry), rot, 0, 7); g.fill(); },
+    rect(x, y, w, h, c) { g.fillStyle = c; g.fillRect(Math.round(x), Math.round(y), Math.round(w), Math.round(h)); },
+    poly(pts, c) { g.fillStyle = c; g.beginPath(); pts.forEach(([x, y], i) => i ? g.lineTo(x, y) : g.moveTo(x, y)); g.closePath(); g.fill(); },
+    line(x1, y1, x2, y2, w, c) { g.strokeStyle = c; g.lineWidth = w; g.lineCap = 'round'; g.beginPath(); g.moveTo(x1, y1); g.lineTo(x2, y2); g.stroke(); },
+    curve(pts, w, c) { g.strokeStyle = c; g.lineWidth = w; g.lineCap = 'round'; g.lineJoin = 'round'; g.beginPath(); pts.forEach(([x, y], i) => i ? g.lineTo(x, y) : g.moveTo(x, y)); g.stroke(); },
+    // шар со светотенью: свет сверху слева, тени вниз вправо, переходы — пиксельным дизерингом
+    sphere(cx, cy, rx, ry, base, opt = {}) {
+      const P = opt.pal || enRamp(base), x0 = Math.floor(cx - rx), x1 = Math.ceil(cx + rx), y0 = Math.floor(cy - ry), y1 = Math.ceil(cy + ry);
+      for (let y = y0; y < y1; y++) for (let x = x0; x < x1; x++) {
+        const nx = (x + 0.5 - cx) / rx, ny = (y + 0.5 - cy) / ry, d = nx * nx + ny * ny; if (d > 1) continue;
+        const nz = Math.sqrt(1 - d); let l = -0.42 * nx - 0.5 * ny + 0.76 * nz; if (opt.flat) l = l * 0.5 + 0.35;
+        let v = (l + 0.25) / 1.2 * P.length + (BAYER[(y + 64) & 3][(x + 64) & 3] - 7.5) / 16 * 0.9;
+        if (opt.band) v += Math.sin((y + (opt.bandOff || 0)) * opt.band) > 0.3 ? -0.9 : 0;
+        g.fillStyle = P[Math.max(0, Math.min(P.length - 1, Math.floor(v)))]; g.fillRect(x, y, 1, 1);
+      }
+      if (opt.shine !== false) { g.fillStyle = 'rgba(255,255,255,0.85)'; g.fillRect(Math.round(cx - rx * 0.45), Math.round(cy - ry * 0.55), Math.max(1, Math.round(rx * 0.25)), 1); g.fillRect(Math.round(cx - rx * 0.55), Math.round(cy - ry * 0.4), 1, 1); }
+    },
+    // глаз: белок, зрачок смотрит вперёд, блик; злые — с бровью; моргание — полоской
+    eye(x, y, r, o = {}) {
+      if (o.blink) { K.rect(x - r, y, r * 2, 1, o.lid || '#1a0a14'); return; }
+      K.ell(x, y, r, r * (o.tall || 1.1), o.white || '#ffffff');
+      K.ell(x + (o.look == null ? r * 0.35 : o.look), y + r * 0.15, r * 0.55, r * 0.65 * (o.tall || 1.1), o.pupil || '#1a0a14');
+      K.rect(x + r * 0.05, y - r * 0.55, 1, 1, '#ffffff');
+      if (o.angry) K.poly([[x - r - 1, y - r - 2], [x + r + 1, y - r + 0.5], [x + r + 1, y - r - 1.2], [x - r - 1, y - r - 3.5]], o.brow || '#1a0a14');
+    },
+    spikes(cx, cy, r, n, len, rot, c, w = 2.2) { for (let i = 0; i < n; i++) { const a = rot + i / n * Math.PI * 2, ca = Math.cos(a), sa = Math.sin(a), px = -sa, py = ca; K.poly([[cx + ca * (r - 1) + px * w, cy + sa * (r - 1) + py * w], [cx + ca * (r + len), cy + sa * (r + len)], [cx + ca * (r - 1) - px * w, cy + sa * (r - 1) - py * w]], c); } },
+    wingInsect(x, y, len, w, ang, c, vein) { g.save(); g.translate(x, y); g.rotate(ang); K.ell(len * 0.5, 0, len * 0.5, w, c); if (vein) { K.line(1, 0, len - 1, 0, 0.8, vein); K.line(len * 0.4, 0, len * 0.75, -w * 0.6, 0.6, vein); } g.restore(); },
+    wingBird(x, y, len, up, c, tip) { const yy = y - up * len * 0.9; K.poly([[x - 4, y], [x + 4, y], [x + len * 0.35, yy + 2], [x - len * 0.25, yy]], c); if (tip) K.poly([[x + len * 0.35, yy + 2], [x - len * 0.25, yy], [x - len * 0.05, yy - up * 2.5], [x + len * 0.25, yy - up * 1.5]], tip); },
+    wingBat(x, y, len, up, c, bone) { const yy = y - up * len * 0.7; K.poly([[x, y - 1], [x - len * 0.3, yy], [x - len, yy + up * 1], [x - len * 0.75, y + 2 - up], [x - len * 0.5, y + 3], [x - len * 0.25, y + 2]], c); if (bone) { K.line(x, y, x - len * 0.3, yy, 0.9, bone); K.line(x - len * 0.3, yy, x - len, yy + up, 0.9, bone); K.line(x - len * 0.3, yy, x - len * 0.6, y + 2, 0.7, bone); } },
+    legs(x, y, n, sp, len, c, ph) { for (let i = 0; i < n; i++) { const lx = x + (i - (n - 1) / 2) * sp, s = Math.sin(ph * 6.283 * 2 + i * 1.7) * 1.5; K.line(lx, y, lx + s, y + len, 1, c); } },
+    flame(x, y, len, w, ph, cols) { for (let i = 0; i < cols.length; i++) { const k = 1 - i / cols.length, wob = Math.sin(ph * 6.283 + i) * 1.2; K.poly([[x - w * k, y], [x + wob, y - len * k], [x + w * k, y]], cols[i]); } },
+  };
+  return K;
+}
+// пост-обработка кадра: жёсткие края, объём по краям (блик сверху слева, тень снизу справа) и тёмная обводка по цвету соседа
+function enPost(c) {
+  const g = c.getContext('2d'), w = c.width, h = c.height, im = g.getImageData(0, 0, w, h), d = im.data, A = i => d[i * 4 + 3];
+  for (let i = 0; i < w * h; i++) d[i * 4 + 3] = d[i * 4 + 3] >= 110 ? 255 : 0;
+  const src = new Uint8ClampedArray(d);
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+    const i = y * w + x; if (!src[i * 4 + 3]) continue;
+    const ul = x > 0 && y > 0 ? src[((y - 1) * w + x - 1) * 4 + 3] : 0, dr = x < w - 1 && y < h - 1 ? src[((y + 1) * w + x + 1) * 4 + 3] : 0;
+    const k = !ul ? 0.3 : !dr ? -0.3 : 0; if (!k) continue;
+    for (let j = 0; j < 3; j++) { const v = src[i * 4 + j]; d[i * 4 + j] = k > 0 ? v + (255 - v) * k : v * (1 + k); }
+  }
+  const o2 = new Uint8ClampedArray(d);
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+    const i = y * w + x; if (o2[i * 4 + 3]) continue;
+    let n = -1; for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const xx = x + dx, yy = y + dy; if (xx >= 0 && yy >= 0 && xx < w && yy < h && o2[(yy * w + xx) * 4 + 3]) { n = yy * w + xx; break; } }
+    if (n < 0) continue;
+    d[i * 4] = o2[n * 4] * 0.28 + 20 * 0.72; d[i * 4 + 1] = o2[n * 4 + 1] * 0.28 + 10 * 0.72; d[i * 4 + 2] = o2[n * 4 + 2] * 0.28 + 28 * 0.72; d[i * 4 + 3] = 255;
+  }
+  g.putImageData(im, 0, 0); return c;
+}
+// ---------- шаблоны ----------
+const ENT = {
+  insect(K, f, o) {   // пчёлы, осы, мошки, бабочки: брюшко с полосками, грудь, голова с большими глазами, крылья машут
+    const fl = Math.sin(f * 6.283 * 2), up = fl * 0.7;
+    if (o.big) { K.wingInsect(-2, -4, o.big, o.big * 0.55, -1.9 + up * 0.5, o.wing, o.vein); K.wingInsect(-2, -2, o.big * 0.8, o.big * 0.45, -2.4 + up * 0.4, o.wing2 || o.wing, o.vein); }
+    else { K.wingInsect(-3, -5, o.wl || 11, o.ww || 4, -2.0 + up, o.wing || '#e8f8ff', o.vein || '#9ad0e8'); }
+    const L = o.long || 0;
+    if (L) { for (let i = 0; i < 5; i++) K.sphere(-6 - i * 3.2, 1, 2.3, 2, i % 2 ? o.body : (o.body2 || o.body), { shine: false }); }
+    else K.sphere(-4, 1, o.ab || 8, o.abh || 6.5, o.body, { band: o.stripes ? 1.15 : 0, bandOff: 2, pal: o.stripes ? [entn(o.body2, -0.3), o.body2, entn(o.body, -0.25), o.body, entn(o.body, 0.35)] : null });
+    if (o.sting) K.poly([[-12 - L * 3, 1], [-16 - L * 3, 2], [-12 - L * 3, 3]], o.sting);
+    K.sphere(3, -1, 4, 4, o.thorax || o.body2 || o.body, { shine: false });
+    K.legs(2, 3, 3, 2.5, 4, o.leg || '#2a1a14', f);
+    K.sphere(8, -2, o.hr || 5, o.hr || 5, o.head || o.body);
+    if (o.proboscis) K.line(12, 0, 18, 3, 1.2, o.proboscis);
+    if (o.ant !== false) { K.curve([[8, -6], [9, -10], [12, -12]], 0.9, o.leg || '#2a1a14'); K.curve([[10, -6], [12, -9], [15, -10]], 0.9, o.leg || '#2a1a14'); }
+    K.eye(10, -3, o.er || 2.4, { angry: o.angry, blink: f > 0.9, pupil: o.pupil, white: o.white });
+    if (!o.big && o.wing2 !== false) K.wingInsect(-1, -4, (o.wl || 11) * 0.85, (o.ww || 4) * 0.85, -1.5 + up * 0.8, o.wingF || o.wing || '#ffffff', o.vein || '#9ad0e8');
+    if (o.extra) o.extra(K, f);
+  },
+  bird(K, f, o) {   // птицы: тело, крыло машет (кадры), хвост, голова, клюв, глаз
+    const up = Math.sin(f * 6.283) ;
+    K.wingBird(-2, -2, o.wl || 13, -up * 0.6 + 0.2, o.wingB || entn(o.wing || o.body, -0.25), null);
+    K.poly([[-9, 0], [-17, -3 + (o.tailUp || 0)], [-18, 2], [-16, 4]], o.tail || entn(o.body, -0.2));
+    K.sphere(-2, 1, o.bw || 10, o.bh || 6.5, o.body);
+    if (o.belly) K.ell(-1, 4, (o.bw || 10) * 0.65, 2.5, o.belly);
+    K.sphere(8, -3, o.hr || 5.5, o.hr || 5.5, o.head || o.body);
+    if (o.crest) K.poly([[5, -7], [3, -12], [8, -8], [9, -13], [10, -8]], o.crest);
+    const bl = o.beakL || 6, bt = o.beakT || 2.6;
+    K.poly([[12, -4], [12 + bl, -3 + (o.hook ? 1 : 0)], [12, -4 + bt]], o.beak || '#ffb02a');
+    if (o.beakBig) { K.poly([[11, -6], [11 + o.beakBig, -3], [11 + o.beakBig - 2, 0], [11, 0]], o.beak); K.rect(11, -3, o.beakBig - 3, 1, o.beak2 || entn(o.beak, -0.3)); }
+    if (o.pouch) K.ell(15, 1, 5, 3, o.pouch);
+    K.eye(9.5, -4.5, o.er || 2, { angry: o.angry !== false, blink: f > 0.92, white: o.eyeW, pupil: o.pupil });
+    K.wingBird(-1, -1, o.wl || 13, up * 0.8 + 0.1, o.wing || o.body, o.tip);
+    if (o.extra) o.extra(K, f);
+  },
+  bat(K, f, o) {
+    const up = Math.sin(f * 6.283 * 1.5);
+    K.wingBat(-3, -1, o.wl || 14, up, o.wing || entn(o.fur, -0.2), o.bone || entn(o.fur, -0.45));
+    g2flip(K, () => K.wingBat(-3, -1, o.wl || 14, up, o.wing || entn(o.fur, -0.2), o.bone || entn(o.fur, -0.45)));
+    K.poly([[-5, -5], [-6, -12], [-1, -7]], o.fur); K.poly([[5, -5], [6, -12], [1, -7]], o.fur);
+    K.sphere(0, 0, o.r || 7, o.r ? o.r * 0.9 : 6.5, o.fur);
+    K.eye(-2.5, -1, 1.8, { angry: true, pupil: o.eyeP || '#ff2a2a', white: o.eyeW || '#ffe24a', look: 0 }); K.eye(2.5, -1, 1.8, { angry: true, pupil: o.eyeP || '#ff2a2a', white: o.eyeW || '#ffe24a', look: 0 });
+    K.poly([[-2, 3], [-1, 6], [0, 3]], '#ffffff'); K.poly([[0, 3], [1, 6], [2, 3]], '#ffffff');
+    if (o.extra) o.extra(K, f);
+  },
+  ball(K, f, o) {   // шарики: шипы вращаются, тело шаром, лицо
+    const R = o.r || 9, rot = f * Math.PI * 2 / (o.spN || 8) * (o.spinK || 1);
+    if (o.spN) K.spikes(0, 0, R, o.spN, o.spL || 5, rot, o.spC || entn(o.body, -0.3), o.spW);
+    if (o.pre) o.pre(K, f, R);
+    K.sphere(0, 0, R, R * (o.sq || 1), o.body, { band: o.band, pal: o.pal });
+    if (o.mid) o.mid(K, f, R);
+    if (o.face !== false) {
+      const bl = f > 0.88;
+      K.eye(-R * 0.36, -R * 0.12, R * 0.27, { angry: o.angry !== false, blink: bl, look: 0.5, pupil: o.pupil, white: o.eyeW });
+      K.eye(R * 0.36, -R * 0.12, R * 0.27, { angry: o.angry !== false, blink: bl, look: 0.5, pupil: o.pupil, white: o.eyeW });
+      if (o.mouth !== false) { const mw = R * 0.5; K.rect(-mw / 2, R * 0.35, mw, 1.4, o.mouthC || '#3a0a14'); if (o.teeth !== false) { K.rect(-mw / 2 + 0.5, R * 0.35, 1, 1, '#ffffff'); K.rect(mw / 2 - 1.5, R * 0.35, 1, 1, '#ffffff'); } }
+    }
+    if (o.extra) o.extra(K, f, R);
+  },
+};
+function g2flip(K, fn) { K.g.save(); K.g.scale(-1, 1); fn(); K.g.restore(); }
+// ---------- все враги ----------
+const ENART = {
+  // ===== пчела и её облики =====
+  'bee:': { fn: (K, f) => ENT.insect(K, f, { body: '#ffd23a', body2: '#2a1a14', stripes: true, sting: '#2a1a14', thorax: '#3a2a1a', head: '#ffd23a', angry: true }) },
+  'bee:wasp': { fn: (K, f) => ENT.insect(K, f, { body: '#ffb02a', body2: '#1a1010', stripes: true, sting: '#1a1010', thorax: '#1a1010', head: '#ffb02a', ab: 9, abh: 5.5, angry: true, pupil: '#c01a1a' }) },
+  'bee:zmosquito': { fn: (K, f) => ENT.insect(K, f, { body: '#7ac84a', body2: '#3a5a2a', stripes: true, thorax: '#4a6a3a', head: '#9ae05a', proboscis: '#c84a4a', ab: 7, abh: 4.5, angry: true, pupil: '#ff2a2a', white: '#e8ffb0', extra: (K) => { K.rect(-6, -2, 2, 1, '#c82a2a'); K.rect(-2, 3, 1, 2, '#c82a2a'); } }) },
+  'bee:dragonfly': { fn: (K, f) => ENT.insect(K, f, { body: '#2ad0b0', body2: '#1a8a9a', long: 1, thorax: '#3ae0c8', head: '#2ad0b0', wl: 14, ww: 3, wing: '#d8fffa', vein: '#7ad8d0', er: 3, angry: false, pupil: '#1a3a4a' }) },
+  'bee:moth': { fn: (K, f) => ENT.insect(K, f, { body: '#b8a0d8', body2: '#8a70b0', big: 13, wing: '#c8b0e8', wing2: '#a08ac8', vein: '#7a5aa8', thorax: '#e8e0f0', head: '#d8c8f0', angry: false, pupil: '#2a1a3a', extra: (K) => { K.ell(-6, -10, 2, 2, '#ffe8a0'); K.ell(-6, -10, 1, 1, '#4a2a6a'); } }) },
+  'bee:butterfly': { fn: (K, f) => ENT.insect(K, f, { body: '#4a2a5a', body2: '#2a1a3a', big: 14, wing: '#ff7ac0', wing2: '#ffd23a', vein: '#a01a6a', thorax: '#4a2a5a', head: '#5a3a6a', angry: false, white: '#ffffff', extra: (K) => { K.ell(-7, -11, 2.2, 2.2, '#ffffff'); K.ell(-4, -7, 1.5, 1.5, '#3ab0ff'); } }) },
+  'bee:pixie': { fn: (K, f) => { const up = Math.sin(f * 6.283 * 2); K.wingInsect(-1, -3, 10, 5, -2.2 + up * 0.6, '#c8fff0', '#7ae0d0'); K.wingInsect(-1, -1, 8, 4, -2.7 + up * 0.5, '#e8d0ff', '#b08ae0');
+      K.sphere(0, 4, 3.5, 5, '#3ae07a'); K.sphere(0, -4, 4.5, 4.5, '#ffd8b8'); K.poly([[-5, -6], [0, -13], [5, -6]], '#3ae07a'); K.rect(-1, -14, 2, 2, '#ffe24a');
+      K.eye(-1.5, -4, 1.4, { look: 0.6 }); K.eye(2, -4, 1.4, { look: 0.6 }); K.line(5, 0, 11, -5, 1, '#c8a060'); K.ell(11, -6, 2, 2, '#ffe24a'); K.rect(12, -9, 1, 1, '#ffffff'); } },
+  'bee:scarab': { fn: (K, f) => { const up = Math.sin(f * 6.283 * 2); K.wingInsect(-2, -4, 12, 4, -2.3 + up, '#e8f8e0', '#8ac08a'); K.legs(-2, 4, 3, 4, 4, '#1a2a1a', f);
+      K.sphere(-2, 0, 9, 7, '#2a8a5a', { pal: ['#0a3a2a', '#1a6a4a', '#2a9a6a', '#5ad0a0', '#c8ffe8'] }); K.line(-2, -7, -2, 7, 1, '#0a2a1a'); K.sphere(8, -1, 4, 3.5, '#1a4a3a');
+      K.poly([[11, -4], [15, -8], [13, -3]], '#1a4a3a'); K.eye(9, -2, 1.5, { angry: true, pupil: '#ff3a3a', white: '#ffe24a' }); } },
+  'bee:drone': { fn: (K, f) => { const sp = f * 6.283 * 3; for (const sx of [-9, 9]) { K.line(sx, -4, sx, -1, 1.5, '#4a4a5a'); const w = Math.abs(Math.cos(sp + sx)) * 7 + 1; K.ell(sx, -5, w, 1.2, '#c8d8e8'); }
+      K.rect(-10, -2, 20, 2, '#3a3a4a'); K.sphere(0, 1, 7, 4.5, '#5a6a8a'); K.ell(0, 3, 4, 2, '#2a2a3a'); K.ell(0, 3, 2, 1.3, f < 0.5 ? '#ff3a3a' : '#ff8a8a'); K.rect(-1, 2.5, 1, 1, '#ffffff'); } },
+  'bee:satellite': { fn: (K, f) => { for (const s of [-1, 1]) { K.rect(s > 0 ? 5 : -15, -3, 10, 6, '#2a4ab0'); for (let i = 0; i < 3; i++) K.rect((s > 0 ? 5 : -15) + 1 + i * 3, -2, 2, 4, '#5a8af0'); K.line(s * 3, 0, s * 5, 0, 1, '#c8c8d0'); }
+      K.sphere(0, 0, 4, 5, '#d8dce8'); K.line(0, -5, 0, -10, 0.8, '#c8c8d0'); K.ell(0, -11, 2, 1.5, '#e8e8f0'); K.ell(0, 0, 1.5, 1.5, f < 0.5 ? '#3aff8a' : '#1a8a4a'); } },
+  'bee:ufo': { fn: (K, f) => { K.sphere(0, -3, 6, 5, '#9af0ff', { pal: ['#3a8ab0', '#6ac8e8', '#9af0ff', '#d0faff', '#ffffff'] }); K.sphere(0, -3, 3, 3, '#7ae07a'); K.eye(0, -4, 1.3, { look: 0.3 });
+      K.sphere(0, 2, 13, 4, '#b8bcd0'); for (let i = 0; i < 5; i++) { const on = Math.floor(f * 5) === i; K.ell(-8 + i * 4, 3, 1.2, 1.2, on ? '#ffe24a' : '#ff6a3a'); } K.ell(0, 6, 6, 1.5, '#5a5a7a'); } },
+  'bee:cottoncandy': { fn: (K, f) => { K.line(0, 6, 0, 14, 1.4, '#e8d8c0'); for (const [x, y, r] of [[-4, -1, 5], [4, -2, 5], [0, -5, 5], [0, 2, 6]]) K.sphere(x, y + Math.sin(f * 6.283 + x) * 0.6, r, r, '#ffa0d0', { shine: false });
+      K.eye(-2.5, -1, 1.5, { angry: true }); K.eye(2.5, -1, 1.5, { angry: true }); K.rect(-2, 3, 4, 1, '#a01a5a'); } },
+  'bee:fish': { fn: (K, f) => { const w = Math.sin(f * 6.283 * 2) * 3; K.poly([[-9, 0], [-16, -6 + w], [-15, 0], [-16, 6 + w]], '#ff8a1e'); K.sphere(0, 0, 10, 7, '#ff8a1e', { band: 0.0 });
+      for (const x of [-4, 3]) K.poly([[x, -7], [x + 2, -7], [x + 2, 7], [x, 7]], '#ffffff'); K.poly([[-2, -7], [2, -12], [5, -7]], '#ff6a0a'); K.eye(6, -2, 2.2, { angry: true }); K.rect(8, 2, 2, 1, '#6a1a0a'); } },
+  'bee:angler': { fn: (K, f) => { K.curve([[2, -7], [6, -14], [12, -13]], 1, '#3a2a4a'); K.ell(13, -13, 2.5, 2.5, f < 0.5 ? '#fff6a0' : '#ffe24a'); K.poly([[-9, 0], [-16, -6], [-14, 0], [-16, 6]], '#2a2a5a');
+      K.sphere(0, 0, 10, 8, '#3a3a7a'); K.poly([[4, 2], [11, 0], [11, 6], [4, 6]], '#1a0a1a'); for (let i = 0; i < 4; i++) { K.poly([[5 + i * 1.6, 2], [6 + i * 1.6, 4], [7 + i * 1.6, 2]], '#ffffff'); K.poly([[5 + i * 1.6, 6], [6 + i * 1.6, 4], [7 + i * 1.6, 6]], '#ffffff'); }
+      K.eye(4, -3, 2, { angry: true, pupil: '#ff3a3a', white: '#ffe8a0' }); } },
+  'bee:parrot': { fn: (K, f) => ENT.bird(K, f, { body: '#ff3a3a', wing: '#3ab0ff', tip: '#3ae05a', tail: '#3ae05a', head: '#ff3a3a', beak: '#ffd23a', hook: true, beakL: 5, beakT: 4, belly: '#ff8a5a' }) },
+  'bee:seagull': { fn: (K, f) => ENT.bird(K, f, { body: '#f4f6fa', wing: '#c8d0dc', tip: '#3a3a4a', tail: '#c8d0dc', head: '#ffffff', beak: '#ffb02a', beakL: 7 }) },
+  'bee:kingfisher': { fn: (K, f) => ENT.bird(K, f, { body: '#2a8ae8', wing: '#1a5ac0', tip: '#3ae0ff', tail: '#1a5ac0', head: '#2a8ae8', beak: '#2a2a2a', beakL: 9, beakT: 2, belly: '#ff8a3a', bw: 8 }) },
+  // ===== летучие мыши =====
+  'bat:': { fn: (K, f) => ENT.bat(K, f, { fur: '#6a3ab0', wing: '#4a2a8a', bone: '#2a1050' }) },
+  'bat:zbat': { fn: (K, f) => ENT.bat(K, f, { fur: '#6a9a4a', wing: '#4a6a3a', bone: '#2a3a1a', eyeW: '#ffffff', eyeP: '#ff2a2a', extra: (K) => { K.rect(-4, 2, 2, 1, '#c82a2a'); K.rect(3, -4, 1, 3, '#2a3a1a'); } }) },
+  'bat:crow': { fn: (K, f) => ENT.bird(K, f, { body: '#2a2a3a', wing: '#1a1a2a', tip: '#4a4a6a', tail: '#1a1a2a', head: '#2a2a3a', beak: '#3a3a4a', beakL: 6, pupil: '#ff2a2a', eyeW: '#ffe24a' }) },
+  'bat:owl': { fn: (K, f) => { const up = Math.sin(f * 6.283); K.wingBird(-6, 0, 11, up * 0.6, '#8a5a3a', '#5a3a1a'); g2flip(K, () => K.wingBird(-6, 0, 11, up * 0.6, '#8a5a3a', '#5a3a1a'));
+      K.sphere(0, 1, 8, 9, '#a8784a'); K.ell(0, 4, 5, 5, '#e8d0a8'); K.poly([[-7, -6], [-7, -12], [-3, -7]], '#8a5a3a'); K.poly([[7, -6], [7, -12], [3, -7]], '#8a5a3a');
+      K.ell(-3, -2, 3.5, 3.5, '#f0e0c0'); K.ell(3, -2, 3.5, 3.5, '#f0e0c0'); K.eye(-3, -2, 2.4, { pupil: '#1a0a0a', white: '#ffd23a', look: 0, blink: f > 0.85 }); K.eye(3, -2, 2.4, { pupil: '#1a0a0a', white: '#ffd23a', look: 0, blink: f > 0.85 }); K.poly([[-1, 0], [1, 0], [0, 3]], '#ffb02a'); } },
+  // ===== шипастые =====
+  'spiky:': { fn: (K, f) => ENT.ball(K, f, { body: '#a64aff', spN: 10, spL: 5, spC: '#5a1aa0' }) },
+  'spiky:urchin': { fn: (K, f) => ENT.ball(K, f, { body: '#3a1a5a', spN: 16, spL: 7, spW: 1.2, spC: '#1a0a2a', pupil: '#ff3aa0' }) },
+  'spiky:virus': { fn: (K, f) => ENT.ball(K, f, { body: '#5ae05a', face: true, pre: (K, f, R) => { for (let i = 0; i < 8; i++) { const a = i / 8 * 6.283 + f * 0.8; K.line(Math.cos(a) * R, Math.sin(a) * R, Math.cos(a) * (R + 4), Math.sin(a) * (R + 4), 1.3, '#2a8a2a'); K.ell(Math.cos(a) * (R + 4.5), Math.sin(a) * (R + 4.5), 1.8, 1.8, '#c8ff5a'); } }, mid: (K) => { K.ell(-4, 4, 1.5, 1.5, '#2a8a2a'); K.ell(5, 3, 1, 1, '#2a8a2a'); } }) },
+  'spiky:spore': { fn: (K, f) => ENT.ball(K, f, { body: '#b05ae0', r: 8, pre: (K, f, R) => { for (let i = 0; i < 6; i++) { const a = i / 6 * 6.283 + Math.sin(f * 6.283) * 0.3; K.curve([[Math.cos(a) * R, Math.sin(a) * R], [Math.cos(a + 0.3) * (R + 4), Math.sin(a + 0.3) * (R + 4)], [Math.cos(a) * (R + 7), Math.sin(a) * (R + 7)]], 1, '#e0a0ff'); K.ell(Math.cos(a) * (R + 7), Math.sin(a) * (R + 7), 1.3, 1.3, '#ffe24a'); } } }) },
+  'spiky:puffer': { fn: (K, f) => ENT.ball(K, f, { body: '#ffd23a', spN: 12, spL: 3 + Math.sin(f * 6.283) * 1.5, spC: '#c8820a', spW: 1.3, mid: (K, f, R) => K.ell(0, R * 0.45, R * 0.7, R * 0.35, '#fff6c0'), angry: false }) },
+  'spiky:hedgehog': { fn: (K, f) => { K.spikes(-2, 0, 7, 9, 6, -0.4 + Math.sin(f * 6.283) * 0.1, '#5a3a1a', 2); K.sphere(-2, 1, 8, 7, '#8a5a2a'); K.sphere(5, 2, 4.5, 4, '#e8c49a'); K.ell(9, 2, 1.3, 1.3, '#1a0a0a'); K.eye(5, 0, 1.4, { angry: true }); K.legs(-1, 7, 2, 6, 2, '#5a3a1a', f); } },
+  'spiky:mine': { fn: (K, f) => ENT.ball(K, f, { body: '#5a6070', spN: 8, spL: 4, spC: '#3a3a48', spW: 1.6, face: false, mid: (K, f, R) => { K.ell(0, 0, 3, 3, '#1a1a24'); K.ell(0, 0, 2, 2, f < 0.5 ? '#ff2a2a' : '#6a0a0a'); for (let i = 0; i < 4; i++) { const a = i / 4 * 6.283 + 0.78; K.rect(Math.cos(a) * 6 - 0.5, Math.sin(a) * 6 - 0.5, 1, 1, '#c8ccd8'); } } }) },
+  'spiky:asteroid': { fn: (K, f) => ENT.ball(K, f, { body: '#8a7a6a', sq: 0.85, face: false, mid: (K) => { for (const [x, y, r] of [[-3, -2, 2.2], [3, 2, 1.6], [2, -4, 1.2], [-4, 4, 1.4]]) { K.ell(x, y, r, r, '#5a4a3a'); K.rect(x - r * 0.5, y - r * 0.6, 1, 1, '#b8a898'); } }, extra: (K, f) => { K.eye(-3, 0, 1.6, { angry: true, pupil: '#ff6a1a', white: '#ffe8a0' }); K.eye(3, 0, 1.6, { angry: true, pupil: '#ff6a1a', white: '#ffe8a0' }); } }) },
+  'spiky:discoball': { fn: (K, f) => ENT.ball(K, f, { body: '#c8d0e0', face: false, mid: (K, f, R) => { for (let y = -R; y < R; y += 3) for (let x = -R; x < R; x += 3) { if (x * x + y * y > R * R * 0.85) continue; const c = ['#ff7ad8', '#7ad8ff', '#ffe24a', '#ffffff', '#a0a8c0'][(Math.floor((x + y) / 3 + f * 5) % 5 + 5) % 5]; K.rect(x, y, 2, 2, c); } }, extra: (K) => K.line(0, -9, 0, -14, 1, '#c8c8d0') }) },
+  'spiky:firework': { fn: (K, f) => { K.sphere(0, 1, 7, 9, '#e8261a', { band: 1.3 }); K.poly([[-7, -6], [0, -12], [7, -6]], '#ffd23a'); K.curve([[0, -12], [2, -15], [1, -17]], 1, '#c8a878'); if (f < 0.6) { K.ell(1, -18, 2, 2, '#ffe24a'); K.rect(1, -19, 1, 1, '#ffffff'); } K.eye(-2.5, 0, 1.6, { angry: true }); K.eye(2.5, 0, 1.6, { angry: true }); } },
+  'spiky:icecrystal': { fn: (K, f) => { for (let i = 0; i < 6; i++) { const a = i / 6 * 6.283 + f * 0.5; const ca = Math.cos(a), sa = Math.sin(a); K.line(0, 0, ca * 12, sa * 12, 2, '#bff4ff'); K.line(ca * 7, sa * 7, ca * 7 + Math.cos(a + 0.8) * 4, sa * 7 + Math.sin(a + 0.8) * 4, 1.2, '#e8fbff'); K.line(ca * 7, sa * 7, ca * 7 + Math.cos(a - 0.8) * 4, sa * 7 + Math.sin(a - 0.8) * 4, 1.2, '#e8fbff'); }
+      K.sphere(0, 0, 5, 5, '#9ad8ff'); K.eye(-2, -0.5, 1.3, { angry: true, pupil: '#1a4a8a' }); K.eye(2, -0.5, 1.3, { angry: true, pupil: '#1a4a8a' }); } },
+  'spiky:jawbreaker': { fn: (K, f) => ENT.ball(K, f, { body: '#ff5ab0', band: 0.9, pal: ['#3ab0ff', '#ffe24a', '#ff5ab0', '#ffffff', '#ffffff'], spN: 8, spL: 3, spC: '#ffffff', spinK: 1 }) },
+  'spiky:lollipop': { fn: (K, f) => { K.line(0, 7, 0, 15, 1.6, '#f4f0e8'); K.sphere(0, 0, 8, 8, '#ffffff'); for (let i = 0; i < 4; i++) { const a = i / 4 * 6.283 + f * 6.283 / 4; K.g.save(); K.g.rotate(a); K.poly([[0, 0], [7, -3], [7, 3]], ['#ff3a6a', '#3ab0ff', '#ffe24a', '#7ae07a'][i]); K.g.restore(); } K.ell(0, 0, 3, 3, '#ffffff'); K.eye(-1.5, -0.5, 1, { angry: true }); K.eye(1.5, -0.5, 1, { angry: true }); } },
+  'spiky:zskull': { fn: (K, f) => { K.sphere(0, 0, 8, 7.5, '#e8e8dc'); K.poly([[-4, -6], [-2, -12], [0, -7], [2, -13], [4, -6]], '#5ae05a'); K.ell(-3, -1, 2.2, 2.6, '#1a1a14'); K.ell(3, -1, 2.2, 2.6, '#1a1a14'); K.rect(-3, -1, 1, 1, f < 0.5 ? '#5aff5a' : '#2a8a2a'); K.rect(3, -1, 1, 1, f < 0.5 ? '#5aff5a' : '#2a8a2a');
+      K.poly([[-1, 2], [1, 2], [0, 4]], '#1a1a14'); for (let i = 0; i < 4; i++) K.rect(-3 + i * 2, 5, 1, 2, '#ffffff'); } },
+  // ===== прыгуны =====
+  'bouncer:': { fn: (K, f) => { const sq = 1 + Math.sin(f * 6.283) * 0.12; ENT.ball(K, f, { body: '#3ab0ff', sq: 1 / sq, angry: false, mid: (K, f, R) => K.ell(0, R * 0.55, R * 0.6, 1.2, '#1a70c0'), extra: (K) => K.rect(-2, -9, 1, 1, '#ffffff') }); } },
+  'bouncer:bubbleball': { fn: (K, f) => { K.sphere(0, 0, 10, 10, '#a8e8ff', { pal: ['#5ab0e0', '#8ad0f0', '#c0ecff', '#e8f8ff', '#ffffff'] }); K.sphere(0, 1, 5, 5, '#ff7ac0'); K.eye(-1.6, 0, 1.3, { angry: true }); K.eye(1.6, 0, 1.3, { angry: true }); K.ell(-5, -5, 2, 1.2, '#ffffff'); } },
+  'bouncer:gearball': { fn: (K, f) => ENT.ball(K, f, { body: '#c8902a', spN: 8, spL: 3, spW: 2.6, spC: '#8a5a1a', mid: (K) => { K.ell(0, 0, 3, 3, '#5a3a0a'); K.ell(0, 0, 1.5, 1.5, '#c8902a'); }, face: false, extra: (K) => { K.eye(-4, -3, 1.5, { angry: true }); K.eye(4, -3, 1.5, { angry: true }); } }) },
+  'bouncer:gumball': { fn: (K, f) => { K.sphere(0, -2, 8, 8, '#bfe8ff', { pal: ['#7ab0d0', '#a8d8f0', '#d0f0ff', '#f0faff', '#ffffff'] }); for (const [x, y, c] of [[-3, -1, '#ff3a6a'], [2, -4, '#ffe24a'], [3, 1, '#3ae07a'], [-1, -5, '#3ab0ff'], [0, 2, '#ff8a3a']]) K.ell(x, y, 1.8, 1.8, c);
+      K.rect(-7, 5, 14, 6, '#e8261a'); K.rect(-2, 7, 4, 2, '#ffd23a'); K.eye(-3, -2, 1.3, { angry: true }); K.eye(3, -2, 1.3, { angry: true }); } },
+  'bouncer:gummybear': { fn: (K, f) => { const p = { pal: ['#a01a2a', '#d02a3a', '#ff4a5a', '#ff9aa0', '#ffd0d8'] }; K.sphere(-5, -8, 2.5, 2.5, '#ff4a5a', p); K.sphere(5, -8, 2.5, 2.5, '#ff4a5a', p); K.sphere(0, -4, 6, 5, '#ff4a5a', p); K.sphere(0, 4, 7, 6, '#ff4a5a', p);
+      K.sphere(-6, 2, 2.5, 3, '#ff4a5a', p); K.sphere(6, 2, 2.5, 3, '#ff4a5a', p); K.eye(-2, -4, 1.2, { angry: true }); K.eye(2, -4, 1.2, { angry: true }); K.rect(-1, -1, 2, 1, '#7a0a1a'); } },
+  'bouncer:pumpkinball': { fn: (K, f) => { K.sphere(0, 1, 10, 8, '#ff8a1e', { band: 0.0 }); K.line(-4, -6, -4, 8, 1, '#c85a0a'); K.line(4, -6, 4, 8, 1, '#c85a0a'); K.rect(-1, -10, 2, 4, '#3a6a1a'); K.poly([[1, -9], [6, -12], [3, -8]], '#5ae05a');
+      const lit = f < 0.5 ? '#ffe24a' : '#ffb02a'; K.poly([[-6, -2], [-2, -2], [-4, -5]], lit); K.poly([[6, -2], [2, -2], [4, -5]], lit); K.poly([[-6, 2], [6, 2], [4, 5], [2, 3.5], [0, 5], [-2, 3.5], [-4, 5]], lit); } },
+  // ===== падающие =====
+  'cone:': { fn: (K, f) => { K.poly([[-6, -8], [6, -8], [4, 9], [-4, 9]], '#8a5a2a'); for (let y = -6; y < 8; y += 3) for (let x = -5; x < 5; x += 3) K.sphere(x + (y % 2 ? 1.5 : 0), y, 1.8, 1.4, '#a86a32', { shine: false }); K.rect(-1, -11, 2, 3, '#5a3a1a'); K.eye(-2, -1, 1.4, { angry: true }); K.eye(2, -1, 1.4, { angry: true }); } },
+  'cone:pinecone': { fn: (K, f) => { for (let r = 0; r < 6; r++) for (let i = -2; i <= 2; i++) { const w = 6 - Math.abs(r - 2.5) * 1.2; K.sphere(i * w * 0.4, -8 + r * 3.2, 2.2, 1.8, r % 2 ? '#8a5a2a' : '#a86a3a', { shine: false }); } K.poly([[0, -12], [3, -15], [1, -11]], '#3a8a2a'); K.eye(-2, -1, 1.3, { angry: true }); K.eye(2, -1, 1.3, { angry: true }); } },
+  'cone:icicle': { fn: (K, f) => { K.poly([[-6, -9], [6, -9], [1, 12], [-1, 12]], '#bff4ff'); K.poly([[-3, -9], [0, -9], [0, 8]], '#ffffff'); K.rect(-7, -11, 14, 3, '#e8fbff'); K.eye(-2, -4, 1.3, { angry: true, pupil: '#1a4a8a' }); K.eye(2, -4, 1.3, { angry: true, pupil: '#1a4a8a' }); if (f < 0.25) K.rect(3, -2, 1, 1, '#ffffff'); } },
+  'cone:cherry': { fn: (K, f) => { K.curve([[-3, -2], [0, -10], [3, -13]], 1.2, '#3a6a1a'); K.curve([[4, 0], [2, -8], [3, -13]], 1.2, '#3a6a1a'); K.poly([[3, -13], [9, -14], [6, -11]], '#5ae05a'); K.sphere(-4, 3, 5.5, 5.5, '#e8102a'); K.sphere(5, 4, 5, 5, '#c80a20'); K.eye(-5.5, 2.5, 1.2, { angry: true }); K.eye(-2.5, 2.5, 1.2, { angry: true }); } },
+  'cone:coconut': { fn: (K, f) => ENT.ball(K, f, { body: '#7a4a24', r: 8, face: false, mid: (K) => { for (let i = 0; i < 12; i++) K.rect(-6 + (i * 7) % 12, -5 + Math.floor(i / 3) * 3, 2, 1, '#5a3014'); K.ell(-2, -3, 1.2, 1.2, '#2a1408'); K.ell(2, -3, 1.2, 1.2, '#2a1408'); K.ell(0, 1, 1.2, 1.2, '#2a1408'); }, extra: (K) => { K.rect(-4, -6, 3, 1, '#2a1408'); K.rect(1, -6, 3, 1, '#2a1408'); } }) },
+  'cone:cannonball': { fn: (K, f) => ENT.ball(K, f, { body: '#3a3a4a', r: 8, face: false, extra: (K, f) => { K.curve([[3, -7], [6, -11], [8, -12]], 1.2, '#c8a878'); if (f < 0.6) { K.ell(9, -13, 2, 2, '#ffd23a'); K.rect(9, -14, 1, 1, '#ffffff'); } K.eye(-3, -1, 1.5, { angry: true, pupil: '#ff3a1a' }); K.eye(3, -1, 1.5, { angry: true, pupil: '#ff3a1a' }); } }) },
+  'cone:icecream': { fn: (K, f) => { K.poly([[-6, 0], [6, 0], [0, 13]], '#e8a85a'); for (let i = -4; i < 6; i += 3) K.line(i, 0, i * 0.3 + 1, 10, 0.7, '#b8783a'); K.sphere(0, -3, 7, 5.5, '#ffb0d0'); K.sphere(0, -8, 5, 4, '#fff0d8'); K.ell(0, -13, 2, 2, '#e8102a'); K.rect(-1, -15, 1, 2, '#3a6a1a');
+      K.eye(-2.5, -4, 1.3, { angry: true }); K.eye(2.5, -4, 1.3, { angry: true }); K.rect(-5, 0, 2, 2, '#ffb0d0'); } },
+  // ===== ястребы и прочие летуны =====
+  'hawk:': { fn: (K, f) => ENT.bird(K, f, { body: '#a8603a', wing: '#8a4a2a', tip: '#5a2a14', tail: '#6a3a1a', head: '#c8804a', beak: '#ffd23a', hook: true, belly: '#e8c8a0', wl: 15 }) },
+  'hawk:eagle': { fn: (K, f) => ENT.bird(K, f, { body: '#5a3a1a', wing: '#4a2a14', tip: '#2a1408', tail: '#f4f4f4', head: '#ffffff', beak: '#ffd23a', hook: true, beakT: 3.5, wl: 16 }) },
+  'hawk:pelican': { fn: (K, f) => ENT.bird(K, f, { body: '#f4f4f8', wing: '#d8dce8', tip: '#2a2a3a', tail: '#d8dce8', head: '#ffffff', beak: '#ffb02a', beakL: 11, pouch: '#ff8a3a', wl: 15 }) },
+  'hawk:toucan': { fn: (K, f) => ENT.bird(K, f, { body: '#1a1a24', wing: '#1a1a24', tip: '#3a3a4a', tail: '#1a1a24', head: '#1a1a24', belly: '#ffe8a0', beak: '#ff8a1e', beakBig: 11, beak2: '#e8261a', eyeW: '#7ae0ff' }) },
+  'hawk:ptero': { fn: (K, f) => { const up = Math.sin(f * 6.283); K.wingBat(2, -1, 15, up, '#a85a8a', '#6a2a5a'); K.poly([[-6, 0], [-15, -2], [-6, 3]], '#8a3a6a'); K.sphere(0, 1, 7, 4.5, '#c86aa0');
+      K.sphere(8, -3, 4, 3.5, '#c86aa0'); K.poly([[6, -5], [0, -11], [9, -6]], '#8a3a6a'); K.poly([[11, -4], [19, -2], [11, -1]], '#ffd23a'); K.eye(9, -3.5, 1.4, { angry: true }); } },
+  'hawk:robobird': { fn: (K, f) => ENT.bird(K, f, { body: '#8a94a8', wing: '#5a6478', tip: '#3ab0ff', tail: '#5a6478', head: '#a8b0c0', beak: '#ffd23a', pupil: '#ff2a2a', eyeW: '#1a1a24', extra: (K, f) => { K.rect(-4, -1, 1, 1, '#ffd23a'); K.rect(0, 2, 1, 1, '#ffd23a'); K.line(8, -8, 8, -12, 0.8, '#c8c8d0'); K.ell(8, -13, 1.2, 1.2, f < 0.5 ? '#ff3a3a' : '#5a0a0a'); } }) },
+  'hawk:sharkhawk': { fn: (K, f) => { const up = Math.sin(f * 6.283); K.wingBird(-2, -2, 13, up * 0.7, '#5a7a9a', '#3a5a7a'); K.poly([[-9, 0], [-17, -6], [-15, 0], [-17, 6]], '#5a7a9a'); K.sphere(0, 0, 11, 6, '#7a9ab8'); K.ell(2, 3, 8, 2.5, '#e8f0f8');
+      K.poly([[-2, -5], [1, -12], [4, -5]], '#5a7a9a'); K.poly([[6, 2], [11, 1], [11, 4], [6, 4]], '#1a0a1a'); for (let i = 0; i < 3; i++) K.poly([[6.5 + i * 1.6, 2], [7.3 + i * 1.6, 3.5], [8.1 + i * 1.6, 2]], '#ffffff'); K.eye(6, -2, 1.5, { angry: true }); for (const x of [-3, -1]) K.rect(x, -1, 1, 3, '#3a5a7a'); } },
+  'hawk:donutfly': { fn: (K, f) => { const up = Math.sin(f * 6.283 * 2); K.wingInsect(-3, -5, 9, 3.5, -2.2 + up * 0.6, '#ffffff', '#c8d8e8'); K.wingInsect(3, -5, 9, 3.5, -1 - up * 0.6, '#ffffff', '#c8d8e8');
+      K.sphere(0, 1, 9, 6.5, '#e8b070'); K.ell(0, -1, 8, 4.5, '#ff7ac0'); for (let i = 0; i < 6; i++) K.rect(-6 + i * 2.4, -3 + (i % 2) * 2, 1, 1, ['#ffffff', '#3ab0ff', '#ffe24a'][i % 3]); K.ell(0, 0, 2.5, 1.5, '#5a3a1a'); K.eye(-3.5, 0, 1.3, { angry: true }); K.eye(3.5, 0, 1.3, { angry: true }); } },
+  'hawk:flycar': { fn: (K, f) => { const up = Math.sin(f * 6.283 * 2); K.wingBird(-3, -3, 9, up * 0.7, '#ffffff', '#c8d8e8'); K.sphere(0, 0, 12, 4.5, '#e8261a'); K.poly([[-4, -3], [-1, -7], [6, -7], [8, -3]], '#bfe8ff'); K.rect(2, -7, 1, 4, '#e8261a');
+      K.ell(-7, 4, 2.5, 2.5, '#1a1a24'); K.ell(7, 4, 2.5, 2.5, '#1a1a24'); K.ell(-7, 4, 1, 1, '#c8c8d0'); K.ell(7, 4, 1, 1, '#c8c8d0'); K.rect(11, -1, 2, 2, '#ffe24a'); K.rect(-13, -1, 2, 2, '#ff3a3a'); } },
+  'hawk:lanterndragon': { n: 60, fn: (K, f) => { for (let i = 5; i >= 1; i--) { const x = -i * 6, y = Math.sin(f * 6.283 + i * 0.9) * 3; K.sphere(x, y, 4, 4, i % 2 ? '#e8261a' : '#ffd23a'); K.poly([[x - 2, y - 3], [x, y - 7], [x + 2, y - 3]], '#ffd23a'); }
+      K.sphere(4, 0, 7, 6, '#e8261a'); K.poly([[1, -5], [-2, -11], [4, -6]], '#ffd23a'); K.poly([[5, -5], [7, -11], [8, -5]], '#ffd23a'); K.poly([[9, 1], [16, -1], [16, 4], [9, 4]], '#ffd23a'); K.curve([[9, 2], [14, 7], [18, 6]], 0.8, '#ffd23a');
+      K.eye(6, -2, 1.8, { angry: true, white: '#ffe24a' }); for (let i = 0; i < 2; i++) K.poly([[11 + i * 2, 1], [12 + i * 2, 3], [13 + i * 2, 1]], '#ffffff'); } },
+  // ===== призраки =====
+  'ghost:': { fn: (K, f) => { const w = f * 6.283; K.g.globalAlpha = 1; K.sphere(0, -2, 9, 8, '#f4f6ff', { pal: ['#a8b0d0', '#c8d0e8', '#e8ecff', '#ffffff', '#ffffff'] }); K.rect(-9, -2, 18, 6, '#e8ecff');
+      for (let i = 0; i < 4; i++) K.ell(-6.75 + i * 4.5, 4 + Math.sin(w + i * 1.5) * 1.2, 2.4, 2.6, '#e8ecff'); K.ell(-3, -3, 2, 2.8, '#1a1a3a'); K.ell(3, -3, 2, 2.8, '#1a1a3a'); K.rect(-3, -4, 1, 1, '#ffffff'); K.rect(3, -4, 1, 1, '#ffffff'); K.ell(0, 2, 2, 1.6 + Math.sin(w) * 0.6, '#1a1a3a'); K.ell(-6, 0, 1.6, 1, '#ffb0c8'); K.ell(6, 0, 1.6, 1, '#ffb0c8'); } },
+  'ghost:eyeball': { fn: (K, f) => { K.sphere(0, 0, 9, 9, '#f8f0f0', { pal: ['#c8a8a8', '#e8d0d0', '#f8f0f0', '#ffffff', '#ffffff'] }); for (let i = 0; i < 5; i++) { const a = i / 5 * 6.283; K.curve([[Math.cos(a) * 8, Math.sin(a) * 8], [Math.cos(a + 0.3) * 5.5, Math.sin(a + 0.3) * 5.5], [Math.cos(a) * 4, Math.sin(a) * 4]], 0.6, '#e83a4a'); }
+      const lx = Math.sin(f * 6.283) * 2; K.ell(lx, 0, 4.5, 4.5, '#7a3ab0'); K.ell(lx, 0, 2.2, 2.2, '#1a0a1a'); K.rect(lx - 2, -2, 1, 1, '#ffffff'); if (f > 0.9) K.rect(-9, -1, 18, 2, '#c8a8a8'); } },
+  'ghost:jellyfish': { fn: (K, f) => { const w = f * 6.283; for (let i = 0; i < 5; i++) { const x = -6 + i * 3; K.curve([[x, 2], [x + Math.sin(w + i) * 2, 7], [x + Math.sin(w + i + 1) * 2.5, 12], [x + Math.sin(w + i + 2) * 2, 15]], 1, '#ff9ae0'); }
+      K.sphere(0, -1, 9, 7, '#ff7ad8', { pal: ['#a03a90', '#d05ab8', '#ff7ad8', '#ffb0ec', '#ffe0f8'] }); K.rect(-9, 1, 18, 2, '#d05ab8'); K.eye(-3, -1, 1.5, { angry: true }); K.eye(3, -1, 1.5, { angry: true }); for (const x of [-5, 0, 5]) K.ell(x, -5, 1, 1, '#ffffff'); } },
+  'ghost:mummyghost': { fn: (K, f) => { const w = f * 6.283; K.sphere(0, -1, 8, 8, '#d8c8a8'); for (let y = -7; y < 7; y += 3) K.line(-8, y + (y % 2), 8, y + 1.5, 1, '#a89878'); for (let i = 0; i < 3; i++) K.curve([[-4 + i * 4, 6], [-4 + i * 4 + Math.sin(w + i) * 2, 10], [-4 + i * 4 + Math.sin(w + i + 1) * 3, 13]], 1.5, '#d8c8a8');
+      K.rect(-6, -3, 12, 3, '#2a1a14'); K.ell(-3, -1.5, 1.2, 1.2, '#ffe24a'); K.ell(3, -1.5, 1.2, 1.2, '#ffe24a'); } },
+  'ghost:willowisp': { fn: (K, f) => { const w = f * 6.283; K.flame(0, 4, 18 + Math.sin(w) * 2, 7, f, ['#1a6ac8', '#3ab0ff', '#9ae8ff', '#ffffff']); K.sphere(0, 2, 6, 6, '#7ad8ff', { pal: ['#2a8ae0', '#5ac0ff', '#9ae8ff', '#e0faff', '#ffffff'] }); K.eye(-2, 2, 1.3, { pupil: '#0a2a6a', look: 0 }); K.eye(2, 2, 1.3, { pupil: '#0a2a6a', look: 0 }); } },
+  'ghost:zhamster': { fn: (K, f) => { const s = Math.sin(f * 6.283) * 1.5; K.sphere(0, 2, 8, 8, '#8ac06a'); K.poly([[-6, -5], [-7, -10], [-3, -7]], '#6a9a4a'); K.poly([[6, -5], [7, -10], [3, -7]], '#6a9a4a'); K.ell(0, 5, 5, 3.5, '#c8e0a8');
+      K.line(-7, 4, -12 + s, 0, 2, '#8ac06a'); K.line(7, 4, 12 - s, 0, 2, '#8ac06a'); K.eye(-3, 0, 1.8, { white: '#ffffff', pupil: '#c82a2a', look: 0 }); K.eye(3, 0, 1.8, { white: '#ffffff', pupil: '#c82a2a', look: 0 }); K.rect(-2, 5, 4, 1, '#3a1a14'); K.rect(-1, 6, 1, 1, '#ffffff'); K.rect(-5, -3, 2, 1, '#3a5a2a'); K.rect(4, 3, 1, 2, '#c82a2a'); } },
+  // ===== улитки и ползуны (на столбе; нарисованы ползущими вверх) =====
+  'snail:': { fn: (K, f) => { const s = Math.sin(f * 6.283) * 1; K.sphere(0, 4 + s * 0.3, 4, 9, '#c8b090'); K.sphere(0, 4, 7.5, 7.5, '#ff8a5a', { pal: ['#a03a1a', '#d05a2a', '#ff8a5a', '#ffb88a', '#ffe0c8'] }); K.curve([[0, 4], [3, 2], [2, 7], [-2, 6], [-3, 1], [2, -1]], 1, '#a03a1a');
+      K.line(-2, -5 + s, -3, -11, 1, '#c8b090'); K.line(2, -5 + s, 3, -11, 1, '#c8b090'); K.eye(-3, -12, 1.4, { look: 0 }); K.eye(3, -12, 1.4, { look: 0 }); } },
+  'snail:snake': { fn: (K, f) => { const w = f * 6.283; for (let i = 6; i >= 0; i--) K.sphere(Math.sin(w + i * 0.9) * 3, 2 + i * 4, 3.5, 3, i % 2 ? '#3ae05a' : '#ffd23a', { shine: false }); K.sphere(Math.sin(w) * 3, -3, 5, 5.5, '#3ae05a'); K.eye(Math.sin(w) * 3 - 2, -4, 1.3, { angry: true, pupil: '#1a1a0a', white: '#ffe24a' }); K.eye(Math.sin(w) * 3 + 2, -4, 1.3, { angry: true, pupil: '#1a1a0a', white: '#ffe24a' }); if (f < 0.5) K.curve([[Math.sin(w) * 3, -8], [Math.sin(w) * 3, -11], [Math.sin(w) * 3 - 1, -13]], 0.8, '#ff2a2a'); } },
+  'snail:caterpillar': { fn: (K, f) => { const w = f * 6.283; for (let i = 5; i >= 0; i--) { K.sphere(Math.sin(w + i) * 1.5, 1 + i * 3.6, 4, 3.6, i % 2 ? '#7ae05a' : '#5ac83a', { shine: false }); K.rect(Math.sin(w + i) * 1.5 - 5, 1 + i * 3.6, 1, 1, '#2a6a1a'); K.rect(Math.sin(w + i) * 1.5 + 4, 1 + i * 3.6, 1, 1, '#2a6a1a'); }
+      K.sphere(0, -4, 5, 5, '#ffd23a'); K.line(-2, -8, -4, -12, 1, '#3a2a14'); K.line(2, -8, 4, -12, 1, '#3a2a14'); K.eye(-2, -4, 1.3, { look: 0 }); K.eye(2, -4, 1.3, { look: 0 }); } },
+  'snail:crab': { fn: (K, f) => { const c = Math.sin(f * 6.283 * 2) * 1.5; K.legs(-4, 3, 3, 1.5, 4, '#a01a14', f); K.legs(4, 3, 3, 1.5, 4, '#a01a14', f); K.sphere(0, 2, 9, 6, '#e8261a');
+      for (const s of [-1, 1]) { K.line(s * 7, 0, s * 10, -5, 1.6, '#c81a14'); K.sphere(s * 11, -8 + c * s, 3.5, 3, '#ff4a2a'); K.poly([[s * 11, -10 + c * s], [s * 13, -14 + c * s], [s * 9, -11 + c * s]], '#ff4a2a'); }
+      K.line(-2, -3, -3, -7, 1, '#c81a14'); K.line(2, -3, 3, -7, 1, '#c81a14'); K.eye(-3, -8, 1.4, { look: 0 }); K.eye(3, -8, 1.4, { look: 0 }); K.rect(-2, 3, 4, 1, '#7a0a0a'); } },
+  'snail:frostbug': { fn: (K, f) => { K.legs(-3, 2, 3, 2.5, 4, '#2a4a7a', f); K.legs(3, 2, 3, 2.5, 4, '#2a4a7a', f); K.sphere(0, 3, 7, 8, '#5ab0ff', { pal: ['#1a4a8a', '#2a7ad0', '#5ab0ff', '#bff0ff', '#ffffff'] }); K.line(0, -4, 0, 10, 1, '#1a4a8a');
+      for (const [x, y] of [[-3, 1], [3, 4], [-2, 7]]) { K.rect(x - 1, y, 3, 1, '#ffffff'); K.rect(x, y - 1, 1, 3, '#ffffff'); } K.sphere(0, -6, 4.5, 4, '#2a4a7a'); K.eye(-2, -6, 1.3, { angry: true, pupil: '#1a1a3a', white: '#9af0ff' }); K.eye(2, -6, 1.3, { angry: true, pupil: '#1a1a3a', white: '#9af0ff' }); } },
+  'snail:scorpion': { fn: (K, f) => { const w = Math.sin(f * 6.283) * 2; K.legs(-4, 0, 4, 2.4, 4, '#5a3a14', f); K.legs(4, 0, 4, 2.4, 4, '#5a3a14', f); K.sphere(0, 0, 6, 8, '#a8682a');
+      for (let i = 0; i < 4; i++) K.sphere(w * (i / 4), 9 + i * 3.4, 3 - i * 0.3, 2.6, '#a8682a', { shine: false }); K.poly([[w - 2, 21], [w + 2, 21], [w, 25]], '#2a1408');
+      for (const s of [-1, 1]) { K.line(s * 4, -6, s * 8, -11, 1.5, '#8a5a1a'); K.poly([[s * 8, -11], [s * 11, -15], [s * 7, -14]], '#c8823a'); } K.eye(-2, -6, 1.2, { angry: true, pupil: '#1a0a0a', white: '#ffe24a' }); K.eye(2, -6, 1.2, { angry: true, pupil: '#1a0a0a', white: '#ffe24a' }); } },
+  'snail:zombiehand': { fn: (K, f) => { const w = Math.sin(f * 6.283) * 0.2; K.g.save(); K.g.rotate(w); K.rect(-4, 0, 8, 12, '#7aa85a'); K.rect(-4, 8, 8, 4, '#5a3a8a'); for (let i = 0; i < 4; i++) K.rect(-4 + i * 2.2, -6 - (i === 1 || i === 2 ? 2 : 0), 1.8, 7, '#8ac06a'); K.rect(4, -2, 2, 5, '#8ac06a'); K.rect(-2, 3, 3, 1, '#c82a2a'); K.g.restore(); } },
+  // ===== метеоры (хвост рисуется вживую) =====
+  'meteor:': { fn: (K, f) => ENT.ball(K, f, { body: '#8a4a2a', r: 9, face: false, pal: ['#3a1a0a', '#6a3418', '#a85a2a', '#ff8a3a', '#ffd23a'], mid: (K) => { for (const [x, y, r] of [[-3, -2, 1.8], [3, 2, 1.4], [2, -4, 1]]) K.ell(x, y, r, r, '#4a2010'); }, extra: (K) => { K.eye(-3, 0, 1.6, { angry: true, pupil: '#ff2a00', white: '#ffe24a' }); K.eye(3, 0, 1.6, { angry: true, pupil: '#ff2a00', white: '#ffe24a' }); } }) },
+  'meteor:comet': { fn: (K, f) => ENT.ball(K, f, { body: '#3a8ae8', r: 9, face: false, pal: ['#1a3a8a', '#2a6ad0', '#5aa8ff', '#bfe8ff', '#ffffff'], extra: (K) => { K.eye(-3, 0, 1.6, { angry: true, pupil: '#1a2a6a' }); K.eye(3, 0, 1.6, { angry: true, pupil: '#1a2a6a' }); } }) },
+  'meteor:hail': { fn: (K, f) => ENT.ball(K, f, { body: '#bfe8ff', r: 8, face: false, pal: ['#5a9ad8', '#8ac8f0', '#bfe8ff', '#e8faff', '#ffffff'], mid: (K) => { K.rect(-2, -2, 1, 4, '#ffffff'); K.rect(-4, 0, 5, 1, '#ffffff'); }, extra: (K) => { K.eye(-2.5, 1, 1.4, { angry: true, pupil: '#1a4a8a' }); K.eye(2.5, 1, 1.4, { angry: true, pupil: '#1a4a8a' }); } }) },
+  // ===== пираньи =====
+  'piranha:': { fn: (K, f) => { const m = f < 0.5 ? 3 : 1; K.poly([[-4, 10], [0, 16], [4, 10]], '#c02a2a'); K.sphere(0, 2, 7, 10, '#e84a3a', { pal: ['#8a1a1a', '#c02a2a', '#e84a3a', '#ff8a7a', '#ffd0c8'] }); K.ell(0, 4, 4, 5, '#ffb0a0');
+      K.poly([[-5, -6], [5, -6], [4, -6 + m * 2], [-4, -6 + m * 2]], '#2a0a0a'); for (let i = 0; i < 4; i++) { K.poly([[-4 + i * 2.4, -6], [-3 + i * 2.4, -4], [-2 + i * 2.4, -6]], '#ffffff'); } K.eye(-4, -2, 1.6, { angry: true, white: '#ffe24a' }); K.eye(4, -2, 1.6, { angry: true, white: '#ffe24a' }); K.poly([[-7, 2], [-11, -1], [-8, 5]], '#c02a2a'); K.poly([[7, 2], [11, -1], [8, 5]], '#c02a2a'); } },
+  'piranha:lavaball': { fn: (K, f) => ENT.ball(K, f, { body: '#ff5a1a', r: 9, pal: ['#8a1a0a', '#c8300a', '#ff5a1a', '#ffa03a', '#ffe24a'], eyeW: '#ffe24a', pupil: '#1a0a0a', mid: (K, f) => { for (let i = 0; i < 4; i++) K.rect(-6 + i * 4, 4 + ((i + Math.floor(f * 4)) % 2), 1, 2, '#ffe24a'); } }) },
+  // ===== орбиты =====
+  'orbit:': { fn: (K, f) => ENT.ball(K, f, { body: '#c8d0e0', spN: 8, spL: 4, spC: '#5a6078', spW: 1.8, spinK: 2, pupil: '#c81a1a' }) },
+  'orbit:atom': { fn: (K, f) => { K.g.save(); for (let i = 0; i < 3; i++) { K.g.strokeStyle = '#3af0ff'; K.g.lineWidth = 1; K.g.beginPath(); K.g.ellipse(0, 0, 12, 4.5, i * 1.05, 0, 7); K.g.stroke(); const a = f * 6.283 * 2 + i * 2.1; K.ell(Math.cos(a) * 12 * Math.cos(i * 1.05) - Math.sin(a) * 4.5 * Math.sin(i * 1.05), Math.cos(a) * 12 * Math.sin(i * 1.05) + Math.sin(a) * 4.5 * Math.cos(i * 1.05), 1.6, 1.6, '#ffffff'); } K.g.restore();
+      K.sphere(0, 0, 5, 5, '#3af0ff', { pal: ['#0a6a8a', '#1aa8c8', '#3af0ff', '#a0faff', '#ffffff'] }); K.eye(-1.6, 0, 1.1, { angry: true }); K.eye(1.6, 0, 1.1, { angry: true }); } },
+  // ===== маятники (точка подвеса — центр картинки, груз висит вниз) =====
+  'pendulum:': { fn: (K, f) => ENT.ball(K, f, { body: '#8a94a8', r: 10, spN: 10, spL: 5, spC: '#e8eef8', spW: 1.8, face: false, mid: (K) => { K.ell(0, 0, 3, 3, '#3a3a48'); K.rect(-1, -1, 1, 1, '#ffffff'); } }) },
+  'pendulum:blade': { fn: (K, f) => { K.g.save(); K.g.beginPath(); K.g.arc(0, 0, 15, 0.2, Math.PI - 0.2); K.g.closePath(); K.g.clip(); K.sphere(0, 2, 16, 15, '#c8d0e0', { pal: ['#5a6078', '#8a94a8', '#c8d0e0', '#e8eef8', '#ffffff'], shine: false }); K.g.restore();
+      K.g.strokeStyle = '#ffffff'; K.g.lineWidth = 1; K.g.beginPath(); K.g.arc(0, 0, 14, 0.35 + f * 0.1, 1.2 + f * 0.3); K.g.stroke(); K.sphere(0, 0, 4.5, 4.5, '#ffd23a'); K.ell(0, 0, 1.5, 1.5, '#8a5a0a'); } },
+  'pendulum:candycane': { fn: (K, f) => { const pts = []; for (let i = 0; i <= 8; i++) pts.push([0, -2 + i * 3]); for (let i = 1; i <= 5; i++) { const a = Math.PI + i * 0.6; pts.unshift([6 + Math.cos(a) * 7, -2 + Math.sin(a) * 7]); }
+      for (let i = 0; i < pts.length - 1; i++) K.line(pts[i][0], pts[i][1], pts[i + 1][0], pts[i + 1][1], 4.5, i % 2 ? '#ffffff' : '#ff2a4a'); for (let i = 0; i < pts.length - 1; i += 2) K.line(pts[i][0] - 1, pts[i][1], pts[i + 1][0] - 1, pts[i + 1][1], 1, '#ffd0d8'); } },
+  'pendulum:spikelog': { fn: (K, f) => { for (let k = -12; k <= 12; k += 6) { K.poly([[k - 2, -5], [k, -11], [k + 2, -5]], '#e8eef8'); K.poly([[k - 2, 5], [k, 11], [k + 2, 5]], '#c8d0e0'); }
+      K.sphere(0, 0, 16, 6, '#9a6a32', { pal: ['#4a2a10', '#6a4220', '#9a6a32', '#c8924a', '#e8b878'], band: 1.4, shine: false }); K.ell(-15, 0, 2, 5, '#e8c890'); K.ell(-15, 0, 1, 3, '#a8784a'); K.ell(15, 0, 2, 5, '#c8a070'); } },
+  'pendulum:wreckingball': { n: 52, fn: (K, f) => { K.rect(-2, -17, 4, 4, '#8a8a9a'); K.sphere(0, 0, 14, 14, '#4a4a58', { pal: ['#1a1a24', '#2a2a36', '#4a4a58', '#7a7a8a', '#c8c8d8'] }); K.rect(-3, -15, 6, 2, '#ffd23a'); } },
+  // ===== пушки на стене (смотрят вправо, переворачиваются по стороне) =====
+  'turret:cannon': { fn: (K, f) => { K.sphere(-2, 6, 7, 5, '#8a5a2a'); K.ell(-2, 6, 2, 2, '#3a2a14'); K.sphere(3, -1, 10, 5, '#3a3a48', { pal: ['#14141c', '#24242e', '#3a3a48', '#6a6a7a', '#a8a8b8'] }); K.rect(10, -5, 3, 9, '#2a2a34'); K.rect(1, -5, 1.5, 9, '#c8a040'); K.rect(6, -5, 1.5, 9, '#c8a040'); K.ell(13, -0.5, 1.2, 3, '#0a0a10'); } },
+  'turret:laserturret': { fn: (K, f) => { K.sphere(0, 0, 8, 10, '#6a7088', { pal: ['#2a2e3a', '#454a5c', '#6a7088', '#9aa0b8', '#d0d4e0'] }); for (let y = -6; y <= 6; y += 3) K.rect(-6, y, 4, 1, '#2a2e3a'); K.rect(6, -3, 8, 6, '#3a3e4c'); K.rect(13, -2, 2, 4, '#1a1a24');
+      K.sphere(1, 0, 3.5, 3.5, '#ff3a3a', { pal: ['#6a0a0a', '#a01a1a', '#ff3a3a', '#ff9a9a', '#ffffff'] }); K.rect(-7, -10, 14, 2, '#ffd23a'); } },
+  'turret:moonturret': { fn: (K, f) => { K.sphere(0, 0, 8, 10, '#4a5a6a', { pal: ['#1a2430', '#2e3a48', '#4a5a6a', '#7a8a9a', '#c0ccd8'] }); K.ell(-3, -5, 3, 3, '#e8f0c0'); K.ell(-2, -6, 2.4, 2.4, '#4a5a6a'); K.rect(6, -3, 8, 6, '#2e3a48'); K.rect(13, -2, 2, 4, '#1a1a24');
+      K.sphere(1, 2, 3.5, 3.5, '#9aff6a', { pal: ['#1a5a0a', '#3a9a1a', '#9aff6a', '#d0ffb0', '#ffffff'] }); } },
+  'orbit:planetoid': { fn: (K, f) => { K.g.save(); K.g.strokeStyle = '#ffe0f0'; K.g.lineWidth = 2; K.g.beginPath(); K.g.ellipse(0, 0, 15, 3.5, -0.25, Math.PI, 6.283); K.g.stroke(); K.g.restore(); K.sphere(0, 0, 8, 8, '#ff8a5a', { band: 0.9 });
+      K.g.save(); K.g.strokeStyle = '#ffe0f0'; K.g.lineWidth = 2; K.g.beginPath(); K.g.ellipse(0, 0, 15, 3.5, -0.25, 0, Math.PI); K.g.stroke(); K.g.restore(); K.eye(-2.5, -1, 1.4, { angry: true }); K.eye(2.5, -1, 1.4, { angry: true }); } },
+};
+// кадр врага: рисуется один раз и берётся из кэша
+const ENA_C = new Map();
+function enArtFrame(key, f) {
+  const ck = key + '|' + f; let c = ENA_C.get(ck); if (c) return c;
+  const A = ENART[key], N = A.n || 48;
+  c = document.createElement('canvas'); c.width = c.height = N; const g = c.getContext('2d'); g.translate(N / 2, N / 2);
+  try { A.fn(enKit(g), f / ENA_F); } catch (e) { }
+  enPost(c); if (ENA_C.size > 1400) ENA_C.clear(); ENA_C.set(ck, c); return c;
+}
+const enArtKey = e => { const k = e.type + ':' + (e.look || ''); return ENART[k] ? k : null; };
+// враг в мире: сторона по движению, наклон, живые эффекты (хвосты, искры, аура)
+function enArtDraw(e) {
+  const key = enArtKey(e); if (!key) return false;
+  const A = ENART[key], N = A.n || 48, x = e.x, y = e.y;
+  if (e._lx == null) e._lx = x; const dx = x - e._lx; if (Math.abs(dx) > 0.05) e._dir = dx > 0 ? 1 : -1; e._lx = x;
+  let dir = e._dir || (e.vx ? Math.sign(e.vx) : 1), rot = 0, bob = 0;
+  const ph = ((e.t || 0) * (A.fps || 7) + (e.x * 0.013)) % ENA_F, fr = Math.floor((ph + ENA_F) % ENA_F);
+  if (e.type === 'ghost') dir = (typeof p !== 'undefined' && p.x < x) ? -1 : 1;
+  if (e.type === 'snail') { dir = 1; rot = (Math.sign(e.vy) || 1) > 0 ? Math.PI : 0; }
+  if (e.type === 'piranha') { dir = 1; rot = e.vy > 0 ? Math.PI : 0; }
+  if (e.type === 'meteor') { dir = 1; rot = 0; }
+  if (e.type === 'cone') { dir = 1; rot = Math.sin((e.t || 0) * 9) * 0.12; }
+  let sx = 1, sy = 1;
+  if (e.type === 'bouncer' && e.baseY != null) { const g0 = e.y > e.baseY - 6; sx = g0 ? 1.18 : 0.94; sy = g0 ? 0.8 : 1.06; }   // прыгун сплющивается о землю
+  if (e.type === 'pendulum') {   // цепь из звеньев от точки подвеса и болт
+    dir = 1; rot = -(e.ang || 0); const n = 12;
+    for (let i = 0; i <= n; i++) { const q = i / n, cx2 = e.ax + (x - e.ax) * q, cy2 = e.ay + (y - e.ay) * q; pell(ctx, cx2, cy2, 2.2, 2.2, '#2a2e3a'); pell(ctx, cx2, cy2, 1.4, 1.4, i % 2 ? '#8a94a8' : '#c8d0e0'); }
+    pell(ctx, e.ax, e.ay, 5, 5, '#2a2e3a'); pell(ctx, e.ax, e.ay, 3.5, 3.5, '#a8b0c0'); prect(ctx, e.ax - 1, e.ay - 2, 1, 1, '#ffffff');
+  }
+  if (e.type === 'turret') dir = e.dir || 1;
+  if (e.type === 'hawk') { rot = Math.max(-0.4, Math.min(0.4, (e.vy || 0) / 400)) * dir; }
+  if (e.type === 'bee' || e.type === 'bat' || e.type === 'ghost') bob = Math.sin((e.t || 0) * 5 + x * 0.1) * 1.5;
+  const col = (typeof EN_FX !== 'undefined' && EN_FX[e.type]) || '#ffffff';
+  // живые эффекты позади
+  if (e.type === 'meteor') { const n = Math.hypot(e.vx || 0, e.vy || 1) || 1, ux = -(e.vx || 0) / n, uy = -(e.vy || 1) / n, cols = e.look === 'comet' ? ['#ffffff', '#9ad8ff', '#3a8ae8'] : e.look === 'hail' ? ['#ffffff', '#e0f6ff', '#9ad8ff'] : ['#fff6a0', '#ffb02a', '#ff4a1a'];
+    for (let i = 9; i >= 1; i--) { const w = (11 - i) * (0.9 + Math.sin(time * 30 + i) * 0.12); ctx.globalAlpha = 0.85 - i * 0.08; pell(ctx, x + ux * i * 4.5 + Math.sin(time * 40 + i) * 1.2, y + uy * i * 4.5, w, w, cols[Math.min(2, Math.floor(i / 3.4))]); } ctx.globalAlpha = 1; }
+  if (e.type === 'piranha' && e.look === 'lavaball') { for (let i = 1; i < 6; i++) { ctx.globalAlpha = 0.6 - i * 0.09; pell(ctx, x + Math.sin(time * 20 + i) * 1.5, y + (e.vy > 0 ? -1 : 1) * i * 5, 7 - i, 7 - i, i < 2 ? '#ffe24a' : '#ff6a1a'); } ctx.globalAlpha = 1; }
+  if (e.type === 'orbit') { ctx.globalAlpha = 0.22; for (let k = 0; k < 28; k++) { const an = k / 28 * Math.PI * 2; prect(ctx, e.cx + Math.cos(an) * e.rad - 1, e.cy + Math.sin(an) * e.rad - 1, 2, 2, '#ffffff'); } ctx.globalAlpha = 1; }
+  // мягкая аура опасности
+  { const pu = 1 + Math.sin(time * 5 + x * 0.05) * 0.1, ar = Math.max(12, (e.r || 10) * 1.8) * pu; ctx.globalAlpha = 0.09; pell(ctx, x, y, ar * 1.3, ar * 1.3, col); ctx.globalAlpha = 0.16; pell(ctx, x, y, ar * 0.9, ar * 0.9, col); ctx.globalAlpha = 1; }
+  const c = enArtFrame(key, fr), sm = ctx.imageSmoothingEnabled;
+  if (e.type === 'pendulum' || e.type === 'turret') ctx.globalAlpha = 1;
+  ctx.save(); ctx.translate(pxSnap(x), pxSnap(y + bob)); if (rot) ctx.rotate(rot); ctx.scale(dir * sx, sy);
+  if (e.type === 'ghost' && e.look !== 'zhamster') ctx.globalAlpha = e.life != null && e.life < 1 ? Math.max(0, e.life) : 0.92;
+  ctx.imageSmoothingEnabled = false; drawRaw.call(ctx, c, -N / 2, -N / 2, N, N); ctx.imageSmoothingEnabled = sm; ctx.restore(); ctx.globalAlpha = 1;
+  if (e.type === 'turret' && e.cd < 0.45 && Math.sin((e.t || 0) * 40) > 0) { const col2 = e.look === 'cannon' ? '#ff8a1e' : e.look === 'moonturret' ? '#9aff6a' : '#ff3a3a'; ctx.globalAlpha = 0.5; pell(ctx, x + dir * 15, y, 7, 7, col2); ctx.globalAlpha = 1; pell(ctx, x + dir * 15, y, 3, 3, '#ffffff'); }   // вот-вот выстрелит
+  // искры сверху у огненных
+  if ((e.type === 'meteor' && !e.look) || (e.type === 'piranha' && e.look === 'lavaball')) for (let i = 0; i < 3; i++) { const q = (time * 2 + i / 3 + x * 0.01) % 1; ctx.globalAlpha = 1 - q; prect(ctx, x + Math.sin(i * 2.1 + time * 3) * 8, y - 6 - q * 14, 2, 2, '#ffe24a'); } ctx.globalAlpha = 1;
+  return true;
+}
+
+let ENHI = [];   // враги с новой внешностью из низкого буфера — дорисуются поверх в полном разрешении
 // враги — общий слой красоты: каждый рисуется в свой маленький холст, получает чёткую тёмную обводку (как у героев),
 // объём (свет сверху слева, тень снизу справа) и пульсирующую ауру опасности своего цвета; пиксельная сетка остаётся та же
-const EN_FX = { bee: '#ffd23a', spiky: '#ff3a5a', cone: '#ff8a3a', hawk: '#ff5a3a', ghost: '#b08aff', bat: '#a64aff', snail: '#7aff8a', meteor: '#ff6a1a', piranha: '#3ae0ff', orbit: '#ff3aa0', bouncer: '#3ab0ff' };
+const EN_FX = { pendulum: '#c8d0e0', turret: '#ff3a3a', bee: '#ffd23a', spiky: '#ff3a5a', cone: '#ff8a3a', hawk: '#ff5a3a', ghost: '#b08aff', bat: '#a64aff', snail: '#7aff8a', meteor: '#ff6a1a', piranha: '#3ae0ff', orbit: '#ff3aa0', bouncer: '#3ab0ff' };
 const ENA = document.createElement('canvas'), ENB = document.createElement('canvas'), ena = ENA.getContext('2d'), enb = ENB.getContext('2d');
 { const de0 = drawEnts;
   drawEnts = function () {
@@ -12280,6 +12609,7 @@ const ENA = document.createElement('canvas'), ENB = document.createElement('canv
         const col = EN_FX[e.type];
         if (!col || e.y < camY - 60 || e.y > camY + H + 60) { rest.push(e); continue; }
         if ((e.type === 'cone' && e.st !== 'fall') || (e.type === 'hawk' && e.st !== 'fly') || (e.type === 'ghost' && e.st !== 'chase') || (e.type === 'meteor' && e.st !== 'fall') || (e.type === 'piranha' && e.st !== 'jump')) { rest.push(e); continue; }
+        if (enArtKey(e)) { if (main === pxg) ENHI.push(e); else enArtDraw(e); continue; }   // новая внешность — в полном разрешении
         // 1) сам враг — в холст A, по центру
         ena.setTransform(1, 0, 0, 1, 0, 0); ena.clearRect(0, 0, px, px); ena.imageSmoothingEnabled = false; ena.globalAlpha = 1;
         ena.setTransform(k, 0, 0, k, px / 2 - e.x * k, px / 2 - e.y * k);
