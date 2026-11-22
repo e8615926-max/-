@@ -314,6 +314,162 @@
           ".validate": "newData.hasChildren()"
         }
       }
+    },
+    "clubs": {
+      "$cid": {
+        ".read": "auth != null",
+        ".write": "auth != null && data.child('i/o').val() === auth.uid && !newData.exists()",
+        ".validate": "$cid.matches(/^[a-z0-9]{7}$/)",
+        "i": {
+          ".write": "auth != null && (!data.exists() ? newData.child('o').val() === auth.uid : data.child('o').val() === auth.uid)",
+          ".validate": "newData.hasChildren(['nm', 'bd', 'ty', 'rq', 'o', 't'])",
+          "nm": {
+            ".validate": "newData.isString() && newData.val().length >= 3 && newData.val().length <= 18"
+          },
+          "ds": {
+            ".validate": "newData.isString() && newData.val().length <= 80"
+          },
+          "bd": {
+            ".validate": "newData.hasChildren()"
+          },
+          "ty": {
+            ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 2"
+          },
+          "rq": {
+            ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 1000000"
+          },
+          "lg": {
+            ".validate": "newData.isString() && newData.val().length <= 3"
+          },
+          "o": {
+            ".validate": "newData.isString() && (!data.exists() || newData.val() === data.val() || root.child('clubs/' + $cid + '/m/' + newData.val()).exists())"
+          },
+          "t": {
+            ".validate": "newData.isNumber()"
+          },
+          "$other": {
+            ".validate": false
+          }
+        },
+        "m": {
+          "$uid": {
+            ".write": "auth != null && ((auth.uid === $uid && (!newData.exists() || (data.exists() ? newData.child('r').val() === data.child('r').val() : ((root.child('clubs/' + $cid + '/i/ty').val() === 0 && newData.child('r').val() === 0) || (root.child('clubs/' + $cid + '/i/o').val() === auth.uid && newData.child('r').val() === 3))))) || root.child('clubs/' + $cid + '/i/o').val() === auth.uid || (root.child('clubs/' + $cid + '/m/' + auth.uid + '/r').val() >= 2 && (!data.exists() || data.child('r').val() < 2) && (!newData.exists() || newData.child('r').val() < 2)))",
+            ".validate": "newData.hasChildren(['n', 'tr', 'r'])",
+            "n": {
+              ".validate": "newData.isString() && newData.val().length >= 1 && newData.val().length <= 16"
+            },
+            "av": {
+              ".validate": "newData.isString() && newData.val().length <= 44"
+            },
+            "fr": {
+              ".validate": "newData.isString() && newData.val().length <= 44"
+            },
+            "tr": {
+              ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 100000000"
+            },
+            "r": {
+              ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 3 && (newData.val() !== 3 || root.child('clubs/' + $cid + '/i/o').val() === $uid || newData.parent().parent().parent().child('i/o').val() === $uid)"
+            },
+            "j": {
+              ".validate": "newData.isNumber()"
+            },
+            "g": {
+              ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 100000"
+            },
+            "w": {
+              ".validate": "newData.isNumber()"
+            },
+            "$other": {
+              ".validate": false
+            }
+          }
+        },
+        "q": {
+          "$uid": {
+            ".write": "auth != null && ((auth.uid === $uid && root.child('clubs/' + $cid + '/i/ty').val() === 1) || root.child('clubs/' + $cid + '/i/o').val() === auth.uid || root.child('clubs/' + $cid + '/m/' + auth.uid + '/r').val() >= 2)",
+            ".validate": "newData.hasChildren(['n', 'tr', 't'])",
+            "n": {
+              ".validate": "newData.isString() && newData.val().length >= 1 && newData.val().length <= 16"
+            },
+            "av": {
+              ".validate": "newData.isString() && newData.val().length <= 44"
+            },
+            "tr": {
+              ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 100000000"
+            },
+            "t": {
+              ".validate": "newData.val() === now"
+            },
+            "$other": {
+              ".validate": false
+            }
+          }
+        }
+      }
+    },
+    "clubx": {
+      ".read": "auth != null",
+      ".indexOn": [
+        "tr"
+      ],
+      "$cid": {
+        ".write": "auth != null && root.child('clubs/' + $cid + '/i/o').val() === auth.uid",
+        ".validate": "newData.hasChildren(['nm', 'n', 'tr'])",
+        "nm": {
+          ".validate": "newData.isString() && newData.val().length >= 3 && newData.val().length <= 18"
+        },
+        "bd": {
+          ".validate": "newData.hasChildren()"
+        },
+        "ty": {
+          ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 2"
+        },
+        "rq": {
+          ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 1000000"
+        },
+        "lg": {
+          ".validate": "newData.isString() && newData.val().length <= 3"
+        },
+        "n": {
+          ".write": "auth != null && root.child('clubs/' + $cid + '/m/' + auth.uid).exists()",
+          ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 30"
+        },
+        "tr": {
+          ".write": "auth != null && root.child('clubs/' + $cid + '/m/' + auth.uid).exists()",
+          ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 3000000000"
+        },
+        "t": {
+          ".validate": "newData.isNumber()"
+        },
+        "$other": {
+          ".validate": false
+        }
+      }
+    },
+    "clubchat": {
+      "$cid": {
+        ".read": "auth != null && root.child('clubs/' + $cid + '/m/' + auth.uid).exists()",
+        ".write": "auth != null && root.child('clubs/' + $cid + '/i/o').val() === auth.uid && !newData.exists()",
+        "$mid": {
+          ".write": "auth != null && !data.exists() && root.child('clubs/' + $cid + '/m/' + auth.uid).exists()",
+          ".validate": "newData.hasChildren(['u', 'n', 'x', 't']) && newData.child('u').val() === auth.uid",
+          "u": {
+            ".validate": "newData.isString()"
+          },
+          "n": {
+            ".validate": "newData.isString() && newData.val().length >= 1 && newData.val().length <= 16"
+          },
+          "x": {
+            ".validate": "newData.isString() && newData.val().length >= 1 && newData.val().length <= 120"
+          },
+          "t": {
+            ".validate": "newData.val() === now"
+          },
+          "$other": {
+            ".validate": false
+          }
+        }
+      }
     }
   }
 }

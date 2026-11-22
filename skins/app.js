@@ -111,6 +111,68 @@ const hueShift = (hex, deg) => { if (!hex) return hex; let r = parseInt(hex.slic
   if (mx !== mn) { const d = mx - mn; s = l > 0.5 ? d / (2 - mx - mn) : d / (mx + mn); h = mx === r ? (g - b) / d + (g < b ? 6 : 0) : mx === g ? (b - r) / d + 2 : (r - g) / d + 4; h /= 6; }
   h = (h + deg / 360) % 1; const q = l < 0.5 ? l * (1 + s) : l + s - l * s, p = 2 * l - q, f = t => { t = (t + 1) % 1; return t < 1 / 6 ? p + (q - p) * 6 * t : t < 0.5 ? q : t < 2 / 3 ? p + (q - p) * (2 / 3 - t) * 6 : p; };
   return '#' + [f(h + 1 / 3), f(h), f(h - 1 / 3)].map(v => Math.round(v * 255).toString(16).padStart(2, '0')).join(''); };
+// ---------- особые скины NPC: свои кадры, а не перекраска шаблона ----------
+const SPC_FUR = new Set(['#f0a040', '#c06a20']), SPC_CREAM = '#ffe6b0', SPC_OL = new Set(['#4a2410', '#1a1010']);
+const spcClone = fr => fr.map(f => f.slice());
+const spcSet = (f, x, y, c) => { if (x >= 0 && y >= 0 && x < G && y < G) f[y * G + x] = c; };
+const spcRect = (f, x, y, w, h, c) => { for (let yy = y; yy < y + h; yy++) for (let xx = x; xx < x + w; xx++) spcSet(f, xx, yy, c); };
+const spcMap = (f, fn) => f.map((c, i) => c ? fn(c, i % G, Math.floor(i / G)) : c);
+const SPECIALS = [
+  // 1) телевизор вместо головы: на экране то мордочка, то помехи, то цветные полосы
+  { ru: 'ТЕЛЕХОМЯК', en: 'TV HAMSTER', a: 'NEO_HAMSTER', au: { t: 'glow', c: '#7ad8ff' }, fps: 4, make: base => base.map((f0, k) => {
+    const f = f0.slice(); for (let y = 0; y <= 17; y++) for (let x = 0; x < G; x++) f[y * G + x] = null;
+    spcRect(f, 7, 5, 18, 13, '#1e1e26'); spcRect(f, 8, 6, 16, 11, '#6a6a7a'); spcRect(f, 8, 6, 16, 1, '#c8c8d0'); spcRect(f, 8, 6, 1, 11, '#a0a0b0');
+    spcRect(f, 9, 7, 10, 9, '#1e1e26');
+    const sx = 10, sy = 8, sw = 8, sh = 7;
+    if (k === 0) { spcRect(f, sx, sy, sw, sh, '#3ab0ff'); spcRect(f, sx + 1, sy + 2, 2, 2, '#ffffff'); spcRect(f, sx + 5, sy + 2, 2, 2, '#ffffff'); spcRect(f, sx + 2, sy + 5, 4, 1, '#1a1a24'); spcSet(f, sx + 1, sy + 4, '#1a1a24'); spcSet(f, sx + 6, sy + 4, '#1a1a24'); }
+    else if (k === 1) { for (let y = 0; y < sh; y++) for (let x = 0; x < sw; x++) spcSet(f, sx + x, sy + y, ['#ffffff', '#c8c8d0', '#6a6a7a', '#2a2a34'][Math.floor(hash(x * 31 + y * 7 + k * 101) * 4)]); }
+    else if (k === 2) { ['#ffffff', '#ffd23a', '#3ae0e0', '#3ae05a', '#ff3aff', '#ff3a3a', '#3a5aff', '#1a1a24'].forEach((c, i) => spcRect(f, sx + i, sy, 1, sh, c)); }
+    else { spcRect(f, sx, sy, sw, sh, '#ff7ab0'); spcRect(f, sx + 2, sy + 2, 1, 1, '#ffffff'); spcRect(f, sx + 5, sy + 2, 1, 1, '#ffffff'); spcRect(f, sx + 1, sy + 4, 6, 1, '#ffffff'); spcRect(f, sx + 2, sy + 5, 4, 1, '#ffffff'); }
+    spcRect(f, 20, 8, 2, 2, '#ffd23a'); spcRect(f, 20, 11, 2, 2, '#ff3a3a'); spcRect(f, 20, 14, 2, 1, '#1e1e26');
+    for (let i = 0; i < 4; i++) { spcSet(f, 12 - i, 4 - i, '#1e1e26'); spcSet(f, 19 + i, 4 - i, '#1e1e26'); } spcSet(f, 8, 0, '#ff3a3a'); spcSet(f, 23, 0, '#ff3a3a');
+    spcRect(f, 13, 17, 6, 1, '#1e1e26');
+    return f; }) },
+  // 2) бумажный: будто нарисован карандашом на мятой бумаге — контур «дрожит» от кадра к кадру
+  { ru: 'БУМАЖНЫЙ ХОМЯК', en: 'PAPER HAMSTER', a: 'MILA_PIXEL', au: { t: 'none', c: '#ffffff' }, fps: 5, make: base => base.map((f0, k) => {
+    const f = spcMap(f0, c => SPC_OL.has(c) ? '#3a3a48' : c === '#c06a20' ? '#d6cfbd' : SPC_FUR.has(c) ? '#f4efe2' : c === SPC_CREAM ? '#fbf8f0' : c === '#ffffff' || c === '#1a1010' ? c : '#e8b8c0');
+    for (let i = 0; i < G * G; i++) if (f[i] && f[i] !== '#3a3a48') { const x = i % G, y = Math.floor(i / G); if ((x * 3 + y * 5) % 11 === 0 || ((x - y + 40) % 9 === 0 && y > 8)) f[i] = '#d6cfbd'; }   // сгибы мятой бумаги
+    const ol = []; for (let i = 0; i < G * G; i++) if (f0[i] && SPC_OL.has(f0[i])) ol.push(i);
+    for (const i of ol) { const h = hash(i * 13 + k * 977); if (h < 0.14) { const x = i % G, y = Math.floor(i / G), d = [[1, 0], [-1, 0], [0, 1], [0, -1]][Math.floor(h * 28) % 4]; if (!f[(y + d[1]) * G + x + d[0]]) spcSet(f, x + d[0], y + d[1], '#5a5a6a'); } }
+    return f; }) },
+  // 3) вирус: весь чёрный, аура из цифр; в прыжке растекается чёрной жижей с цифрами и собирается обратно
+  { ru: 'ВИРУС', en: 'VIRUS', a: 'TOXIC_FOX', au: { t: 'digits', c: '#3aff6a' }, fps: 5, make: base => {
+    const black = f0 => spcMap(f0, c => SPC_OL.has(c) ? '#000000' : c === '#c06a20' ? '#0a0a10' : SPC_FUR.has(c) ? '#16161e' : c === SPC_CREAM ? '#22222e' : c === '#1a1010' || c === '#ffffff' ? '#3aff6a' : '#1a3a22');
+    const dig = (f, seed) => { for (let i = 0; i < G * G; i++) if (f[i] && f[i] !== '#000000' && hash(i * 7 + seed) < 0.07) f[i] = '#3aff6a'; };
+    const n = black(base[0]); dig(n, 1);
+    const melt = n.slice(); for (let x = 9; x < 23; x++) { const len = Math.floor(hash(x * 5) * 4) + 1; for (let y = 29; y < 29 + len; y++) spcSet(melt, x, y, x % 3 ? '#16161e' : '#000000'); }
+    for (let y = 17; y >= 4; y--) for (let x = 0; x < G; x++) { melt[(y + 2) * G + x] = melt[y * G + x] || melt[(y + 2) * G + x]; } for (let y = 4; y < 6; y++) for (let x = 0; x < G; x++) melt[y * G + x] = null;
+    const blob = Array(G * G).fill(null);
+    for (let y = 18; y < 31; y++) for (let x = 3; x < 29; x++) { const dx = (x - 16) / 13, dy = (y - 27) / (y < 27 ? 9 : 4), wob = Math.sin(x * 1.3) * 0.08; if (dx * dx + dy * dy < 1 + wob) blob[y * G + x] = dx * dx + dy * dy > 0.8 ? '#000000' : y < 22 ? '#22222e' : '#16161e'; }
+    for (const [x, y] of [[9, 24], [14, 22], [19, 25], [23, 23], [12, 27], [17, 28]]) spcSet(blob, x, y, '#3aff6a');
+    for (const [x, y] of [[7, 17], [24, 16], [16, 15]]) { spcSet(blob, x, y, '#16161e'); spcSet(blob, x, y + 1, '#000000'); }
+    dig(blob, 3);
+    const re = Array(G * G).fill(null); for (let i = 0; i < G * G; i++) re[i] = blob[i];
+    for (let y = 8; y < 24; y++) for (let x = 0; x < G; x++) if (n[y * G + x] && y < 22) re[(y + 4) * G + x] = n[y * G + x];
+    return [n, melt, blob, re]; } },
+  // ещё: галактика, лава, глитч, призрак
+  { ru: 'ГАЛАКТИКА', en: 'GALAXY', a: 'STARGIRL', au: { t: 'spark', c: '#c8b0ff' }, fps: 4, make: base => base.map((f0, k) => {
+    const f = spcMap(f0, (c, x, y) => SPC_OL.has(c) ? '#0a0a2a' : c === '#c06a20' ? '#1a1a5a' : SPC_FUR.has(c) ? ((x + y) % 7 === 0 ? '#5a2a9a' : '#2a2a7a') : c === SPC_CREAM ? '#3a3a9a' : c === '#1a1010' ? '#ffffff' : c === '#ffffff' ? '#ffd23a' : '#ff7ad8');
+    for (let i = 0; i < G * G; i++) if (f[i] && f[i] !== '#0a0a2a') { const h = hash(i * 17 + k * 3); if (h < 0.05) f[i] = '#ffffff'; else if (h < 0.07) f[i] = '#ffd23a'; }
+    return f; }) },
+  { ru: 'ЛАВОВЫЙ', en: 'LAVA', a: 'DRAKON777', au: { t: 'fire', c: '#ff6a1a' }, fps: 5, make: base => base.map((f0, k) => {
+    const hot = ['#ff4a1a', '#ff8a1e', '#ffd23a', '#ff8a1e'][k];
+    return spcMap(f0, (c, x, y) => SPC_OL.has(c) ? '#120808' : c === '#1a1010' ? '#ffd23a' : c === '#ffffff' ? '#ffffff' : ((x * 2 + y * 3) % 9 === 0 || (x + y * 2) % 13 === 0) ? hot : c === SPC_CREAM ? '#3a2a24' : '#2a1a1a'); }) },
+  { ru: 'ГЛИТЧ', en: 'GLITCH', a: 'GAMER_PRO', au: { t: 'none', c: '#ffffff' }, fps: 8, make: base => base.map((f0, k) => {
+    const f = Array(G * G).fill(null);
+    for (let y = 0; y < G; y++) { const sh = hash(y * 3 + k * 53) < 0.18 ? Math.round((hash(y + k * 7) - 0.5) * 6) : 0; for (let x = 0; x < G; x++) { const c = f0[y * G + x]; if (c) spcSet(f, x + sh, y, c); } }
+    const src = f.slice(); for (let i = 0; i < G * G; i++) if (src[i]) { const x = i % G, y = Math.floor(i / G); if (x > 0 && !src[i - 1]) spcSet(f, x - 1, y, '#3affff'); if (x < G - 1 && !src[i + 1]) spcSet(f, x + 1, y, '#ff3aff'); }   // цветной сдвиг по краям — по копии, иначе заливка «бежит» до края
+    return f; }) },
+  { ru: 'ПРИЗРАК', en: 'GHOST', a: 'LUNA_ART', au: { t: 'glow', c: '#bfe0ff' }, fps: 4, make: base => base.map((f0, k) => {
+    const f = spcMap(f0, c => SPC_OL.has(c) ? '#7a8ab8' : c === '#c06a20' ? '#c8d4f0' : SPC_FUR.has(c) ? '#e8f0ff' : c === SPC_CREAM ? '#f6f9ff' : c === '#1a1010' ? '#2a3a6a' : c === '#ffffff' ? '#ffffff' : '#b8c8f0');
+    for (let y = 26; y < G; y++) for (let x = 0; x < G; x++) f[y * G + x] = null;   // вместо лап — волнистый «хвост» привидения
+    for (let x = 9; x < 23; x++) { const h = 26 + ((x + k) % 4 < 2 ? 1 : 3); for (let y = 25; y < h; y++) spcSet(f, x, y, '#e8f0ff'); spcSet(f, x, h, '#7a8ab8'); }
+    return f; }) },
+];
 function botSkins() {
   const out = [], base = tplFrames(), now = Date.now();
   BOT_IDEAS.forEach((idea, i) => {
@@ -120,6 +182,8 @@ function botSkins() {
     if (born > now) return;
     out.push({ id: 'b' + R.n + '_' + i, bot: true, u: 'bot_' + author, n: author, t: T(idea[0], idea[1]), d: T('СКИН ОТ ' + author + '. ЛАЙКНИ, ЕСЛИ НРАВИТСЯ!', 'A SKIN BY ' + author + '. LIKE IT IF YOU DO!'), k: i % 4 === 3 ? 'a' : 's', an: true, fps: 6, frames, au: { t: idea[2], c: idea[3] }, bg: '#3a2a6a', ts: born });
   });
+  // особые скины — всегда в ленте (у каждого конкурса свой номер)
+  { const R = round(now); SPECIALS.forEach((sp, i) => { try { out.push({ id: 'x' + R.n + '_' + i, bot: true, u: 'bot_' + sp.a, n: sp.a, t: T(sp.ru, sp.en), d: T('ОСОБЫЙ СКИН ОТ ' + sp.a + '. ЛАЙКНИ, ЕСЛИ НРАВИТСЯ!', 'A SPECIAL SKIN BY ' + sp.a + '. LIKE IT IF YOU DO!'), k: 's', an: true, fps: sp.fps, frames: sp.make(base), au: { ...sp.au }, bg: '#3a2a6a', ts: R.start + i * 3600e3 }); } catch (e) {} }); }
   return out;
 }
 const botLikes = s => { const age = Math.max(0, (Date.now() - s.ts) / 36e5), h = hash(strHash(s.id) * 13 + 5); return Math.floor(Math.min(40 + h * 260, age * (0.25 + h * 1.6))); };   // NPC тоже лайкают — и чужие, и твои скины
@@ -179,6 +243,12 @@ function aura(g, au, cx, cy, R, t, front) {
     g.globalAlpha = 1; return;
   }
   const P = R * 0.07;
+  if (au.t === 'digits') {   // аура из цифр: нули и единицы сыплются вокруг, как в фильмах про хакеров
+    const DG = ['111|101|101|101|111', '010|110|010|010|111'];
+    for (let i = 0; i < 10; i++) { const q = (t * 0.45 + i / 10) % 1, x = cx + (hash(i * 9 + 1) - 0.5) * R * 2.1, y = cy - R * 1.05 + q * R * 2.1, d = DG[Math.floor(hash(i * 3 + Math.floor(t * 3)) * 2)].split('|');
+      g.globalAlpha = Math.sin(q * Math.PI) * 0.95; g.fillStyle = c; const s2 = Math.max(1, P * 0.45);
+      d.forEach((row, ry) => [...row].forEach((ch, rx) => { if (ch === '1') g.fillRect(Math.round(x + rx * s2), Math.round(y + ry * s2), Math.ceil(s2), Math.ceil(s2)); })); }
+  }
   if (au.t === 'spark') for (let i = 0; i < 6; i++) { const a = t * 1.6 + i * 1.05, x = cx + Math.cos(a) * R * 0.95, y = cy + Math.sin(a) * R * 0.8, tw = Math.max(0, Math.sin(t * 6 + i * 2)); g.globalAlpha = 0.4 + tw * 0.6; g.fillStyle = i % 2 ? c : '#ffffff'; g.fillRect(x - P / 2, y - P * 1.5, P, P * 3); g.fillRect(x - P * 1.5, y - P / 2, P * 3, P); }
   if (au.t === 'heart') for (let i = 0; i < 4; i++) { const q = (t * 0.5 + i / 4) % 1, x = cx + Math.sin(i * 2.1 + t) * R * 0.8, y = cy + R * 0.6 - q * R * 1.7; g.globalAlpha = 1 - q; heart(g, x, y, P * 1.4, c); }
   if (au.t === 'snow') for (let i = 0; i < 8; i++) { const q = (t * 0.35 + i / 8) % 1, x = cx + (hash(i * 9) - 0.5) * R * 2 + Math.sin(t * 2 + i) * P * 2, y = cy - R + q * R * 2; g.globalAlpha = 0.9; g.fillStyle = '#ffffff'; g.fillRect(x, y, P, P); }
@@ -274,7 +344,7 @@ async function viewContest() {
   if (R.n > 0) { const P = { n: R.n - 1, start: R.start - (SUBMIT_D + FINAL_D) * DAY, sEnd: R.start - FINAL_D * DAY }; const w = top3(P)[0]; if (w) { m.appendChild(el('div', 'sub', T('ПОБЕДИТЕЛЬ ПРОШЛОГО КОНКУРСА:', 'LAST CONTEST WINNER:'))); m.appendChild(grid([w])); } }
   m.appendChild(el('div', 'note', T('КАК ЭТО РАБОТАЕТ: 10 ДНЕЙ ВСЕ ВЫКЛАДЫВАЮТ СКИНЫ И СТАВЯТ ЛАЙКИ. ПОТОМ ТРИ СКИНА С БОЛЬШИМ ЧИСЛОМ ЛАЙКОВ ВЫХОДЯТ В ФИНАЛ, И 1 ДЕНЬ ВСЕ ВЫБИРАЮТ ЛУЧШИЙ. ПОБЕДИТЕЛЬ ПОЯВИТСЯ В ИГРЕ.', 'HOW IT WORKS: FOR 10 DAYS EVERYONE POSTS SKINS AND LIKES. THEN THE TOP 3 GO TO THE FINAL, AND FOR 1 DAY EVERYONE PICKS THE BEST. THE WINNER APPEARS IN THE GAME.')));
 }
-const AURAS = [['none', 'НЕТ', 'NONE'], ['glow', 'СИЯНИЕ', 'GLOW'], ['fire', 'ОГОНЬ', 'FIRE'], ['spark', 'ИСКРЫ', 'SPARKS'], ['heart', 'СЕРДЕЧКИ', 'HEARTS'], ['snow', 'СНЕГ', 'SNOW'], ['rainbow', 'РАДУГА', 'RAINBOW']];
+const AURAS = [['none', 'НЕТ', 'NONE'], ['digits', 'ЦИФРЫ', 'DIGITS'], ['glow', 'СИЯНИЕ', 'GLOW'], ['fire', 'ОГОНЬ', 'FIRE'], ['spark', 'ИСКРЫ', 'SPARKS'], ['heart', 'СЕРДЕЧКИ', 'HEARTS'], ['snow', 'СНЕГ', 'SNOW'], ['rainbow', 'РАДУГА', 'RAINBOW']];
 const auraName = t => { const a = AURAS.find(q => q[0] === t) || AURAS[0]; return T(a[1], a[2]); };
 
 // ---------- редактор ----------
