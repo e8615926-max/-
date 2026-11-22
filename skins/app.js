@@ -132,13 +132,35 @@ const SPECIALS = [
     for (let i = 0; i < 4; i++) { spcSet(f, 12 - i, 4 - i, '#1e1e26'); spcSet(f, 19 + i, 4 - i, '#1e1e26'); } spcSet(f, 8, 0, '#ff3a3a'); spcSet(f, 23, 0, '#ff3a3a');
     spcRect(f, 13, 17, 6, 1, '#1e1e26');
     return f; }) },
-  // 2) бумажный: будто нарисован карандашом на мятой бумаге — контур «дрожит» от кадра к кадру
-  { ru: 'БУМАЖНЫЙ ХОМЯК', en: 'PAPER HAMSTER', a: 'MILA_PIXEL', au: { t: 'none', c: '#ffffff' }, fps: 5, make: base => base.map((f0, k) => {
-    const f = spcMap(f0, c => SPC_OL.has(c) ? '#3a3a48' : c === '#c06a20' ? '#d6cfbd' : SPC_FUR.has(c) ? '#f4efe2' : c === SPC_CREAM ? '#fbf8f0' : c === '#ffffff' || c === '#1a1010' ? c : '#e8b8c0');
-    for (let i = 0; i < G * G; i++) if (f[i] && f[i] !== '#3a3a48') { const x = i % G, y = Math.floor(i / G); if ((x * 3 + y * 5) % 11 === 0 || ((x - y + 40) % 9 === 0 && y > 8)) f[i] = '#d6cfbd'; }   // сгибы мятой бумаги
-    const ol = []; for (let i = 0; i < G * G; i++) if (f0[i] && SPC_OL.has(f0[i])) ol.push(i);
-    for (const i of ol) { const h = hash(i * 13 + k * 977); if (h < 0.14) { const x = i % G, y = Math.floor(i / G), d = [[1, 0], [-1, 0], [0, 1], [0, -1]][Math.floor(h * 28) % 4]; if (!f[(y + d[1]) * G + x + d[0]]) spcSet(f, x + d[0], y + d[1], '#5a5a6a'); } }
-    return f; }) },
+  // 2) бумажный: целый лист мятой бумаги, на нём хомяк карандашом — только линии и штриховка, шарф белый, как лист; моргает и прыгает
+  { ru: 'БУМАЖНЫЙ ХОМЯК', en: 'PAPER HAMSTER', a: 'MILA_PIXEL', au: { t: 'none', c: '#ffffff' }, fps: 5, make: base => {
+    const PAPER = '#f6f2e8', CREASE = '#e3dccb', EDGE = '#c9bfa8', SHADOW = '#9a907c', PEN = '#45454f', PEN2 = '#8a8a96';
+    const sheet = () => { const f = Array(G * G).fill(null);
+      spcRect(f, 3, 1, 26, 31, SHADOW);                        // тень листа
+      spcRect(f, 2, 0, 26, 31, EDGE); spcRect(f, 3, 1, 24, 29, PAPER);   // лист — почти на весь кадр: хомяк целиком, даже в прыжке
+      // мятые грани: светлые и тёмные полосы-сгибы
+      for (let y = 1; y < 30; y++) for (let x = 3; x < 27; x++) { const a = (x * 2 + y) % 17, b2 = (x - y * 2 + 60) % 23; if (a === 0 || b2 === 0) f[y * G + x] = CREASE; }
+      for (const [x0, y0, x1, y1] of [[3, 9, 26, 5], [6, 29, 20, 1], [3, 21, 26, 26]]) { const n = Math.max(Math.abs(x1 - x0), Math.abs(y1 - y0)); for (let i = 0; i <= n; i++) { const x = Math.round(x0 + (x1 - x0) * i / n), y = Math.round(y0 + (y1 - y0) * i / n); if (f[y * G + x] === PAPER || f[y * G + x] === CREASE) f[y * G + x] = CREASE; } }
+      spcSet(f, 26, 1, EDGE); spcSet(f, 25, 1, EDGE); spcSet(f, 26, 2, EDGE); spcSet(f, 27, 0, null); spcSet(f, 26, 0, null); spcSet(f, 27, 1, null); spcSet(f, 28, 1, null);   // загнутый уголок
+      return f; };
+    // хомяк карандашом поверх листа: ox/oy — сдвиг (прыжок), blink — глаза закрыты
+    const draw = (src, oy, blink, seed) => { const f = sheet(), cell = (x, y) => src[y * G + x], at = (x, y) => (y >= 0 && y < G && x >= 0 && x < G) ? cell(x, y) : null;
+      const isScarf = c => c === '#ff5a8a' || c === '#ff9ab8' || c === '#ff3d7f' || c === '#c01f5a';
+      for (let y = 0; y < G; y++) for (let x = 0; x < G; x++) { const c = cell(x, y); if (!c) continue; const ty = y + oy, X = x + 1;
+        if (ty < 1 || ty > 29 || X < 3 || X > 26) continue;
+        let col = null;
+        if (SPC_OL.has(c) && c !== '#1a1010') col = PEN;                                   // контур — карандаш
+        else if (c === '#1a1010') col = blink ? (y === 12 ? PEN : null) : PEN;              // глаз (закрыт — черта)
+        else if (c === '#ffffff') col = blink ? null : null;                                 // блик — бумага
+        else if (c === '#c06a20') col = (x + y) % 2 ? PEN2 : null;                           // лапки — штриховка
+        else if (c === '#ff9fb0') col = (x + y) % 3 === 0 ? PEN2 : null;                     // уши — точечки
+        else if (isScarf(c)) { const edge = [[1, 0], [-1, 0], [0, 1], [0, -1]].some(([dx, dy]) => { const n = at(x + dx, y + dy); return n && !isScarf(n) && !SPC_OL.has(n); }); col = edge ? PEN : null; }   // шарф белый, только край
+        else if (c === '#f0a040' && hash(x * 7 + y * 13 + seed) < 0.06) col = PEN2;          // лёгкие карандашные штрихи по шерсти
+        if (col) f[ty * G + X] = col;
+        else if (blink && c === '#1a1010' && y === 12) f[ty * G + X] = PEN; }
+      for (let i = 0; i < G * G; i++) if (f[i] === PEN && hash(i * 31 + seed) < 0.08) { const x = i % G, y = Math.floor(i / G), nx = x + (hash(i + seed) < 0.5 ? 1 : -1); if (f[y * G + nx] === PAPER || f[y * G + nx] === CREASE) f[y * G + nx] = PEN2; }   // карандаш «дрожит»
+      return f; };
+    return [draw(base[0], 0, false, 1), draw(base[1], 0, true, 2), draw(base[2], -3, false, 3), draw(base[0], 0, false, 4)]; } },
   // 3) вирус: весь чёрный, аура из цифр; в прыжке растекается чёрной жижей с цифрами и собирается обратно
   { ru: 'ВИРУС', en: 'VIRUS', a: 'TOXIC_FOX', au: { t: 'digits', c: '#3aff6a' }, fps: 5, make: base => {
     const black = f0 => spcMap(f0, c => SPC_OL.has(c) ? '#000000' : c === '#c06a20' ? '#0a0a10' : SPC_FUR.has(c) ? '#16161e' : c === SPC_CREAM ? '#22222e' : c === '#1a1010' || c === '#ffffff' ? '#3aff6a' : '#1a3a22');
@@ -172,6 +194,34 @@ const SPECIALS = [
     for (let y = 26; y < G; y++) for (let x = 0; x < G; x++) f[y * G + x] = null;   // вместо лап — волнистый «хвост» привидения
     for (let x = 9; x < 23; x++) { const h = 26 + ((x + k) % 4 < 2 ? 1 : 3); for (let y = 25; y < h; y++) spcSet(f, x, y, '#e8f0ff'); spcSet(f, x, h, '#7a8ab8'); }
     return f; }) },
+  // ещё скины
+  { ru: 'РОБОТ', en: 'ROBOT', a: 'ARTEMKA', au: { t: 'spark', c: '#7ad8ff' }, fps: 4, make: base => base.map((f0, k) => {
+    const led = k % 2 ? '#ffd23a' : '#ff3a3a';
+    const f = spcMap(f0, (c, x, y) => SPC_OL.has(c) && c !== '#1a1010' ? '#2a2e3a' : c === '#1a1010' ? led : c === '#ffffff' ? '#ffffff' : c === '#c06a20' ? '#5a6278' : c === SPC_CREAM ? '#c8d0e0' : SPC_FUR.has(c) ? ((x + y * 3) % 11 === 0 ? '#e8eef8' : '#8a92a8') : '#3ab0ff');
+    for (let y = 1; y < 4; y++) spcSet(f, 15, y, '#2a2e3a'); spcSet(f, 15, 0, k % 2 ? '#3aff6a' : '#ff3a3a');   // антенна с лампочкой
+    return f; }) },
+  { ru: 'НЕОН', en: 'NEON', a: 'SKY_WOLF', au: { t: 'glow', c: '#ff3aff' }, fps: 6, make: base => base.map((f0, k) => {
+    const neon = ['#ff3aff', '#3affff', '#aaff3a', '#ffe23a'][k];
+    return spcMap(f0, c => SPC_OL.has(c) && c !== '#1a1010' ? neon : c === '#1a1010' || c === '#ffffff' ? '#ffffff' : '#1a0a2a'); }) },
+  { ru: 'ЛЕДЯНОЙ КРИСТАЛЛ', en: 'ICE CRYSTAL', a: 'ICE_QUEEN', au: { t: 'snow', c: '#ffffff' }, fps: 5, make: base => base.map((f0, k) => spcMap(f0, (c, x, y) => {
+    if (SPC_OL.has(c) && c !== '#1a1010') return '#2a6aa8'; if (c === '#1a1010') return '#1a3a6a'; if (c === '#ffffff') return '#ffffff';
+    const d = x + y - (8 + k * 8); if (d >= 0 && d < 3) return '#ffffff';   // блик бежит по кристаллу
+    return c === '#c06a20' ? '#5ab0e8' : c === SPC_CREAM ? '#d8f4ff' : SPC_FUR.has(c) ? '#9ad8ff' : '#7ac8f8'; })) },
+  { ru: 'ЗОЛОТАЯ СТАТУЯ', en: 'GOLDEN STATUE', a: 'PIXELKING', au: { t: 'spark', c: '#fff2a0' }, fps: 5, make: base => base.map((f0, k) => spcMap(f0, (c, x, y) => {
+    if (SPC_OL.has(c) && c !== '#1a1010') return '#6a4a08'; if (c === '#1a1010') return '#6a4a08'; if (c === '#ffffff') return '#ffffff';
+    const d = x - y - (-14 + k * 9); if (d >= 0 && d < 2) return '#fffbe0';
+    return c === '#c06a20' ? '#c08a10' : c === SPC_CREAM ? '#fff2a0' : SPC_FUR.has(c) ? '#ffc83a' : '#e0a020'; })) },
+  { ru: 'ЗОМБИ', en: 'ZOMBIE', a: 'ZOMBIE_MAX', au: { t: 'none', c: '#ffffff' }, fps: 4, make: base => base.map((f0, k) => {
+    const f = spcMap(f0, (c, x, y) => SPC_OL.has(c) && c !== '#1a1010' ? '#1e2a14' : c === '#1a1010' ? (x > 17 ? '#ff3a3a' : '#ffffff') : c === '#ffffff' ? '#ffffff' : c === '#c06a20' ? '#4a7a3a' : c === SPC_CREAM ? '#b8d89a' : SPC_FUR.has(c) ? '#7ab05a' : (x + y) % 2 ? '#8a8a7a' : '#5a5a4a');
+    for (let x = 10; x < 18; x += 2) { spcSet(f, x, 22, '#1e2a14'); spcSet(f, x + 1, 23, '#1e2a14'); }   // шов на животе
+    if (k === 2) for (let y = 4; y < 18; y++) for (let x = 0; x < G; x++) { const i = y * G + x; if (f[i] && f[i + 1] === null) { f[i + 1] = f[i]; f[i] = null; x++; } }   // голова качнулась
+    return f; }) },
+  { ru: 'РАДУЖНЫЙ', en: 'RAINBOW', a: 'STARGIRL', au: { t: 'rainbow', c: '#ffffff' }, fps: 6, make: base => base.map((f0, k) => {
+    const RB = ['#ff3a3a', '#ff8a1e', '#ffd23a', '#3ae05a', '#3ab0ff', '#a64aff'];
+    return spcMap(f0, (c, x, y) => SPC_OL.has(c) || c === '#ffffff' ? c : c === SPC_CREAM ? '#fff6e0' : RB[Math.floor((x + y + k * 3) / 3) % 6]); }) },
+  { ru: 'ТЕНЬ', en: 'SHADOW', a: 'MRBLACK_2008', au: { t: 'glow', c: '#ff2a2a' }, fps: 4, make: base => base.map((f0, k) => spcMap(f0, (c, x, y) => {
+    if (c === '#1a1010') return k === 3 ? '#14101c' : '#ff2a2a'; if (c === '#ffffff') return k === 3 ? '#14101c' : '#ffb0b0';
+    return SPC_OL.has(c) ? '#000000' : (x + y + k) % 9 === 0 ? '#2a1a3a' : '#14101c'; })) },
 ];
 function botSkins() {
   const out = [], base = tplFrames(), now = Date.now();
