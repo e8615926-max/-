@@ -3504,7 +3504,7 @@ function pick(opts) {
 }
 
 // Пиксельные примитивы: «пиксель» = 2×2 точки
-const APP_VER = 'v101';
+const APP_VER = 'v102';
 let AV_HQ = false;   // рисуем аватарку: точные фигуры без привязки к сетке 2×2 (иначе глаза выходили разного размера)
 function prect(c, x, y, w, h, col) {
   if (AV_HQ) { c.fillStyle = col; c.fillRect(x, y, w, h); return; }
@@ -12281,29 +12281,28 @@ function enKit(g) {
     ell(x, y, rx, ry, c, rot = 0) { g.fillStyle = c; g.beginPath(); g.ellipse(x, y, Math.max(0.5, rx), Math.max(0.5, ry), rot, 0, 7); g.fill(); },
     rect(x, y, w, h, c) { g.fillStyle = c; g.fillRect(Math.round(x), Math.round(y), Math.round(w), Math.round(h)); },
     poly(pts, c) { g.fillStyle = c; g.beginPath(); pts.forEach(([x, y], i) => i ? g.lineTo(x, y) : g.moveTo(x, y)); g.closePath(); g.fill(); },
-    line(x1, y1, x2, y2, w, c) { g.strokeStyle = c; g.lineWidth = w; g.lineCap = 'round'; g.beginPath(); g.moveTo(x1, y1); g.lineTo(x2, y2); g.stroke(); },
-    curve(pts, w, c) { g.strokeStyle = c; g.lineWidth = w; g.lineCap = 'round'; g.lineJoin = 'round'; g.beginPath(); pts.forEach(([x, y], i) => i ? g.lineTo(x, y) : g.moveTo(x, y)); g.stroke(); },
+    line(x1, y1, x2, y2, w, c) { g.strokeStyle = c; g.lineWidth = Math.max(2, w); g.lineCap = 'round'; g.beginPath(); g.moveTo(x1, y1); g.lineTo(x2, y2); g.stroke(); },
+    curve(pts, w, c) { g.strokeStyle = c; g.lineWidth = Math.max(2, w); g.lineCap = 'round'; g.lineJoin = 'round'; g.beginPath(); pts.forEach(([x, y], i) => i ? g.lineTo(x, y) : g.moveTo(x, y)); g.stroke(); },
     // шар со светотенью: свет сверху слева, тени вниз вправо, переходы — пиксельным дизерингом
-    sphere(cx, cy, rx, ry, base, opt = {}) {
-      const P = opt.pal || enRamp(base), x0 = Math.floor(cx - rx), x1 = Math.ceil(cx + rx), y0 = Math.floor(cy - ry), y1 = Math.ceil(cy + ry);
-      for (let y = y0; y < y1; y++) for (let x = x0; x < x1; x++) {
-        const nx = (x + 0.5 - cx) / rx, ny = (y + 0.5 - cy) / ry, d = nx * nx + ny * ny; if (d > 1) continue;
-        const nz = Math.sqrt(1 - d); let l = -0.42 * nx - 0.5 * ny + 0.76 * nz; if (opt.flat) l = l * 0.5 + 0.35;
-        let v = (l + 0.25) / 1.2 * P.length + (BAYER[(y + 64) & 3][(x + 64) & 3] - 7.5) / 16 * 0.9;
-        if (opt.band) v += Math.sin((y + (opt.bandOff || 0)) * opt.band) > 0.3 ? -0.9 : 0;
-        g.fillStyle = P[Math.max(0, Math.min(P.length - 1, Math.floor(v)))]; g.fillRect(x, y, 1, 1);
+    sphere(cx, cy, rx, ry, base, opt = {}) {   // как у героев: клетка 2×2, тень снизу, основной цвет, светлое пятно сверху слева
+      const P = opt.pal ? [opt.pal[1], opt.pal[2], opt.pal[3]] : [entn(base, -0.28), base, entn(base, 0.38)];
+      const x0 = Math.floor((cx - rx) / 2) * 2, x1 = Math.ceil((cx + rx) / 2) * 2, y0 = Math.floor((cy - ry) / 2) * 2, y1 = Math.ceil((cy + ry) / 2) * 2;
+      for (let y = y0; y < y1; y += 2) for (let x = x0; x < x1; x += 2) {
+        const nx = (x + 1 - cx) / rx, ny = (y + 1 - cy) / ry, d = nx * nx + ny * ny; if (d > 1.02) continue;
+        let k = 1; if (ny > 0.38 && d > 0.25) k = 0; if (!opt.flat && nx < -0.05 && ny < -0.15 && d < 0.55) k = 2;
+        if (opt.band && Math.sin((y + 1 + (opt.bandOff || 0)) * opt.band) > 0.3) k = 0;
+        g.fillStyle = P[k]; g.fillRect(x, y, 2, 2);
       }
-      if (opt.shine !== false) { g.fillStyle = 'rgba(255,255,255,0.85)'; g.fillRect(Math.round(cx - rx * 0.45), Math.round(cy - ry * 0.55), Math.max(1, Math.round(rx * 0.25)), 1); g.fillRect(Math.round(cx - rx * 0.55), Math.round(cy - ry * 0.4), 1, 1); }
     },
-    // глаз: белок, зрачок смотрит вперёд, блик; злые — с бровью; моргание — полоской
+    // глаз в стиле игры: белый квадрат 2×2 клетки и чёрный зрачок 1 клетку со стороны взгляда; злые — со ступенькой брови; моргание — полоской
     eye(x, y, r, o = {}) {
-      if (o.blink) { K.rect(x - r, y, r * 2, 1, o.lid || '#1a0a14'); return; }
-      K.ell(x, y, r, r * (o.tall || 1.1), o.white || '#ffffff');
-      K.ell(x + (o.look == null ? r * 0.35 : o.look), y + r * 0.15, r * 0.55, r * 0.65 * (o.tall || 1.1), o.pupil || '#1a0a14');
-      K.rect(x + r * 0.05, y - r * 0.55, 1, 1, '#ffffff');
-      if (o.angry) K.poly([[x - r - 1, y - r - 2], [x + r + 1, y - r + 0.5], [x + r + 1, y - r - 1.2], [x - r - 1, y - r - 3.5]], o.brow || '#1a0a14');
+      const X = Math.round(x / 2) * 2 - 2, Y = Math.round(y / 2) * 2 - 2, big = r >= 2.2;
+      if (o.blink) { g.fillStyle = o.lid || '#1a0a14'; g.fillRect(X, Y + 2, big ? 4 : 2, 2); return; }
+      g.fillStyle = o.white || '#ffffff'; g.fillRect(X, Y, big ? 4 : 2, big ? 4 : 2);
+      g.fillStyle = o.pupil || '#1a0a14'; if (big) g.fillRect(X + ((o.look == null || o.look > 0.2) ? 2 : 0), Y + 2, 2, 2); else g.fillRect(X, Y, 2, 2);
+      if (o.angry) { g.fillStyle = o.brow || '#1a0a14'; g.fillRect(X - 2, Y - 2, 2, 2); g.fillRect(X, Y - 2, 2, 2); if (big) g.fillRect(X + 2, Y, 2, 2); }
     },
-    spikes(cx, cy, r, n, len, rot, c, w = 2.2) { for (let i = 0; i < n; i++) { const a = rot + i / n * Math.PI * 2, ca = Math.cos(a), sa = Math.sin(a), px = -sa, py = ca; K.poly([[cx + ca * (r - 1) + px * w, cy + sa * (r - 1) + py * w], [cx + ca * (r + len), cy + sa * (r + len)], [cx + ca * (r - 1) - px * w, cy + sa * (r - 1) - py * w]], c); } },
+    spikes(cx, cy, r, n, len, rot, c, w = 2.2) { w = Math.max(3, w); len = Math.max(4, len); for (let i = 0; i < n; i++) { const a = rot + i / n * Math.PI * 2, ca = Math.cos(a), sa = Math.sin(a), px = -sa, py = ca; K.poly([[cx + ca * (r - 1) + px * w, cy + sa * (r - 1) + py * w], [cx + ca * (r + len), cy + sa * (r + len)], [cx + ca * (r - 1) - px * w, cy + sa * (r - 1) - py * w]], c); } },
     wingInsect(x, y, len, w, ang, c, vein) { g.save(); g.translate(x, y); g.rotate(ang); K.ell(len * 0.5, 0, len * 0.5, w, c); if (vein) { K.line(1, 0, len - 1, 0, 0.8, vein); K.line(len * 0.4, 0, len * 0.75, -w * 0.6, 0.6, vein); } g.restore(); },
     wingBird(x, y, len, up, c, tip) { const yy = y - up * len * 0.9; K.poly([[x - 4, y], [x + 4, y], [x + len * 0.35, yy + 2], [x - len * 0.25, yy]], c); if (tip) K.poly([[x + len * 0.35, yy + 2], [x - len * 0.25, yy], [x - len * 0.05, yy - up * 2.5], [x + len * 0.25, yy - up * 1.5]], tip); },
     wingBat(x, y, len, up, c, bone) { const yy = y - up * len * 0.7; K.poly([[x, y - 1], [x - len * 0.3, yy], [x - len, yy + up * 1], [x - len * 0.75, y + 2 - up], [x - len * 0.5, y + 3], [x - len * 0.25, y + 2]], c); if (bone) { K.line(x, y, x - len * 0.3, yy, 0.9, bone); K.line(x - len * 0.3, yy, x - len, yy + up, 0.9, bone); K.line(x - len * 0.3, yy, x - len * 0.6, y + 2, 0.7, bone); } },
@@ -12313,22 +12312,14 @@ function enKit(g) {
   return K;
 }
 // пост-обработка кадра: жёсткие края, объём по краям (блик сверху слева, тень снизу справа) и тёмная обводка по цвету соседа
-function enPost(c) {
-  const g = c.getContext('2d'), w = c.width, h = c.height, im = g.getImageData(0, 0, w, h), d = im.data, A = i => d[i * 4 + 3];
-  for (let i = 0; i < w * h; i++) d[i * 4 + 3] = d[i * 4 + 3] >= 110 ? 255 : 0;
-  const src = new Uint8ClampedArray(d);
-  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
-    const i = y * w + x; if (!src[i * 4 + 3]) continue;
-    const ul = x > 0 && y > 0 ? src[((y - 1) * w + x - 1) * 4 + 3] : 0, dr = x < w - 1 && y < h - 1 ? src[((y + 1) * w + x + 1) * 4 + 3] : 0;
-    const k = !ul ? 0.3 : !dr ? -0.3 : 0; if (!k) continue;
-    for (let j = 0; j < 3; j++) { const v = src[i * 4 + j]; d[i * 4 + j] = k > 0 ? v + (255 - v) * k : v * (1 + k); }
-  }
+function enPost(c) {   // жёсткие края и тёмная обводка цветом игры (как у героев), без мягких переходов
+  const g = c.getContext('2d'), w = c.width, h = c.height, im = g.getImageData(0, 0, w, h), d = im.data;
+  for (let i = 0; i < w * h; i++) d[i * 4 + 3] = d[i * 4 + 3] >= 120 ? 255 : 0;
   const o2 = new Uint8ClampedArray(d);
   for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
     const i = y * w + x; if (o2[i * 4 + 3]) continue;
-    let n = -1; for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const xx = x + dx, yy = y + dy; if (xx >= 0 && yy >= 0 && xx < w && yy < h && o2[(yy * w + xx) * 4 + 3]) { n = yy * w + xx; break; } }
-    if (n < 0) continue;
-    d[i * 4] = o2[n * 4] * 0.28 + 20 * 0.72; d[i * 4 + 1] = o2[n * 4 + 1] * 0.28 + 10 * 0.72; d[i * 4 + 2] = o2[n * 4 + 2] * 0.28 + 28 * 0.72; d[i * 4 + 3] = 255;
+    let n = false; for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const xx = x + dx, yy = y + dy; if (xx >= 0 && yy >= 0 && xx < w && yy < h && o2[(yy * w + xx) * 4 + 3]) { n = true; break; } }
+    if (n) { d[i * 4] = 42; d[i * 4 + 1] = 20; d[i * 4 + 2] = 8; d[i * 4 + 3] = 255; }
   }
   g.putImageData(im, 0, 0); return c;
 }
@@ -12546,7 +12537,7 @@ const ENA_C = new Map();
 function enArtFrame(key, f) {
   const ck = key + '|' + f; let c = ENA_C.get(ck); if (c) return c;
   const A = ENART[key], N = A.n || 48;
-  c = document.createElement('canvas'); c.width = c.height = N; const g = c.getContext('2d'); g.translate(N / 2, N / 2);
+  c = document.createElement('canvas'); c.width = c.height = N / 2; const g = c.getContext('2d'); g.setTransform(0.5, 0, 0, 0.5, N / 4, N / 4);   // клетка = 2 единицы, как у героев и мира
   try { A.fn(enKit(g), f / ENA_F); } catch (e) { }
   enPost(c); if (ENA_C.size > 1400) ENA_C.clear(); ENA_C.set(ck, c); return c;
 }
@@ -12580,10 +12571,9 @@ function enArtDraw(e) {
   if (e.type === 'piranha' && e.look === 'lavaball') { for (let i = 1; i < 6; i++) { ctx.globalAlpha = 0.6 - i * 0.09; pell(ctx, x + Math.sin(time * 20 + i) * 1.5, y + (e.vy > 0 ? -1 : 1) * i * 5, 7 - i, 7 - i, i < 2 ? '#ffe24a' : '#ff6a1a'); } ctx.globalAlpha = 1; }
   if (e.type === 'orbit') { ctx.globalAlpha = 0.22; for (let k = 0; k < 28; k++) { const an = k / 28 * Math.PI * 2; prect(ctx, e.cx + Math.cos(an) * e.rad - 1, e.cy + Math.sin(an) * e.rad - 1, 2, 2, '#ffffff'); } ctx.globalAlpha = 1; }
   // мягкая аура опасности
-  { const pu = 1 + Math.sin(time * 5 + x * 0.05) * 0.1, ar = Math.max(12, (e.r || 10) * 1.8) * pu; ctx.globalAlpha = 0.09; pell(ctx, x, y, ar * 1.3, ar * 1.3, col); ctx.globalAlpha = 0.16; pell(ctx, x, y, ar * 0.9, ar * 0.9, col); ctx.globalAlpha = 1; }
   const c = enArtFrame(key, fr), sm = ctx.imageSmoothingEnabled;
   if (e.type === 'pendulum' || e.type === 'turret') ctx.globalAlpha = 1;
-  ctx.save(); ctx.translate(pxSnap(x), pxSnap(y + bob)); if (rot) ctx.rotate(rot); ctx.scale(dir * sx, sy);
+  ctx.save(); ctx.translate(even(x), even(y + bob)); if (rot) ctx.rotate(rot); ctx.scale(dir * sx, sy);
   if (e.type === 'ghost' && e.look !== 'zhamster') ctx.globalAlpha = e.life != null && e.life < 1 ? Math.max(0, e.life) : 0.92;
   ctx.imageSmoothingEnabled = false; drawRaw.call(ctx, c, -N / 2, -N / 2, N, N); ctx.imageSmoothingEnabled = sm; ctx.restore(); ctx.globalAlpha = 1;
   if (e.type === 'turret' && e.cd < 0.45 && Math.sin((e.t || 0) * 40) > 0) { const col2 = e.look === 'cannon' ? '#ff8a1e' : e.look === 'moonturret' ? '#9aff6a' : '#ff3a3a'; ctx.globalAlpha = 0.5; pell(ctx, x + dir * 15, y, 7, 7, col2); ctx.globalAlpha = 1; pell(ctx, x + dir * 15, y, 3, 3, '#ffffff'); }   // вот-вот выстрелит
