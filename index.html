@@ -3504,7 +3504,7 @@ function pick(opts) {
 }
 
 // Пиксельные примитивы: «пиксель» = 2×2 точки
-const APP_VER = 'v98';
+const APP_VER = 'v99';
 let AV_HQ = false;   // рисуем аватарку: точные фигуры без привязки к сетке 2×2 (иначе глаза выходили разного размера)
 function prect(c, x, y, w, h, col) {
   if (AV_HQ) { c.fillStyle = col; c.fillRect(x, y, w, h); return; }
@@ -3659,7 +3659,7 @@ for (const prop of ['fillStyle', 'strokeStyle']) {   // и заливка, и о
 // между кадрами берётся готовая картинка; у каждого объекта героя — свой номер (копии с другими цветами не путаются)
 // кэш кадров героя. LRU: часто нужные кадры (19 соперников по кругу, герои в витрине) не вытесняются
 // неповторяющимися кадрами своего героя. Ключ — число, без склейки строк на каждый вызов
-const SPR_FPS = 20, SPR_MAX = 2400, SPR_CACHE = new Map(), SPR_POSE = new Map();
+const SPR_FPS = 20, SPR_MAX = 3200, SPR_CACHE = new Map(), SPR_POSE = new Map();
 let SPR_IDS = new WeakMap();
 let sprN = 0;
 // бюджет на новые кадры героев: при входе в магазин или смене страницы кэш пуст и каждый из ~12 героев рисуется по точкам —
@@ -7045,7 +7045,7 @@ function zmEyes(x, y, face, k = 1) {   // красные глаза
 function zmDrawMinion(x, y, face, hp, rg, t) {
   if (rg) zmRageFx(x, y - 6, 0.75);
   ctx.globalAlpha = 0.3; pell(ctx, x, y + 3, 15, 15, '#5aff5a'); ctx.globalAlpha = 1;
-  heroSprite(zmSkin(), 'jump', time + t, false); ctx.save(); ctx.translate(even(x), even(y)); ctx.scale(face * 0.8, 0.8); ctx.drawImage(hcv, -32, -52, 64, 80); ctx.restore();
+  heroSprite(zmSkin(), 'jump', time + t, false); ctx.save(); ctx.translate(pxSnap(x), pxSnap(y)); ctx.scale(face * 0.8, 0.8); ctx.drawImage(hcv, -32, -52, 64, 80); ctx.restore();
   if (rg) zmEyes(x, y, face, 0.8);
   for (let i = 0; i < 2; i++) prect(ctx, x - 7 + i * 8, y - 40, 6, 4, i < hp ? '#ff3a3a' : '#222');
 }
@@ -7328,11 +7328,37 @@ function hamBase(mad, c, F, col) {
   drawRaw.call(ctx, pic, -9 * c, -7 * c, 18 * c, 14 * c);
 }
 const THUMB_PIX = ['...OO...', '..OLYO..', '..OYYO..', '..OYYO..', 'OOOYYOOO', 'OLLYYYYO', 'OYYYYYDO', 'OYYYYYDO', 'OYYYYDDO', '.OOOOOO.'];
+// аксессуары героя с его спрайта: всё, что выше головы хомяка (шляпы, волосы, короны, гребни, рога, уши других зверей)
+// и сбоку от головы (предметы в руках, крылья) — вырезается один раз и надевается на пиксельную мордочку смайлика
+const HERO_ACC = new Map();
+function heroAccPic(k) {
+  if (HERO_ACC.has(k.id)) return HERO_ACC.get(k.id);
+  let out = null;
+  try {
+    sprBudMs = 0; const spr = heroSpriteGet(k, 'idle', 0, false, 20), w = spr.width, h = spr.height, d = spr.getContext('2d').getImageData(0, 0, w, h);
+    const c = document.createElement('canvas'); c.width = w; c.height = 34; const g = c.getContext('2d'), o = g.createImageData(w, 34); let any = false;
+    for (let y = 0; y < 34; y++) for (let x = 0; x < w; x++) { const i = (y * w + x) * 4; if (d.data[i + 3] < 40) continue;
+      if (y < 21 || (y <= 33 && (x < 15 || x > 32))) { o.data.set(d.data.subarray(i, i + 4), i); any = true; } }
+    if (any) { g.putImageData(o, 0, 0); out = c; }
+  } catch (e) { out = null; }
+  HERO_ACC.set(k.id, out); return out;
+}
+function heroAccDraw(k, c) {   // клетки спрайта → клетки мордочки: голова хомяка (16 точек от x=16, с y=18) ложится на мордочку 18×14
+  const a = heroAccPic(k); if (!a) return; const u = c * 1.12, sm = ctx.imageSmoothingEnabled; ctx.imageSmoothingEnabled = false;
+  ctx.drawImage(a, -9 * c - 16 * u, -7 * c - 18 * u, a.width * u, a.height * u); ctx.imageSmoothingEnabled = sm;
+}
 // мордочка хомяка в цветах героя (для смайлика героя)
 const HF_HERO = new Map();
 function heroFaceCols(k) { let v = HF_HERO.get(k.id); if (!v) { v = { O: k.ol || '#2a1408', P: k.ear || '#ff9ab0', H: k.light || k.head || '#ffc070', B: k.body || '#f5a03a', C: k.belly || k.light || '#fff0d8' }; HF_HERO.set(k.id, v); } return v; }
 // цвета ауры героя: его след, мифическое сияние или цвет редкости
 function heroAuraCols(k) { const tr0 = k.trail && Array.isArray(k.trail.cols) ? k.trail.cols : null, R = RARITY[k.r] || RARITY[0]; return k.myth ? [k.myth[0], k.myth[1] || '#ffffff'] : tr0 ? [tr0[0], tr0[1] || tr0[0]] : [R.col, '#ffffff']; }
+function heroEmoFace(k, cx, cy, s, t) {   // смайлик героя: пиксельная мордочка хомяка в цветах героя и с его аксессуарами; вокруг — аура и искры, рядом — особенный значок
+  const ac = heroAuraCols(k), pu = 1 + Math.sin(t * 6) * 0.06;
+  ctx.globalAlpha = 0.3 + Math.sin(t * 6) * 0.08; pell(ctx, cx, cy, 42 * s * pu, 42 * s * pu, ac[0]); ctx.globalAlpha = 0.35; pell(ctx, cx, cy, 28 * s * pu, 28 * s * pu, ac[1]); ctx.globalAlpha = 1;
+  for (let i = 0; i < 6; i++) { const a = t * 2.2 + i * Math.PI / 3; ctx.globalAlpha = 0.6 + Math.sin(t * 7 + i) * 0.4; emoStar(cx + Math.cos(a) * 38 * s, cy + Math.sin(a) * 30 * s, 3 * s, i % 2 ? ac[0] : '#ffffff'); } ctx.globalAlpha = 1;
+  hamFace('hhappy', cx, cy, 3.4 * s, t, heroFaceCols(k), k);
+  const gb = Math.abs(Math.sin(t * 5)) * 4 * s; ctx.save(); ctx.translate(cx + 30 * s, cy - 24 * s - gb); ctx.rotate(Math.sin(t * 3) * 0.2); heroGlyphDraw(heroGlyph(k), 0, 0, 16 * s); ctx.restore();
+}
 function heroEmoDraw(k, cx, cy, s, t) {   // смайлик героя: целый герой в позе радости, прыгает; аура пульсирует, искры кружат, над головой — его значок
   const ac = heroAuraCols(k), b = Math.abs(Math.sin(t * 4.5)), pu = 1 + Math.sin(t * 6) * 0.06;
   ctx.globalAlpha = 0.28 + Math.sin(t * 6) * 0.08; pell(ctx, cx, cy + 6 * s, 40 * s * pu, 40 * s * pu, ac[0]); ctx.globalAlpha = 0.35; pell(ctx, cx, cy + 6 * s, 26 * s * pu, 26 * s * pu, ac[1]); ctx.globalAlpha = 1;   // аура
@@ -7342,7 +7368,7 @@ function heroEmoDraw(k, cx, cy, s, t) {   // смайлик героя: целы
   for (let i = 0; i < 6; i++) { const a = t * 2.2 + i * Math.PI / 3, px = cx + Math.cos(a) * 36 * s, py = cy + 18 * s + Math.sin(a) * 14 * s; if (Math.sin(a) >= 0) emoStar(px, py, 3 * s, i % 2 ? ac[0] : '#ffffff'); }   // искры спереди
   const gb = Math.abs(Math.sin(t * 5)) * 5 * s; ctx.save(); ctx.translate(cx + 22 * s, cy - 26 * s - gb); ctx.rotate(Math.sin(t * 3) * 0.2); heroGlyphDraw(heroGlyph(k), 0, 0, 18 * s); ctx.restore();
 }
-function hamFace(id, cx, cy, c, t, cols) {
+function hamFace(id, cx, cy, c, t, cols, hk) {
   const O = (cols && cols.O) || '#2a1408', mad = id === 'hmad', col = cols || (mad ? HF_MAD : HF_COL);
   let ox = 0, oy = 0, sx = 1, sy = 1, rot = 0;
   if (id === 'hhappy') { const b = Math.abs(Math.sin(t * 6)); oy = -b * 3; sy = 1 - (1 - b) * 0.08; sx = 1 + (1 - b) * 0.06; rot = Math.sin(t * 3) * 0.1; }
@@ -7399,6 +7425,7 @@ function hamFace(id, cx, cy, c, t, cols) {
     F(6, 9, 6, 1, O); F(6, 11, 6, 1, O); F(6, 10, 1, 1, O); F(11, 10, 1, 1, O); F(7, 10, 4, 1, '#ffffff'); F(8, 10, 1, 1, '#b8b8c8'); F(10, 10, 1, 1, '#b8b8c8');   // стиснутые зубы
     const vb = 1 + Math.max(0, Math.sin(t * 9)) * 0.3; ctx.save(); ctx.translate(5 * c, -6 * c); ctx.scale(vb, vb); ctx.fillStyle = '#ff2a2a'; for (const [x, y] of [[-1, -2], [1, -2], [-2, -1], [2, -1], [-2, 1], [2, 1], [-1, 2], [1, 2]]) ctx.fillRect(x * c - c / 2, y * c - c / 2, c, c); ctx.restore();   // венка
   }
+  if (hk) heroAccDraw(hk, c);   // аксессуары героя: шляпа, волосы, корона, гребень, рога, предметы у головы — поверх мордочки
   ctx.restore();
   // вокруг: искры радости или пар из ушей
   if (id === 'hlike' || id === 'hdis') {   // большой палец: прыгает и «стучит», искры
@@ -7429,12 +7456,10 @@ function heroGlyphDraw(g, cx, cy, px) {   // эмодзи системным ш�
   ctx.save(); ctx.font = Math.round(px) + 'px "Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillStyle = '#ffffff'; ctx.fillText(g, cx, cy); ctx.restore();
 }
 function emoIcon(id, cx, cy, s) {
-  if (typeof id === 'string' && id.startsWith('hero')) {   // значок смайлика героя: настоящий портрет героя (со всеми аксессуарами) в кружке, аура и его значок
-    const k = skinById(id.slice(5) || skinId) || SKINS[0], ac = heroAuraCols(k), r = 11 * s, pu = 1 + Math.sin(time * 5) * 0.06;
-    ctx.globalAlpha = 0.5; pell(ctx, cx, cy, r * 1.45 * pu, r * 1.45 * pu, ac[0]); ctx.globalAlpha = 1;
-    ctx.save(); ctx.beginPath(); ctx.arc(cx, cy, r, 0, 7); ctx.clip(); avatarDraw(k.id, cx, cy, r * 2.1, time); ctx.restore();
-    ctx.save(); ctx.lineWidth = Math.max(1, 1.6 * s); ctx.strokeStyle = ac[1]; ctx.beginPath(); ctx.arc(cx, cy, r, 0, 7); ctx.stroke(); ctx.restore();
-    heroGlyphDraw(heroGlyph(k), cx + 9 * s, cy - 9 * s - Math.abs(Math.sin(time * 5)) * 2 * s, 9 * s); return;
+  if (typeof id === 'string' && id.startsWith('hero')) {   // значок смайлика героя: пиксельная мордочка хомяка в цветах героя, с его аксессуарами и аурой
+    const k = skinById(id.slice(5) || skinId) || SKINS[0], ac = heroAuraCols(k), pu = 1 + Math.sin(time * 5) * 0.06;
+    ctx.globalAlpha = 0.45; pell(ctx, cx, cy, 15 * s * pu, 15 * s * pu, ac[0]); ctx.globalAlpha = 1;
+    ctx.save(); ctx.translate(cx, cy + 2 * s); ctx.scale(s, s); hamFace('hhappy', 0, 0, 1.15, time, heroFaceCols(k), k); ctx.restore(); return;
   }
   if (isBaseEmo(id)) { ctx.save(); ctx.translate(cx, cy); ctx.scale(s, s); hamFace(id, 0, 0, 1.3, time); ctx.restore(); return; }
   ctx.save(); ctx.translate(cx, cy); ctx.scale(s, s);
@@ -7541,7 +7566,7 @@ function emoPortrait(id, sk, x, y, w, h, t, round, s) {
     const hid = id.slice(5) || (sk && sk.id) || skinId, k = skinById(hid) || SKINS[0], R = RARITY[k.r] || RARITY[0];
     ctx.save(); ctx.beginPath(); if (round) ctx.arc(x + w / 2, y + h / 2, w / 2, 0, 7); else ctx.rect(x, y, w, h); ctx.clip();
     const g = ctx.createLinearGradient(0, y, 0, y + h); g.addColorStop(0, R.col); g.addColorStop(1, R.dk); ctx.fillStyle = g; ctx.fillRect(x, y, w, h);
-    heroEmoDraw(k, x + w / 2, y + h / 2, Math.min(w, h) / 88, t);
+    heroEmoFace(k, x + w / 2, y + h / 2 + h * 0.06, Math.min(w, h) / 88, t);
     ctx.restore(); return;
   }
   if (isBaseEmo(id)) { const C = EMO_COL_BASE[id]; ctx.save(); ctx.beginPath(); if (round) ctx.arc(x + w / 2, y + h / 2, w / 2, 0, 7); else ctx.rect(x, y, w, h); ctx.clip(); const g = ctx.createLinearGradient(0, y, 0, y + h); g.addColorStop(0, C[0]); g.addColorStop(1, C[1]); ctx.fillStyle = g; ctx.fillRect(x, y, w, h); hamFace(id, x + w / 2, y + h / 2 + 1, w / 22, t); ctx.restore(); return; }
@@ -9911,7 +9936,7 @@ const setRow = i => ({ x: 20, y: 76 + i * 33, w: W - 40, h: 28 });   // пере
 const GQ_ROW = () => setRow(SET_KEYS.length);
 const FPS_BTN = () => { const r = GQ_ROW(); return { x: r.x, y: r.y + r.h + 1, w: 100, h: 18 }; };   // переключатель счётчика кадров под строкой качества   // 7 строк — последняя не налезает на заголовок «язык»
 const langRect = i => ({ x: 20 + (i % 2) * 164, y: 360 + Math.floor(i / 2) * 32, w: 156, h: 28 });   // 11 языков — 6 рядов, ряды чуть плотнее
-const RESET_BTN = { x: -999, y: -999, w: 0, h: 0 }, RBTN_BTN = { x: 40, y: 562, w: W - 80, h: 34 };   // Wall Play ID — в боковом меню
+const RESET_BTN = { x: -999, y: -999, w: 0, h: 0 }, RBTN_BTN = { x: -999, y: -999, w: 0, h: 0 };   // кнопки раунда расставляются в тренировке («+»)   // Wall Play ID — в боковом меню
 const PAUSE_BTNS = [{ x: 80, y: 270, w: 200, h: 44 }, { x: 80, y: 330, w: 200, h: 44 }, { x: 80, y: 390, w: 200, h: 44 }];
 let setFrom = 'menu';
 let pauseAsk = false;   // открыт вопрос «точно выйти в меню?»
@@ -11454,7 +11479,7 @@ function drawMythDeath(sk) {
     ctx.drawImage(hcv, -32, -52, 64, 80); if (o.tint) { ctx.globalAlpha *= o.ta; ctx.drawImage(tintSprite(o.tint, 0), -32, -52, 64, 80); } ctx.restore(); ctx.globalAlpha = 1;
   };
   if (u < 0) {   // начало: как именно погиб
-    if (m.v === 'zap') { heroSprite(sk, 'fall', time, true); ctx.save(); ctx.translate(even(x + rand(-2, 2)), even(y)); ctx.scale(p.face, 1); ctx.drawImage(Math.floor(time * 16) % 2 ? xraySprite() : hcv, -32, -52, 64, 80); ctx.restore(); if (once('zz')) tone(110, 95, 0.5, 'sawtooth', 0.05); for (let k = 0; k < 2; k++) { ctx.strokeStyle = k ? c1 : '#fff6a0'; ctx.lineWidth = 2; ctx.beginPath(); let lx = x + rand(-26, 26), ly = y - 44; ctx.moveTo(lx, ly); for (let s2 = 0; s2 < 5; s2++) { lx += rand(-9, 9); ly += 16; ctx.lineTo(lx, ly); } ctx.stroke(); } }
+    if (m.v === 'zap') { heroSprite(sk, 'fall', time, true); ctx.save(); ctx.translate(pxSnap(x + rand(-2, 2)), pxSnap(y)); ctx.scale(p.face, 1); ctx.drawImage(Math.floor(time * 16) % 2 ? xraySprite() : hcv, -32, -52, 64, 80); ctx.restore(); if (once('zz')) tone(110, 95, 0.5, 'sawtooth', 0.05); for (let k = 0; k < 2; k++) { ctx.strokeStyle = k ? c1 : '#fff6a0'; ctx.lineWidth = 2; ctx.beginPath(); let lx = x + rand(-26, 26), ly = y - 44; ctx.moveTo(lx, ly); for (let s2 = 0; s2 < 5; s2++) { lx += rand(-9, 9); ly += 16; ctx.lineTo(lx, ly); } ctx.stroke(); } }
     else if (m.v === 'flat') { const q = clamp(t / 0.12, 0, 1); spr({ sx: 1 + 0.5 * q, sy: 1 - 0.5 * q, dy: 12 * q, tint: '#ffffff', ta: 0.3 }); if (once('ff')) { burst(x, y + 20, 14, '#ffffff', 160, 0.4, 4, 300); noise(0.2, 0.2, 0, 800); } }
     else spr({ tint: c1, ta: 0.6 + Math.sin(time * 40) * 0.3, rot: m.v === 'fall' ? t * 6 : 0 });
     return;
@@ -11477,7 +11502,7 @@ function drawMythDeath(sk) {
     if (once('hs')) tone(400, 60, 1.1, 'sawtooth', 0.04);
   } else if (S === 'storm') {   // три молнии бьют в героя, он рассыпается помехами
     for (const at of [0, 0.3, 0.6]) if (u > at && u < at + 0.12) { ctx.globalAlpha = 0.35; ctx.fillStyle = '#ffffff'; ctx.fillRect(0, camR, W, H); ctx.globalAlpha = 1; ctx.strokeStyle = c1; ctx.lineWidth = 4; ctx.beginPath(); let lx = x + rand(-10, 10), ly = camR; ctx.moveTo(lx, ly); while (ly < y - 10) { lx += rand(-14, 14); ly += 24; ctx.lineTo(lx, ly); } ctx.lineTo(x, y - 10); ctx.stroke(); ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 1.5; ctx.stroke(); if (once('b' + at)) { noise(0.25, 0.25, 1500); tone(900, 60, 0.3, 'sawtooth', 0.06); } }
-    if (u < 1) { heroSprite(sk, 'fall', time, true); for (let i = 0; i < 10; i++) { const off = u > 0.5 ? rand(-6, 6) * (u - 0.4) * 3 : 0; ctx.save(); ctx.translate(even(x + off), even(y)); ctx.scale(p.face, 1); ctx.globalAlpha = 1 - Math.max(0, u - 0.6) * 2.5; ctx.drawImage(hcv, 0, i * 4, 32, 4, -32, -52 + i * 8, 64, 8); ctx.restore(); } ctx.globalAlpha = 1; }
+    if (u < 1) { heroSprite(sk, 'fall', time, true); for (let i = 0; i < 10; i++) { const off = u > 0.5 ? rand(-6, 6) * (u - 0.4) * 3 : 0; ctx.save(); ctx.translate(pxSnap(x + off), pxSnap(y)); ctx.scale(p.face, 1); ctx.globalAlpha = 1 - Math.max(0, u - 0.6) * 2.5; ctx.drawImage(hcv, 0, i * 4, 32, 4, -32, -52 + i * 8, 64, 8); ctx.restore(); } ctx.globalAlpha = 1; }
     else if (once('st')) burst(x, y, 24, c1, 260, 0.5, 3, 0, 'star');
   } else if (S === 'bubbles') {   // растворяется снизу вверх пузырями
     const cut = clamp(u / 1.2, 0, 1); spr({ ...sq, clip: [-52, 80 * (1 - cut)], tint: c1, ta: 0.3 });
@@ -12044,7 +12069,7 @@ function drawIdleShow(sk, t) {
       }
       if (SET.fx && Math.random() < 0.3) parts.push({ x: ox + rand(-12, 12), y: oy + 10 - lift, vx: rand(-15, 15), vy: rand(-80, -30), life: 0.8, max: 0.8, color: Math.random() < 0.5 ? m1 : m2, size: 3, grav: -40 });
       hero(peak ? 'cheer' : up < 1 ? 'jump' : 'raise', { dy: -lift, s: 1 + (peak ? Math.sin((ph - 2) / 0.6 * Math.PI) * 0.12 : 0) });
-      if (peak) { ctx.globalAlpha = 0.5 * Math.sin((ph - 2) / 0.6 * Math.PI); heroSprite(sk, 'cheer', time, false); ctx.save(); ctx.translate(even(ox), even(oy - lift)); ctx.scale(f, 1); ctx.drawImage(tintSprite('#ffffff', 0), -32, -52, 64, 80); ctx.restore(); ctx.globalAlpha = 1; }
+      if (peak) { ctx.globalAlpha = 0.5 * Math.sin((ph - 2) / 0.6 * Math.PI); heroSprite(sk, 'cheer', time, false); ctx.save(); ctx.translate(pxSnap(ox), pxSnap(oy - lift)); ctx.scale(f, 1); ctx.drawImage(tintSprite('#ffffff', 0), -32, -52, 64, 80); ctx.restore(); ctx.globalAlpha = 1; }
       break;
     }
     case 'spinjitzu': {   // тренируется: вихрь кружитцу, потом стойка
@@ -15312,11 +15337,11 @@ function powerMenuClick(pt) {
 const ALCH = { ...HAM, ears: 'none', acc: 'glasses', hat: '#5a2a9a', beard: '#ffffff', cape: true, scarf: '#5a2a9a', scarfD: '#ffd23a', orb: '#9aff6a', parts: ['wizardHat', 'beard', 'staff'] };
 // ---------- Палатка алхимика: силы и сундуки ----------
 let tentTab = 0, tc = null;   // tc — открывающийся сундук
-const TENT_TABS = [0, 1, 2, 3].map(i => ({ x: 12 + i * 85, y: 150, w: 81, h: 30 }));   // силы, сундуки, союзники, эмоции
+const TENT_TABS = [0, 1, 2].map(i => ({ x: 12 + i * 113, y: 150, w: 109, h: 30 }));   // силы, сундуки, союзники (смайлики — в окне героя, облачко «…»)
 let tentFrom = false;   // в союзников и эмоции зашли из палатки — «назад» возвращает в неё
 let tentSwT = -9;   // когда переключили вкладку палатки — содержимое выскакивает с отскоком
 // союзники и эмоции открываются внутри палатки: сверху та же полоса палатки с вкладками, а не отдельный экран
-const TSTRIP_H = 66, TSTRIP_TABS = [0, 1, 2, 3].map(i => ({ x: 52 + i * 75, y: 34, w: 71, h: 24 })), TSTRIP_BACK = { x: 8, y: 6, w: 34, h: 34 };
+const TSTRIP_H = 66, TSTRIP_TABS = [0, 1, 2].map(i => ({ x: 52 + i * 100, y: 34, w: 96, h: 24 })), TSTRIP_BACK = { x: 8, y: 6, w: 34, h: 34 };
 function drawTentStrip(cur) {
   ctx.fillStyle = '#2a1040'; ctx.fillRect(0, 0, W, TSTRIP_H);
   for (let i = 0; i < 12; i++) { ctx.fillStyle = i % 2 ? '#7a2aa0' : '#5a1a80'; ctx.beginPath(); ctx.moveTo(W / 2, -60); ctx.lineTo(i * 40 - 60, TSTRIP_H); ctx.lineTo(i * 40 - 20, TSTRIP_H); ctx.fill(); }
@@ -15330,7 +15355,7 @@ function drawTentStrip(cur) {
 function tentStripClick(pt) {
   if (pt.y > TSTRIP_H) return false;
   if (inRect(pt, TSTRIP_BACK)) { state = 'menu'; tentFrom = false; sfx.click(); return true; }
-  for (let i = 0; i < 4; i++) if (inRect(pt, TSTRIP_TABS[i])) { tentGo(i); return true; }
+  for (let i = 0; i < TSTRIP_TABS.length; i++) if (inRect(pt, TSTRIP_TABS[i])) { tentGo(i); return true; }
   return true;
 }
 function tentGo(i) {
@@ -15428,6 +15453,7 @@ function drawTentBg() {
 }
 const TENT_GR = new Map();   // градиенты карточек сил: координаты постоянные — создаём один раз
 function drawTent() {
+  if (tentTab > 2) tentTab = 0;   // вкладки «эмоции» больше нет
   uiCache('tentBg', '1', 0, 0, W, H, drawTentBg);
   for (let i = 0; i < 7; i++) {   // гирлянда фонариков
     const x = 30 + i * 50, y = 66 + Math.sin(i / 6 * Math.PI) * 14 + Math.sin(time * 2 + i) * 2;
@@ -15589,7 +15615,8 @@ function drawTentChest() {
 function tentClick(pt) {
   if (tc) { if (tc.t < 1) tc.t = 1; else if (tc.t > 1.6) tc = null; return; }
   if (inRect(pt, BACK_BTN)) { state = 'menu'; sfx.click(); return; }
-  for (let i = 0; i < 4; i++) if (inRect(pt, TENT_TABS[i])) { if (i !== tentTab || i > 1) tentGo(i); return; }
+  if (tentTab > 2) tentTab = 0;
+  for (let i = 0; i < TENT_TABS.length; i++) if (inRect(pt, TENT_TABS[i])) { if (i !== tentTab || i > 1) tentGo(i); return; }
   if (tentTab === 0) POWERS.forEach((pp, i) => {
     const r = TENT_SLOT(i);
     if (!inRect(pt, r)) return;
@@ -16417,7 +16444,7 @@ function drawSettings() {
     ctx.fillStyle = on ? '#ffd23a' : '#ffffff'; ctx.fillRect(r.x, r.y, r.w, r.h);
     text(L[code].name, r.x + r.w / 2, r.y + r.h - 8, 2, OL, 'center', null, r.w - 8);
   });
-  button(RBTN_BTN, tr('КНОПКИ РАУНДА', 'ROUND BUTTONS'), '#3ce06a', '#1a9a3a');   // вместо «удалить данные»: до 5 аккаунтов на устройстве
+   // вместо «удалить данные»: до 5 аккаунтов на устройстве
 
 }
 
@@ -19424,7 +19451,7 @@ function trnDraw() {
   // соперник
   if (rv && rv.y - camR > -60 && rv.y - camR < H + 60) {
     const k = trnRival(); heroSprite(k, rv.ph === 'jump' ? 'jump' : rv.st === 'ground' ? 'idle' : 'cling', time, false);
-    ctx.save(); ctx.translate(even(rv.x), even(rv.y - camR)); ctx.scale(rv.face || 1, 1); if (rv.ph === 'jump') ctx.rotate((rv.rot || 0) * 0.15); ctx.drawImage(hcv, -32, -52, 64, 80); ctx.restore();
+    ctx.save(); ctx.translate(pxSnap(rv.x), pxSnap(rv.y - camR)); ctx.scale(rv.face || 1, 1); if (rv.ph === 'jump') ctx.rotate((rv.rot || 0) * 0.15); ctx.drawImage(hcv, -32, -52, 64, 80); ctx.restore();
     text('ELDAR', rv.x, rv.y - camR - 46, 1, '#ff8a5a', 'center', OL);
   } else if (rv) {   // соперник за экраном — стрелка
     const up = rv.y - camR < 0, y = up ? 150 : H - 150; ctx.globalAlpha = 0.85; text((up ? '▲ ' : '▼ ') + 'ELDAR ' + Math.abs(Math.round((p.y - rv.y) / PX_PER_M)) + tr(' М', ' M'), clamp(rv.x, 50, W - 50), y, 1, '#ff8a5a', 'center', OL); ctx.globalAlpha = 1;
@@ -20320,13 +20347,12 @@ function drawNewsBtn() {   // газета: сложенный лист со с�
 }
 // оформление «Новостей»: газетный выпуск — лучи и полутоновые точки на фоне, бегущая строка, карточки-вырезки на скотче
 { const st = document.createElement('style'); st.textContent = `
-#mo[data-th=fr]{background:radial-gradient(70% 45% at 20% 8%,#3ad8ff55,transparent 70%),radial-gradient(60% 40% at 90% 35%,#7a5aff44,transparent 70%),linear-gradient(180deg,#0e5aa8,#0a2f6e 55%,#081a44)}
-#mo[data-th=fr]::before{content:'';position:fixed;inset:0;pointer-events:none;opacity:.16;background-image:radial-gradient(circle at 25% 30%,#fff 0 2px,transparent 3px),radial-gradient(circle at 75% 70%,#fff 0 1.5px,transparent 2.5px);background-size:46px 46px,32px 32px;animation:frSky 30s linear infinite}
+#mo[data-th=fr]{background:radial-gradient(60% 40% at 50% 0,#4a4a52 0,transparent 70%),linear-gradient(180deg,#2c2c31,#1e1e22 55%,#141417)}
+#mo[data-th=fr]::before{content:'';position:fixed;inset:0;pointer-events:none;opacity:.07;background-image:radial-gradient(circle at 25% 30%,#fff 0 1.5px,transparent 2.5px);background-size:38px 38px}
 #mo[data-th=fr] .hd,#mo[data-th=fr] .bd{position:relative;z-index:1}
-#mo[data-th=fr] .card{background:linear-gradient(180deg,#1f6ad0,#16408e);border-color:#0a1a3a;box-shadow:0 4px 0 #061230,inset 0 2px 0 #ffffff33}
-#mo[data-th=fr] .rk{background:linear-gradient(90deg,#2a7ae8cc,#1a4aa8cc);border-color:#0a1a3a}
-#mo[data-th=fr] .tab{position:relative}
-#mo .frdot{position:absolute;top:-4px;right:-4px;width:12px;height:12px;border-radius:50%;background:#ff3a3a;border:2px solid #1a0a04}
+#mo[data-th=fr] .card{background:linear-gradient(180deg,#3a3a40,#2a2a2f);border-color:#0e0e10;box-shadow:0 4px 0 #0a0a0c,inset 0 2px 0 #ffffff1a}
+#mo[data-th=fr] .rk{border-color:#0e0e10}
+#mo[data-th=fr] .tab{background:#45454c}
 #mo[data-th=fr] .bk.hm{background:linear-gradient(#5ac8ff,#1a70c0)}
 @keyframes frSky{to{background-position:46px -460px,-32px -320px}}
 #mo[data-th=news]{background:#15121f}
@@ -20419,12 +20445,19 @@ function openFriends() {
     if (!ok.length) fl.appendChild(moTxt('div', 'sm', tr('ПОКА НИКОГО. КОД ДРУГА — В ТВОЁМ ПРОФИЛЕ: ДАЙ СВОЙ КОД ДРУГУ ИЛИ ВПИШИ ЕГО КОД.', 'NO ONE YET. YOUR FRIEND CODE IS IN YOUR PROFILE: SHARE IT OR ENTER A FRIEND CODE THERE.')));
     const sorted = [...ok].sort((a, b) => (frOnline(b) - frOnline(a)) || ((+(FR.pres[b.u] || {}).t || 0) - (+(FR.pres[a.u] || {}).t || 0)));
     for (const f of sorted) {
-      const d = FR.pres[f.u] || {}, on = frOnline(f), r = moEl('div', 'rk');
-      const av = avatarCnv(f.av || 'hamster', 44); r.appendChild(on ? av : (av.style.filter = 'grayscale(.7)', av));
-      const nm = moEl('div'); nm.style.cssText = 'min-width:0;flex:1';
-      nm.append(moTxt('div', '', f.n), moTxt('div', 'sm', frSeen(f))); nm.firstChild.style.textTransform = 'none'; nm.lastChild.style.color = on ? '#3ce06a' : '#a898c8';
+      const d = FR.pres[f.u] || {}, on = frOnline(f), r = moEl('div', 'rk frk');
+      // строка друга — с его оформлением: фон профиля (или фон рамки), рамка и обвес аватарки, цвет ника, титул
+      const e = boardClean(f.u, { n: d.n || f.n, av: d.av || f.av, fr: d.fr || f.fr || '', ti: d.ti || f.ti || '' }) || {};
+      if (d.fr) f.fr = d.fr; if (d.ti) f.ti = d.ti;   // запоминаем у себя — покажется, даже когда друг не в сети
+      { const bgc = profBgCss(e.bg); if (bgc) r.style.background = bgc; else frameBg(r, frameStyle(e.fr), 5); }
+      const avw = moEl('div'); avw.style.cssText = 'position:relative;flex:none'; const av = avatarCnv(e.av || 'hamster', 44); if (!on) av.style.filter = 'grayscale(.6)';
+      avw.appendChild(framed(av, e.fr || 'basic', 0)); if (e.avf) avw.appendChild(avfOverlay(e.avf, 44 + 6)); r.appendChild(avw);
+      const nm = moEl('div'); nm.style.cssText = 'min-width:0;flex:1;background:rgba(10,10,14,.55);padding:3px 7px;border-radius:8px';
+      nm.appendChild(nickStyle(moTxt('div', 'ol', e.n || f.n), e.nc)); nm.firstChild.style.textTransform = 'none';
+      if (titleText(e.ti)) { const tt = moTxt('div', 'sm' + (e.ti === 'divine' ? ' divineTx' : ''), '«' + titleText(e.ti) + '»'); tt.style.color = '#ffe680'; nm.appendChild(tt); }
+      nm.appendChild(moTxt('div', 'sm', frSeen(f))); nm.lastChild.style.color = on ? '#3ce06a' : '#b8b8c8';
       r.appendChild(nm);
-      const st = moEl('div'); st.style.cssText = 'text-align:right;font-size:11px;white-space:nowrap';
+      const st = moEl('div'); st.style.cssText = 'text-align:right;font-size:11px;white-space:nowrap;background:rgba(10,10,14,.55);padding:3px 6px;border-radius:8px';
       st.append(moTxt('div', 'ol', ((d.b != null ? d.b : f.b) | 0) + ' ' + T('m')), moTxt('div', 'sm', '🏆 ' + ((d.tr != null ? d.tr : f.tr) | 0)));
       r.appendChild(st);
       r.onclick = () => { sfx.click(); frOpenProfile(f); };
@@ -20820,8 +20853,8 @@ function arCrown(x, y, k = 1) {
 function arGhostLite(q, g, r) {
   const k = mpSkin(q.skin), pose = r.d ? 'fall' : r.sp ? 'tuck' : r.st === 'wall' ? 'cling' : r.st === 'ground' ? 'idle' : 'jump';
   const ph = (q.ph = q.ph || Math.random() * 3);
-  const spr = heroSpriteGet(k, pose, time + ph, false, 5);   // 6 кадров по кругу — после первой секунды всё берётся из кэша
-  ctx.save(); ctx.translate(even(g.x), even(g.y)); if (r.rot) ctx.rotate(r.rot); ctx.scale(r.f || 1, 1);
+  const spr = heroSpriteGet(k, pose, time + ph, false, 15);   // соперники — 15 кадров/с (было 5: двигались рывками)   // 6 кадров по кругу — после первой секунды всё берётся из кэша
+  ctx.save(); ctx.translate(pxSnap(g.x), pxSnap(g.y)); if (r.rot) ctx.rotate(r.rot); ctx.scale(r.f || 1, 1);
   if (r.d) ctx.globalAlpha = 0.55;
   ctx.drawImage(spr, -32, -52, 64, 80); ctx.restore(); ctx.globalAlpha = 1;
   if ((r.fx | 0) & 1) { ctx.globalAlpha = 0.25; pell(ctx, g.x, g.y, 26, 30, '#9be7ff'); ctx.globalAlpha = 1; }
@@ -21514,7 +21547,7 @@ function arQuestsCard() {
   if (mp.mode && mp.active && state === 'play') {   // в режимах свой герой — с зелёным контуром, чтобы не потеряться среди десятерых
     heroSprite(curSkin(), heroPose(), time, blinkT < 0);   // та же поза и моргание, что у самого героя — второй раз кадр берётся из кэша
     const tc = tintSprite(AR.md && AR.md.k === 'kill' && AR.md.who === arMe() ? '#ff2a2a' : '#3ce06a', 1);   // убийца — с красным контуром
-    ctx.save(); ctx.translate(even(p.x), even(p.y)); if (p.rot) ctx.rotate(p.rot); ctx.scale(p.face || 1, 1);
+    ctx.save(); ctx.translate(pxSnap(p.x), pxSnap(p.y)); if (p.rot) ctx.rotate(p.rot); ctx.scale(p.face || 1, 1);
     for (const [dx, dy] of [[-2, 0], [2, 0], [0, -2], [0, 2]]) ctx.drawImage(tc, -32 + dx, -52 + dy, 64, 80);
     ctx.restore();
   }
@@ -21765,7 +21798,7 @@ function mdDrawFx(f) {
     if (y < camY - 100 || y > camY + H + 100) return;
     heroSprite(k, 'jump', time, false);
     const a = f.t < 0.4 ? f.t / 0.4 : 1;
-    ctx.save(); ctx.translate(even(x), even(y)); ctx.scale(f.face || 1, 1);
+    ctx.save(); ctx.translate(pxSnap(x), pxSnap(y)); ctx.scale(f.face || 1, 1);
     ctx.globalAlpha = 0.25 * a; pell(ctx, 0, -16, 30, 34, '#bfe8ff');
     ctx.globalAlpha = 0.6 * a; ctx.drawImage(tintSprite('#eef8ff', 0), -32, -52, 64, 80);
     ctx.globalAlpha = 0.5 * a; for (let i = 0; i < 4; i++) prect(ctx, -12 + i * 6, 22 + Math.sin(time * 6 + i) * 3, 6, 6, '#eef8ff');   // волнистый хвост
@@ -21905,7 +21938,7 @@ function mdHud() {
   if (M.gh[id] != null || (M.hide[id] || 0) > mp.clock) return;
   if (M.k === 'kill' && M.who === id && !r.d) {
     heroSprite(mpSkin(q.skin), r.st === 'wall' ? 'cling' : r.st === 'ground' ? 'idle' : 'jump', time, false); const tc = tintSprite('#ff2a2a', 1);
-    ctx.save(); ctx.translate(even(g.x), even(g.y)); if (r.rot) ctx.rotate(r.rot); ctx.scale(r.f || 1, 1); for (const [dx, dy] of [[-2, 0], [2, 0], [0, -2], [0, 2]]) ctx.drawImage(tc, -32 + dx, -52 + dy, 64, 80); ctx.restore();
+    ctx.save(); ctx.translate(pxSnap(g.x), pxSnap(g.y)); if (r.rot) ctx.rotate(r.rot); ctx.scale(r.f || 1, 1); for (const [dx, dy] of [[-2, 0], [2, 0], [0, -2], [0, 2]]) ctx.drawImage(tc, -32 + dx, -52 + dy, 64, 80); ctx.restore();
   }
   g0(q, g, r); }; }
 { const g0 = arGot; arGot = function (m) {   // сообщения модификаций от хоста
