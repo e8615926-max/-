@@ -3505,7 +3505,7 @@ function pick(opts) {
 }
 
 // Пиксельные примитивы: «пиксель» = 2×2 точки
-const APP_VER = 'v106';
+const APP_VER = 'v107';
 let AV_HQ = false;   // рисуем аватарку: точные фигуры без привязки к сетке 2×2 (иначе глаза выходили разного размера)
 function prect(c, x, y, w, h, col) {
   if (AV_HQ) { c.fillStyle = col; c.fillRect(x, y, w, h); return; }
@@ -23443,10 +23443,11 @@ const pushPref = () => Object.assign({ on: 0, d: true, f: true, r: true }, store
 const pushOn = () => pushSupported() && pushPref().on && Notification.permission === 'granted';
 async function pushCfg() {
   if (PUSH.cfg !== undefined) return PUSH.cfg;
+  if (Date.now() - (PUSH.fail || 0) < 60000) return null;   // сервер не ответил — снова спросим не раньше чем через минуту
   PUSH.cfg = null;
   if (!pushSupported()) return null;
   try { const r = await fetch('/api/push?cfg=1'); if (r.ok) { const j = await r.json(); if (j && j.on && j.vapid && j.appId) PUSH.cfg = j; } } catch (e) {}
-  if (!PUSH.cfg) PUSH.cfg = undefined;   // сервер ещё не настроен или нет сети — спросим в следующий раз
+  if (!PUSH.cfg) { PUSH.cfg = undefined; PUSH.fail = Date.now(); }   // сервер ещё не настроен или нет сети — спросим в следующий раз
   return PUSH.cfg || null;
 }
 // модульный Firebase SDK — той же версии, что для входа Google (FB_SDK); отдельное приложение «push» со своим appId
@@ -23555,11 +23556,13 @@ setInterval(() => { if (!document.hidden) pushSync(false); }, 5 * 60000);
   if (location.hash === '#friends') { try { history.replaceState(null, '', location.pathname + location.search); } catch (e) {} const w = () => { if (state === 'menu' && !document.getElementById('intro')) setTimeout(() => openFrom('#friends'), 600); else setTimeout(w, 500); }; w(); }
   // включено — раз в день тихо обновляем токен (телефон может его сменить); игрок сменил аккаунт — перепривязываем
   setTimeout(() => { const pr = pushPref(); if (pr.on && pushSupported() && Notification.permission === 'granted' && (pr.day !== dayNum() || (FB.uid && pr.uid !== FB.uid))) pushEnable(false).catch(() => {}); }, 20000);
-  // предложение включить: с 3-го запуска, спокойно в меню, не чаще раза в неделю и не больше двух раз
+  // предложение включить: уже с первого запуска — когда игрок 15 секунд спокойно в меню; не чаще раза в 3 дня и не больше трёх раз
   let runs = 0; try { runs = (store.get('opens', 0) | 0) + 1; store.set('opens', runs); } catch (e) {}
+  let calmT = 0;
   const askT = setInterval(async () => {
-    const pr = pushPref(); if (pr.on || (pr.asks | 0) >= 2 || Date.now() - (pr.askAt || 0) < 7 * 864e5 || runs < 3) { clearInterval(askT); return; }
-    if (!pushSupported() || Notification.permission !== 'default' || state !== 'menu' || moStack.length || document.getElementById('frpop') || document.getElementById('updpop') || document.getElementById('dropov') || chest || modal || obOpen()) return;
+    const pr = pushPref(); if (pr.on || (pr.asks | 0) >= 3 || Date.now() - (pr.askAt || 0) < 3 * 864e5 || runs < 1) { clearInterval(askT); return; }
+    if (!pushSupported() || Notification.permission !== 'default' || state !== 'menu' || moStack.length || document.getElementById('frpop') || document.getElementById('updpop') || document.getElementById('dropov') || chest || modal || obOpen()) { calmT = 0; return; }
+    if (!calmT) calmT = Date.now(); if (Date.now() - calmT < 15000) return;   // дали осмотреться в меню
     if (!(await pushCfg())) return;
     clearInterval(askT); store.set('push', Object.assign(pr, { asks: (pr.asks | 0) + 1, askAt: Date.now() }));
     const u = document.createElement('div'); u.id = 'pushask';
