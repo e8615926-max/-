@@ -197,6 +197,71 @@
           ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 1000000000"
         }
       }
+    },
+    "sm": {
+      "s": {
+        ".read": "auth != null",
+        ".indexOn": [
+          "ts"
+        ],
+        "$id": {
+          ".write": "auth != null && (data.exists() ? data.child('u').val() === auth.uid : newData.child('u').val() === auth.uid)",
+          ".validate": "!newData.exists() || (newData.hasChildren(['u','j','ts']) && newData.child('u').val() === auth.uid)",
+          "u": {
+            ".validate": "newData.isString()"
+          },
+          "j": {
+            ".validate": "newData.isString() && newData.val().length <= 14000"
+          },
+          "ts": {
+            ".validate": "newData.val() === now"
+          },
+          "$other": {
+            ".validate": false
+          }
+        }
+      },
+      "c": {
+        ".read": "auth != null",
+        "$id": {
+          ".write": "auth != null",
+          ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() - (data.exists() ? data.val() : 0) <= 1 && (data.exists() ? data.val() : 0) - newData.val() <= 1"
+        }
+      },
+      "l": {
+        "$id": {
+          ".read": "auth != null",
+          "$uid": {
+            ".write": "auth != null && auth.uid === $uid",
+            ".validate": "newData.isBoolean()"
+          }
+        }
+      },
+      "u": {
+        ".read": "auth != null",
+        "$uid": {
+          ".write": "auth != null && auth.uid === $uid",
+          ".validate": "newData.isString() && newData.val().length <= 24"
+        }
+      },
+      "pl": {
+        "$uid": {
+          ".read": "auth != null",
+          "$liker": {
+            ".write": "auth != null && auth.uid === $liker && $liker !== $uid",
+            ".validate": "newData.isBoolean()"
+          }
+        }
+      },
+      "v": {
+        "$round": {
+          ".read": "auth != null",
+          "$uid": {
+            ".write": "auth != null && auth.uid === $uid && !data.exists()",
+            ".validate": "newData.isString() && newData.val().length <= 40"
+          }
+        }
+      }
     }
   }
 }

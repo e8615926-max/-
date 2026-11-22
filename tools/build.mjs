@@ -51,5 +51,8 @@ sw = sw.replace(cacheRe, (m, c) => "const CACHE = '" + c + '-' + ver + "';")
        .replace(filesRe, (m, f) => 'const FILES = [' + f + ", './game.js?v=" + ver + "'];");   // с версией: у game.js долгий кэш, адрес меняется с каждой выкладкой
 writeFileSync(join(outDir, 'sw.js'), sw);
 
-for (const f of ['manifest.webmanifest', 'icon.svg', 'apple-touch-icon.png', 'icon-192.png', 'icon-512.png', 'icon-maskable-512.png', 'og.png']) copyFileSync(join(srcDir, f), join(outDir, f));   // иконки и картинка для превью ссылки
+for (const f of ['manifest.webmanifest', 'icon.svg', 'apple-touch-icon.png', 'icon-192.png', 'icon-512.png', 'icon-maskable-512.png', 'og.png']) copyFileSync(join(srcDir, f), join(outDir, f));
+// сайт Wall Play Skin Maker — рядом с игрой: /skins/ (тот же адрес — тот же вход и ник игрока)
+mkdirSync(join(outDir, 'skins'), { recursive: true });
+for (const f of ['index.html', 'app.js']) copyFileSync(join(srcDir, 'skins', f), join(outDir, 'skins', f));   // иконки и картинка для превью ссылки
 console.log('built', { version: ver, 'index.html': page.length, 'game.js': r.code.length, 'peerjs.js': peer[1].length, source: html.length });
