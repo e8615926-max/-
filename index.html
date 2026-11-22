@@ -3505,7 +3505,7 @@ function pick(opts) {
 }
 
 // Пиксельные примитивы: «пиксель» = 2×2 точки
-const APP_VER = 'v109';
+const APP_VER = 'v110';
 let AV_HQ = false;   // рисуем аватарку: точные фигуры без привязки к сетке 2×2 (иначе глаза выходили разного размера)
 function prect(c, x, y, w, h, col) {
   if (AV_HQ) { c.fillStyle = col; c.fillRect(x, y, w, h); return; }
@@ -17109,6 +17109,10 @@ function gfxProbeLost() {
 }
 function gfxReset() {
   for (const m of [textCache, TXT_FAST, PELL_CACHE, SPR_CACHE, WING_CACHE, EYE_WING_CACHE, farTiles, bushSets, AV_PIX, CARD_CACHE]) m.clear();
+  // все остальные готовые картинки тоже: монеты, значки кнопок, аватарки, облака, сундуки — после долгого фона телефон их стирает,
+  // и раньше кнопки оставались белыми кругами, а монеты и значки пропадали
+  for (const m of [UIC, COIN_CACHE, PIX_CACHE, PIX_CACHE0, CLOUD_PIC, AVBG, AV_ARTC, AV_CROP, AR_HEADS, ENA_C, HERO_ACC, HFR_CACHE, HF_HERO, HF_PIC, PW_PIC, WHEEL_DISC, TENT_GR, TXT_NORM, poleShadeCache, allySkCache]) { try { m.clear(); } catch (e) {} }
+  try { BG_C = null; } catch (e) {}
   GFX_GEN++; BIRD_PIC.clear(); groundCv = null; mp.icons = {}; if (sv) sv.bg = null; ALLY_CC.key = ''; ALLY_DC.c = null; SRING_CACHE.clear();
   try { const g = GFX_PROBE.getContext('2d'); g.fillStyle = '#ff00ff'; g.fillRect(0, 0, 300, 300); } catch (e) {}
   const k = cv.width / (W * scale || 1); ctx.setTransform(scale * k, 0, 0, scale * k, 0, 0); ctx.imageSmoothingEnabled = false;
@@ -17119,7 +17123,7 @@ let hiddenAt = 0, perfGrace = 0;
 document.addEventListener('visibilitychange', () => {
   if (document.hidden) { hiddenAt = performance.now(); return; }
   perfAcc = 0; perfN = 0; perfSlow = 0; perfGap = 0; perfGrace = 2;   // первые кадры после возврата всегда медленные — это не повод снижать резкость
-  if (gfxProbeLost() || (hiddenAt && performance.now() - hiddenAt > 120000)) gfxReset();
+  if (gfxProbeLost() || (hiddenAt && performance.now() - hiddenAt > 30000)) gfxReset();   // 30 секунд в фоне — телефон уже мог стереть картинки
 });
 window.addEventListener('pageshow', e => { if (e.persisted) gfxReset(); });
 cv.addEventListener('contextrestored', () => gfxReset());
@@ -23423,9 +23427,22 @@ if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) {
     const sh = (x0, x1, a0, a1) => { const g = sg.createLinearGradient(x0, 0, x1, 0); g.addColorStop(0, 'rgba(10,4,20,' + a0 + ')'); g.addColorStop(1, 'rgba(10,4,20,' + a1 + ')'); sg.fillStyle = g; sg.fillRect(Math.min(x0, x1), 0, Math.abs(x1 - x0), vh); };
     if (r.left > 1) { sh(0, r.left, 0.45, 0.12); sh(r.left - 14, r.left, 0, 0.35); }
     if (r.right < vw - 1) { sh(vw, r.right, 0.45, 0.12); sh(r.right + 14, r.right, 0, 0.35); }
+    // вытянутый телефон: сверху — продолжение неба (зеркально от края, без шва), снизу — земля старта или продолжение карты
+    if (r.top > 1) for (let i = 1, y = r.top; y > 0; i++) { y -= th; sg.save(); if (i % 2) { sg.translate(r.left, y + th); sg.scale(1, -1); } else sg.translate(r.left, y); sg.drawImage(bgC, 0, 0, tw, th); sg.restore(); }
+    if (r.bottom < vh - 1) {
+      if (-camR < 40) {   // земля на экране — ниже просто продолжается та же земля (камешки)
+        const k = tw / W; sg.fillStyle = '#b8552e'; sg.fillRect(r.left, r.bottom, tw, vh - r.bottom);
+        for (let gy = 0; gy * 22 * k < vh - r.bottom + 30; gy++) for (let gx = -1; gx < 11; gx++) {
+          const x = r.left + (gx * 36 + (gy & 1) * 18 + hash2(gx, gy + 40) * 6) * k, y = r.bottom + (gy * 22 + 4) * k;
+          sg.fillStyle = '#8a3a1e'; sg.beginPath(); sg.ellipse(x + 2 * k, y + 3 * k, 15 * k, 9 * k, 0, 0, Math.PI * 2); sg.fill();
+          sg.fillStyle = '#d66a3a'; sg.beginPath(); sg.ellipse(x, y, 14 * k, 8 * k, 0, 0, Math.PI * 2); sg.fill();
+          sg.fillStyle = '#f08a54'; sg.beginPath(); sg.ellipse(x - 4 * k, y - 3 * k, 6 * k, 3 * k, 0, 0, Math.PI * 2); sg.fill(); }
+      } else for (let i = 1, y = r.bottom; y < vh; i++, y += th) { sg.save(); if (i % 2) { sg.translate(r.left, y + th); sg.scale(1, -1); } else sg.translate(r.left, y); sg.drawImage(bgC, 0, 0, tw, th); sg.restore(); }
+    }
   };
   setInterval(() => {
-    wide = innerWidth / Math.max(1, innerHeight) > W / H + 0.12;
+    const ar = innerWidth / Math.max(1, innerHeight);
+    wide = ar > W / H + 0.12 || ar < W / H - 0.02;   // и широкий экран (поля по бокам), и вытянутый телефон (поля сверху и снизу)
     sharpOn = wide && worldShown();
     setDisp(side, sharpOn); setDisp(amb, wide && !sharpOn);
     if (!wide || sharpOn || document.hidden || !cv.width) return;
