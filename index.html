@@ -3504,7 +3504,7 @@ function pick(opts) {
 }
 
 // Пиксельные примитивы: «пиксель» = 2×2 точки
-const APP_VER = 'v99';
+const APP_VER = 'v100';
 let AV_HQ = false;   // рисуем аватарку: точные фигуры без привязки к сетке 2×2 (иначе глаза выходили разного размера)
 function prect(c, x, y, w, h, col) {
   if (AV_HQ) { c.fillStyle = col; c.fillRect(x, y, w, h); return; }
@@ -12264,6 +12264,45 @@ function drawEntsPx() {
   try { drawEnts(); } finally { ctx = main; }
   ctx.save(); ctx.imageSmoothingEnabled = false; ctx.globalAlpha = 1; ctx.drawImage(PXB, 0, s0, PXB.width, s1 - s0, 0, cE + s0 * 2, W, (s1 - s0) * 2); ctx.restore();
 }
+// враги — общий слой красоты: каждый рисуется в свой маленький холст, получает чёткую тёмную обводку (как у героев),
+// объём (свет сверху слева, тень снизу справа) и пульсирующую ауру опасности своего цвета; пиксельная сетка остаётся та же
+const EN_FX = { bee: '#ffd23a', spiky: '#ff3a5a', cone: '#ff8a3a', hawk: '#ff5a3a', ghost: '#b08aff', bat: '#a64aff', snail: '#7aff8a', meteor: '#ff6a1a', piranha: '#3ae0ff', orbit: '#ff3aa0', bouncer: '#3ab0ff' };
+const ENA = document.createElement('canvas'), ENB = document.createElement('canvas'), ena = ENA.getContext('2d'), enb = ENB.getContext('2d');
+{ const de0 = drawEnts;
+  drawEnts = function () {
+    if (!SET.fx || perfNoCache) { de0(); return; }
+    const all = ents, rest = [], main = ctx, T = main.getTransform(), k = T.a;
+    if (T.b || T.c || !(k > 0)) { de0(); return; }
+    const S = 150, px = Math.ceil(S * k), o = Math.max(1, Math.round(k));
+    if (ENA.width !== px || ENA.height !== px) { ENA.width = px; ENA.height = px; ENB.width = px; ENB.height = px; }   // проверяем обе стороны: холст по умолчанию 300×150
+    try {
+      for (const e of all) {
+        const col = EN_FX[e.type];
+        if (!col || e.y < camY - 60 || e.y > camY + H + 60) { rest.push(e); continue; }
+        if ((e.type === 'cone' && e.st !== 'fall') || (e.type === 'hawk' && e.st !== 'fly') || (e.type === 'ghost' && e.st !== 'chase') || (e.type === 'meteor' && e.st !== 'fall') || (e.type === 'piranha' && e.st !== 'jump')) { rest.push(e); continue; }
+        // 1) сам враг — в холст A, по центру
+        ena.setTransform(1, 0, 0, 1, 0, 0); ena.clearRect(0, 0, px, px); ena.imageSmoothingEnabled = false; ena.globalAlpha = 1;
+        ena.setTransform(k, 0, 0, k, px / 2 - e.x * k, px / 2 - e.y * k);
+        ctx = ena; ents = [e]; try { de0(); } finally { ctx = main; ents = all; }
+        // 2) обводка: силуэт, раздутый на точку во все стороны, тёмным цветом, сверху — сам враг
+        enb.setTransform(1, 0, 0, 1, 0, 0); enb.globalCompositeOperation = 'source-over'; enb.globalAlpha = 1; enb.clearRect(0, 0, px, px); enb.imageSmoothingEnabled = false;
+        for (const [dx, dy] of [[-o, 0], [o, 0], [0, -o], [0, o], [-o, -o], [o, -o], [-o, o], [o, o]]) enb.drawImage(ENA, dx, dy);
+        enb.globalCompositeOperation = 'source-in'; enb.fillStyle = '#140a1c'; enb.fillRect(0, 0, px, px);
+        enb.globalCompositeOperation = 'source-over'; enb.drawImage(ENA, 0, 0);
+        // 3) объём: блик сверху слева и тень снизу справа — только по самому врагу
+        enb.globalCompositeOperation = 'source-atop';
+        const g = enb.createLinearGradient(px * 0.32, px * 0.32, px * 0.68, px * 0.68);
+        g.addColorStop(0, 'rgba(255,255,255,0.28)'); g.addColorStop(0.42, 'rgba(255,255,255,0)'); g.addColorStop(0.6, 'rgba(10,0,30,0)'); g.addColorStop(1, 'rgba(10,0,30,0.32)');
+        enb.fillStyle = g; enb.fillRect(0, 0, px, px); enb.globalCompositeOperation = 'source-over';
+        // 4) аура опасности и сам враг в мире
+        const pu = 1 + Math.sin(time * 5 + e.x * 0.05) * 0.12, ar = Math.max(12, (e.r || 10) * 1.9) * pu;
+        ctx.globalAlpha = 0.1; pell(ctx, e.x, e.y, ar * 1.3, ar * 1.3, col); ctx.globalAlpha = 0.2; pell(ctx, e.x, e.y, ar * 0.95, ar * 0.95, col); ctx.globalAlpha = 1;
+        const sm = ctx.imageSmoothingEnabled; ctx.imageSmoothingEnabled = false; ctx.drawImage(ENB, e.x - S / 2, e.y - S / 2, S, S); ctx.imageSmoothingEnabled = sm;
+      }
+    } finally { ctx = main; ents = all; }
+    ents = rest; try { de0(); } finally { ents = all; }   // монеты, кристаллы и прочее — как раньше
+  };
+}
 function drawWorld() {
   drawWeather();
   drawHeightMarks();
@@ -19093,7 +19132,10 @@ Object.assign(BTN, { prof: { x: 52, y: 12, w: 150, h: 34 }, rank: { x: 12, y: 90
 const MORE_KEYS = ['tent', 'allies', 'emo'];
 // круглые иконки меню: награды (у новостей), меню (под звуком), друзья (справа от рейтинга)
 function drawTopIcons() {
-  { const b = BTN.ach; roundBtn(b); trophyIcon(b.x + b.w / 2, b.y + b.h / 2, 0.8); }
+  { const b = BTN.ach, cx = b.x + b.w / 2, cy = b.y + b.h / 2;   // награды: точный круг (раньше — ступеньками, кубок казался смещённым) и кубок ровно по центру
+    ctx.fillStyle = OL; ctx.beginPath(); ctx.arc(cx, cy + 2, b.w / 2 + 2, 0, 7); ctx.fill(); ctx.beginPath(); ctx.arc(cx, cy, b.w / 2 + 2, 0, 7); ctx.fill();
+    ctx.fillStyle = '#ffffff'; ctx.beginPath(); ctx.arc(cx, cy, b.w / 2, 0, 7); ctx.fill();
+    trophyIcon(cx, cy, 0.8); }
   { const b = BTN.menuB; roundBtn(b); for (let k = 0; k < 3; k++) { prect(ctx, b.x + 9, b.y + 10 + k * 6, 16, 4, OL); } }
   { const b = BTN.friends, x = b.x + b.w / 2, y = b.y + b.h / 2;   // друзья — квадратная кнопка со скруглёнными углами
     sqBtn(b, '#2a7ae8', '#6ab8ff', '#1a4ab0');   // синяя кнопка
@@ -19159,12 +19201,31 @@ function drawPassBtn() {
   if (passReady()) badge(b.x + b.w - 4, y + 2);
 }
 // задания — круглая иконка рядом с Pass: свиток с галочками
+// значок заданий: деревянный планшет с блестящим зажимом, листок с двумя зелёными галочками и пустой клеткой, жёлтый карандаш, тень и искорка
+function questBoardIcon(cx, cy, s, t) {
+  ctx.save(); ctx.translate(cx, cy); ctx.scale(s, s);
+  const P = (x, y, w, h, c) => { ctx.fillStyle = c; ctx.fillRect(x, y, w, h); };
+  P(-10, -10, 22, 25, 'rgba(10,30,80,0.35)');   // тень
+  P(-12, -12, 22, 25, OL); P(-11, -11, 20, 23, '#c87a3a'); P(-11, -11, 20, 2, '#e8a060'); P(6, -11, 3, 23, '#a0582a'); P(-11, 10, 20, 2, '#8a4a20');   // планшет
+  P(-9, -8, 16, 18, OL); P(-8, -7, 14, 16, '#fffaf0'); P(-8, 7, 14, 2, '#e8dcc4'); P(4, -7, 2, 2, '#e8dcc4');   // листок
+  const done = [true, true, false];
+  for (let i = 0; i < 3; i++) { const y = -5 + i * 5;
+    P(-7, y, 4, 4, OL); P(-6, y + 1, 2, 2, done[i] ? '#d8ffe0' : '#ffffff');
+    P(-1, y + 1, i === 1 ? 4 : 6, 2, '#b8ae9c');
+    if (done[i]) { const pp = Math.min(1, ((t * 0.7 + i * 0.3) % 2.4) * 3); ctx.globalAlpha = 0.6 + pp * 0.4; P(-8, y + 1, 1, 1, '#1aa84a'); P(-7, y + 2, 1, 1, '#1aa84a'); P(-6, y + 3, 1, 1, '#1aa84a'); P(-5, y + 2, 1, 1, '#1aa84a'); P(-4, y + 1, 1, 1, '#1aa84a'); P(-3, y, 1, 1, '#1aa84a'); P(-7, y + 1, 1, 1, '#3ce06a'); P(-6, y + 2, 1, 1, '#3ce06a'); P(-5, y + 1, 1, 1, '#3ce06a'); P(-4, y, 1, 1, '#3ce06a'); ctx.globalAlpha = 1; }
+  }
+  P(-6, -15, 10, 6, OL); P(-5, -14, 8, 4, '#c8ccd8'); P(-5, -14, 8, 1, '#ffffff'); P(-5, -11, 8, 1, '#8a8ea0'); P(-2, -17, 4, 3, OL); P(-1, -16, 2, 2, '#e8ecf4');   // зажим
+  ctx.save(); ctx.translate(9, 4); ctx.rotate(0.75 + Math.sin(t * 2) * 0.05);   // карандаш
+  P(-2, -11, 4, 16, OL); P(-1, -10, 2, 11, '#ffd23a'); P(0, -10, 1, 11, '#e8a010'); P(-1, -12, 2, 2, '#ff7aa0'); P(-2, -13, 4, 2, OL); P(-1, 1, 2, 2, '#c8ccd8'); P(-1, 3, 2, 2, '#e8c49a'); P(0, 5, 1, 1, '#2a2a2a');
+  ctx.restore();
+  const ph = (t * 0.8) % 1; if (ph < 0.4) { const a = Math.sin(ph / 0.4 * Math.PI); ctx.globalAlpha = a; P(-13, -14, 1, 5, '#ffffff'); P(-15, -12, 5, 1, '#ffffff'); ctx.globalAlpha = 1; }   // искорка
+  ctx.restore();
+}
 function drawQuestIcon() {
   const b = BTN.quest, cx = b.x + b.w / 2, bob = Math.sin(time * 3 + 2.6) * 1.5, cy = b.y + b.h / 2 + bob;
   ctx.globalAlpha = 0.3; pell(ctx, cx, b.y + b.h + 4, b.w / 2, 4, '#000000'); ctx.globalAlpha = 1;   // тень под кнопкой
   sqBtn(b, '#3ab0ff', '#8ad8ff', '#1a70c0', b.y + bob);
-  ctx.globalAlpha = 0.35; pixIcon(QUEST_PIX, drawQuestIcon.sh || (drawQuestIcon.sh = Object.fromEntries(Object.keys(QUEST_COL).map(k => [k, '#0a2a5a']))), cx + 2, cy + 2, 0.95); ctx.globalAlpha = 1;   // тень значка (цвета тени — один объект: кэш значков по нему)
-  pixIcon(QUEST_PIX, QUEST_COL, cx, cy - 1, 0.95);
+  questBoardIcon(cx, cy - 1, 1, time);
   text(tr('ЗАДАНИЯ', 'QUESTS'), cx, b.y + b.h + 10, 1, '#ffffff', 'center', OL, 70);
 }
 // неподвижные куски меню (профиль, путь славы, победы дня) — готовой картинкой в точках экрана; перерисовка — только когда меняются данные
