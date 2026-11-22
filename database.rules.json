@@ -294,6 +294,24 @@
         },
         "z": {
           ".validate": "newData.isNumber() && newData.val() >= -840 && newData.val() <= 840"
+        },
+        "y": {
+          ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 1000000"
+        },
+        "w": {
+          ".validate": "newData.isNumber() && (newData.val() === 0 || newData.val() === 1)"
+        },
+        "a": {
+          ".validate": "newData.isNumber() && (newData.val() === 0 || newData.val() === 1)"
+        },
+        "g": {
+          ".validate": "newData.isNumber() && (newData.val() === 0 || newData.val() === 1)"
+        },
+        "c": {
+          ".validate": "newData.isNumber() && (newData.val() === 0 || newData.val() === 1)"
+        },
+        "s": {
+          ".validate": "newData.hasChildren()"
         }
       }
     }

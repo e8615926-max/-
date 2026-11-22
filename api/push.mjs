@@ -14,7 +14,8 @@
 //   POST /api/push { type:'freq', to, idToken }  → уведомление «заявка в друзья» (проверяется вход и сама заявка в базе)
 //   POST /api/push (Authorization: Bearer PUSH_ADMIN_KEY) { title, body, url?, uid? } → ручная рассылка всем или одному
 //   GET  /api/push?cron=daily (Authorization: Bearer CRON_SECRET) → ежедневное «новые скины дня» тем, кто не выключил
-//   GET  /api/push?cron=remind (Authorization: Bearer CRON_SECRET) → напоминание раз в 3 часа (5 сообщений по кругу), ночью у игрока — нет
+//   GET  /api/push?cron=remind (Authorization: Bearer CRON_SECRET) → раз в 3 часа: напоминание только о том, что у игрока реально готово
+//        (колесо, награды, сундук, новые квесты, победы дня) — по состоянию, которое игра пишет в push/<uid>; ночью у игрока — нет
 import { createSign, timingSafeEqual } from 'node:crypto';
 
 const API_KEY = process.env.FIREBASE_API_KEY || 'AIzaSyAZ3PX79SZJBTdCwo7F8aNhUSq_2hbmtmc';
@@ -87,6 +88,44 @@ async function broadcast(build, filter = () => true) {
   }
   return out;
 }
+// ---------- честные напоминания ----------
+// Игра пишет в push/<uid>: y — день игрока (по его часам) при последнем заходе, z — пояс в минутах, t — время последнего захода,
+// w — колесо сегодня уже крутил (1/0), a — награду за вход сегодня уже забрал, g — есть незабранные награды, c — есть готовый сундук.
+// В новый день (по часам игрока) колесо, награда за вход, сундук палатки, задания и победы дня обновляются сами.
+const TZ = r => typeof r.z === 'number' && Math.abs(r.z) <= 840 ? r.z : 180;   // пояса нет (старая версия игры) — Москва
+const localDay = (r, now) => Math.floor((now + TZ(r) * 60000) / 864e5);           // так же считает dayNum() в игре
+const localHour = (r, now) => new Date(now + TZ(r) * 60000).getUTCHours();
+// что сейчас правда готово у игрока: тип → id события (одно событие — одно уведомление)
+function ready(r, now) {
+  const d = localDay(r, now), nd = d > r.y, out = {};
+  if (nd || r.a === 0 || r.g === 1) out.g = nd || r.a === 0 ? 'g' + d : 'g' + r.t;   // 0 — награды (вход, задания, путь славы, Pass)
+  if (nd || r.w === 0) out.w = 'w' + d;                                           // 1 — бесплатное колесо
+  if (nd) out.q = 'q' + d;                                                        // 2 — новые квесты (каждый новый день)
+  if (nd || r.c === 1) out.c = nd ? 'c' + d : 'c' + r.t;                          // 3 — сундук (палатка — каждый день, задания, Pass)
+  if (nd) out.v = 'v' + d;                                                        // 4 — победы дня обновились
+  return out;
+}
+const RTYPE = ['g', 'w', 'q', 'c', 'v'];   // порядок как в REMIND
+async function remind() {
+  const all = (await db('GET', 'push')) || {}, now = Date.now(), slot = Math.floor(now / (3 * 3600e3)), out = { ok: 0, gone: 0, err: 0, none: 0, night: 0, off: 0 };
+  const jobs = [];
+  for (const [uid, r] of Object.entries(all)) {
+    if (!r || typeof r.k !== 'string' || r.r === false) { out.off++; continue; }
+    if (typeof r.y !== 'number' || typeof r.t !== 'number') { out.none++; continue; }   // игра ещё не прислала состояние — не знаем, что правда
+    const h = localHour(r, now); if (h < 8 || h >= 23) { out.night++; continue; }       // ночь у игрока
+    if (now - r.t < 3600e3) { out.none++; continue; }                                    // играл последний час — и так всё видит
+    const rd = ready(r, now), sent = r.s || {};
+    let pick = null; for (let i = 0; i < 5; i++) { const ty = RTYPE[(slot + i) % 5]; if (rd[ty] && sent[ty] !== rd[ty]) { pick = ty; break; } }   // по кругу, каждое событие — один раз
+    if (!pick) { out.none++; continue; }
+    const m = (REMIND[r.l] || REMIND.en)[RTYPE.indexOf(pick)];
+    jobs.push({ uid, r, pick, id: rd[pick], msg: { title: m[0], body: m[1], tag: 'remind', ttl: 3 * 3600 } });
+  }
+  for (let i = 0; i < jobs.length; i += 40) {
+    const res = await Promise.all(jobs.slice(i, i + 40).map(async j => { const x = await send(j.uid, j.r, j.msg).catch(() => 'err'); if (x === 'ok') await db('PATCH', 'push/' + j.uid + '/s', { [j.pick]: j.id }).catch(() => {}); return x; }));
+    for (const x of res) out[x === 'ok' ? 'ok' : x === 'gone' ? 'gone' : 'err']++;
+  }
+  return out;
+}
 // кто вызывает: проверяем вход Firebase игрока по его idToken
 async function whoIs(idToken) {
   if (typeof idToken !== 'string' || idToken.length > 4000) return null;
@@ -110,14 +149,11 @@ export default {
       // ежедневная рассылка по расписанию Vercel
       if (u.searchParams.get('cron') === 'daily') {
         if (!process.env.CRON_SECRET || !same(bearer(req), process.env.CRON_SECRET)) return json({ error: 'unauthorized' }, 401);
-        return json(await broadcast(r => ({ ...txt('daily', r.l), tag: 'daily', ttl: 6 * 3600 }), r => r.d !== false));
+        return json(await broadcast(r => ({ ...txt('daily', r.l), tag: 'daily', ttl: 6 * 3600 }), r => r.d !== false && !(typeof r.y === 'number' && r.y === localDay(r, Date.now()))));   // уже заходил сегодня — магазин и так видел
       }
       if (u.searchParams.get('cron') === 'remind') {
         if (!process.env.CRON_SECRET || !same(bearer(req), process.env.CRON_SECRET)) return json({ error: 'unauthorized' }, 401);
-        const slot = Math.floor(Date.now() / (3 * 3600e3)), now = Date.now();
-        // ночь у игрока (23:00–8:00 по его часам; z — смещение пояса в минутах, по умолчанию Москва) — не будим
-        const awake = r => { const z = typeof r.z === 'number' && Math.abs(r.z) <= 840 ? r.z : 180, h = new Date(now + z * 60000).getUTCHours(); return h >= 8 && h < 23; };
-        return json(await broadcast(r => { const m = (REMIND[r.l] || REMIND.en)[slot % 5]; return { title: m[0], body: m[1], tag: 'remind', ttl: 3 * 3600 }; }, r => r.r !== false && awake(r)));
+        return json(await remind());
       }
       if (req.method !== 'POST') return json({ error: 'method' }, 405, CORS);
       const b = await req.json().catch(() => ({}));
