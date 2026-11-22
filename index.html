@@ -3505,7 +3505,7 @@ function pick(opts) {
 }
 
 // Пиксельные примитивы: «пиксель» = 2×2 точки
-const APP_VER = 'v108';
+const APP_VER = 'v109';
 let AV_HQ = false;   // рисуем аватарку: точные фигуры без привязки к сетке 2×2 (иначе глаза выходили разного размера)
 function prect(c, x, y, w, h, col) {
   if (AV_HQ) { c.fillStyle = col; c.fillRect(x, y, w, h); return; }
@@ -23533,8 +23533,10 @@ function pushSync(force) {
   const body = JSON.stringify(Object.assign(st, { t: FB_NOW }));
   try {
     // игру сворачивают — запрос должен уйти и после закрытия вкладки (keepalive); ключ входа ещё живой — без лишнего обновления
-    if (Date.now() < FB.exp - 30000) fetch(fbUrl('push/' + FB.uid), { method: 'PATCH', body, keepalive: true }).catch(() => {});
-    else fbReq('PATCH', 'push/' + FB.uid, JSON.parse(body)).catch(() => {});
+    // база не приняла (сервер удалил устаревший токен телефона) — сразу получаем новый токен, а не ждём завтрашнего дня
+    const lost = () => { const p = pushPref(); p.day = -1; store.set('push', p); if (!document.hidden) pushEnable(false).catch(() => {}); };
+    if (Date.now() < FB.exp - 30000) fetch(fbUrl('push/' + FB.uid), { method: 'PATCH', body, keepalive: true }).then(r => { if (!r.ok) lost(); }, () => {});
+    else fbReq('PATCH', 'push/' + FB.uid, JSON.parse(body)).catch(e => { if (e && e.status) lost(); });
   } catch (e) {}
 }
 document.addEventListener('visibilitychange', () => { if (document.hidden) pushSync(true); });
