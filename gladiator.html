@@ -1770,7 +1770,7 @@ function rollWounds(t, kind, o) {
   if (Math.random() < a && t.w.arm < 2 && t.a.kind === 'human') { t.w.arm++; addMark(t, 'arm'); floatText(hp.setY(t.height * .6), t.isPlayer ? 'Рана руки' : 'рука ранена', t.isPlayer ? 'hurt' : 'block'); }
 }
 function tickWounds(u, dt) {
-  const w = u.w; if (!w.bleed || !u.alive) return;
+  const w = u.w; if (!w.bleed || !u.alive || u.mercy) return;
   const rate = (u.isPlayer ? .85 : 1.3) * w.bleed;
   u.hp -= rate * dt;
   w.drip -= dt;
@@ -1797,7 +1797,7 @@ function entangle(u, dur) {
   if (u.isPlayer) { u.queued = null; toast('Ты в сети! Жми удар, чтобы вырваться'); }
 }
 function hit(t, dmg, src, o = {}) {
-  if (!t || !t.alive || t.iframes > 0) return false;
+  if (!t || !t.alive || t.iframes > 0 || t.mercy) return false;
   const kind = o.kind || 'light';
   const sp = src && src.pos ? src.pos : t.pos;
   const srcUnit = src && src.team ? src : null;
@@ -3221,8 +3221,12 @@ function startWave() {
   aliveAllies().forEach((a, i) => { const an = Math.PI + (i - 1.5) * .6; a.pos.set(player.pos.x + Math.sin(an) * 2.5, 0, player.pos.z + Math.cos(an) * 2.5 + 1); a.state = 'move'; a.target = null; });
 }
 function startMercy(u) {
-  u.state = 'kneel'; u.mercy = true; u.t = 0; clearGlow(u);
-  G.mercyUnit = u; G.mercyTimer = 1.0; sfx.roar(1.6); crowd.excite = 1;
+  if (u.mercy) return;
+  u.state = 'kneel'; u.mercy = true; u.t = 0; u.hp = Math.max(1, u.hp); u.w.bleed = 0; clearGlow(u); u.vel.set(0, 0, 0);
+  if (u.tele) u.tele.g.visible = false;
+  if (G.lock === u) G.lock = null;
+  if (G.mercyUnit && G.mercyUnit !== u && G.mercyUnit.mercy) return;
+  G.mercyUnit = u; G.mercyTimer = .7; sfx.roar(1.6); crowd.excite = 1;
   floatText(u.pos.clone().setY(u.height + .4), 'Missio!', 'crit');
 }
 function openMercy() {
@@ -3246,6 +3250,8 @@ function resolveMercy(spare) {
     G.gold += 60; gainGlory(40);
     die(u, player, true);
   }
+  const next = G.units.find(x => x.alive && x.mercy && !x.mercyDone);
+  if (next) { G.mercyUnit = next; G.mercyTimer = .6; }
 }
 function spawnAlly(key) {
   const label = key === 'allyMedic' ? `${pick(NAMES)} · лекарь` : key === 'allyBanner' ? `${pick(NAMES)} · знаменосец` : key === 'allyCrossbow' ? `${pick(NAMES)} · арбалетчик` : key === 'allyGuardian' ? `${pick(NAMES)} · страж` : key === 'merc' ? `${pick(NAMES)} · наёмник` : key === 'allyArcher' ? `${pick(NAMES)} · лучник` : key === 'allyEques' ? `${pick(NAMES)} · эквит` : key === 'dog' ? `Пёс ${pick(DOG_NAMES)}` : key === 'wolf' ? `Волк ${pick(DOG_NAMES)}` : key === 'bear' ? 'Медведь Урс' : `${pick(NAMES)} · брат`;
