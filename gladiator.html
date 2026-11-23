@@ -305,7 +305,7 @@
     <div class="hero-detail" id="heroDetail"></div>
     <div class="heroes" id="classCards"></div>
     <div class="opts">
-      <div class="opt"><span class="opt-l">Режим</span><div class="seg" id="modeSeg"><button type="button" data-v="campaign">Кампания</button><button type="button" data-v="bosses">Арена богов · 7 боссов</button></div></div>
+      <div class="opt"><span class="opt-l">Режим</span><div class="seg" id="modeSeg"><button type="button" data-v="campaign">Кампания</button><button type="button" data-v="bosses">Арена богов · 8 боссов</button></div></div>
       <div class="opt"><span class="opt-l">Камера</span><div class="seg" id="viewSeg"><button type="button" data-v="third">Третье лицо</button><button type="button" data-v="fp">Первое лицо</button></div></div>
       <div class="opt"><span class="opt-l">Графика</span><div class="seg" id="qualSeg"><button type="button" data-v="high">Высокая</button><button type="button" data-v="medium">Средняя</button><button type="button" data-v="low">Низкая</button></div></div>
       <div class="opt"><span class="opt-l">Музыка</span><div class="seg"><button type="button" class="music-btn">Музыка: вкл</button></div></div>
@@ -525,7 +525,7 @@ const netTex = canvasTex(128, (g, s) => {
 }, 1);
 
 const _m4 = new THREE.Matrix4(), _q = new THREE.Quaternion(), _s = new V3(1,1,1), _p = new V3(), _e = new THREE.Euler(), _yAxis = new V3(0, 1, 0);
-const M = (color, o = {}) => new THREE.MeshStandardMaterial(Object.assign({ color: new THREE.Color(color).convertSRGBToLinear(), roughness: .85, metalness: 0, flatShading: true }, o));
+const M = (color, o = {}) => { if (o.metalness > .45) o = Object.assign({}, o, { metalness: .45, roughness: Math.min(o.roughness === undefined ? .4 : o.roughness, .4) }); return new THREE.MeshStandardMaterial(Object.assign({ color: new THREE.Color(color).convertSRGBToLinear(), roughness: .85, metalness: 0, flatShading: true }, o)); };
 
 /* -------- arena floor -------- */
 const marbleTex = canvasTex(512, (g, s) => {
@@ -937,6 +937,15 @@ function buildWeapon(kind, metal, wood, glowMat) {
     part(new THREE.ConeGeometry(.03, .14, 4), bm, g, 0, .065, 1.18).rotation.x = X - .2;
     part(BOX(.006, .01, .95), M(0xffffff, { emissive: 0x8899aa }), g, 0, -.03, .68);
     ud.reach = 2.3; ud.base.position.z = .2; ud.tip.position.set(0, .07, 1.2);
+  } else if (kind === 'longsword') {
+    const gold = M(0xe0b860, { metalness: .9, roughness: .22 });
+    part(BOX(.045, .045, .34), M(0x3a2414), g, 0, 0, -.04); part(new THREE.SphereGeometry(.045, 6, 4), metal, g, 0, 0, -.24);
+    part(BOX(.44, .05, .06), metal, g, 0, 0, .15);
+    for (const sd of [-1, 1]) { const c = part(BOX(.05, .05, .13), metal, g, sd * .23, 0, .2); c.rotation.y = sd * .7; }
+    part(BOX(.1, .09, .09), gold, g, 0, 0, .16);
+    part(BOX(.08, .02, 1.18), glowMat, g, 0, 0, .8); part(BOX(.016, .024, .95), M(0x5a6068, { metalness: .8 }), g, 0, 0, .72);
+    part(new THREE.ConeGeometry(.04, .14, 4), glowMat, g, 0, 0, 1.45).rotation.x = X;
+    ud.reach = 2.55; ud.base.position.z = .25; ud.tip.position.z = 1.48;
   } else if (kind === 'greatsword') {
     part(BOX(.05, .05, .4), wood, g, 0, 0, .05); part(BOX(.36, .06, .07), metal, g, 0, 0, .27);
     part(BOX(.1, .025, 1.2), glowMat, g, 0, 0, .9); part(new THREE.ConeGeometry(.05, .16, 4), glowMat, g, 0, 0, 1.58).rotation.x = X;
@@ -996,6 +1005,15 @@ function buildShield(kind, paint, metal) {
     part(CYL(.48, .48, .06, 18), metal, g).rotation.x = Math.PI / 2;
     part(CYL(.36, .36, .07, 18), paint, g).rotation.x = Math.PI / 2;
     for (let i = 0; i < 3; i++) { const l = part(BOX(.06, .3, .02), metal, g, 0, 0, .045); l.rotation.z = i / 3 * Math.PI; }
+  } else if (kind === 'royal') {
+    const face = M(0xd8dce2, { metalness: .85, roughness: .26 }), gold = M(0xe0b860, { metalness: .9, roughness: .22 });
+    part(BOX(.56, .56, .05), face, g, 0, .12, 0);
+    const tip = part(new THREE.CylinderGeometry(.395, .02, .52, 4), face, g, 0, -.38, 0); tip.rotation.y = Math.PI / 4; tip.scale.set(1, 1, .13);
+    part(BOX(.6, .045, .07), gold, g, 0, .41, 0); for (const sd of [-1, 1]) { part(BOX(.045, .56, .07), gold, g, sd * .29, .12, 0); const e = part(BOX(.045, .44, .07), gold, g, sd * .15, -.36, 0); e.rotation.z = sd * .55; }
+    part(BOX(.3, .26, .02), M(0x6a1414), g, 0, .1, .03);
+    part(BOX(.2, .05, .02), gold, g, 0, .03, .045);
+    for (let i = -1; i <= 1; i++) part(new THREE.ConeGeometry(.03, .1, 4), gold, g, i * .08, .1, .045);
+    part(new THREE.SphereGeometry(.025, 6, 4), M(0x2040c0, { emissive: 0x081030 }), g, 0, .04, .06);
   } else if (kind === 'heater') {
     part(BOX(.5, .5, .05), paint, g, 0, .12, 0);
     const tip = part(new THREE.CylinderGeometry(.35, .02, .45, 4), paint, g, 0, -.32, 0); tip.rotation.y = Math.PI / 4; tip.scale.set(1, 1, .14);
@@ -1016,6 +1034,32 @@ function addCape(m, color) {
   const segs = []; let parent = root;
   for (let i = 0; i < 3; i++) { const g = new THREE.Group(); g.position.y = i ? -.3 : 0; parent.add(g); const p = part(BOX(.5 - i * .02, .32, .025), mat, g, 0, -.16, 0); segs.push(g); parent = g; }
   m.cape = segs;
+}
+function addPlate(m, metal, gold, leather, dark) {
+  const T = m.torso;
+  part(CYL(.15, .2, .12, 8), metal, T, 0, .6, 0);
+  part(BOX(.52, .5, .33), metal, T, 0, .32, 0);
+  part(BOX(.05, .42, .04), metal, T, 0, .33, .17);
+  part(BOX(.24, .12, .02), gold, T, 0, .45, .176); part(BOX(.38, .03, .02), gold, T, 0, .53, .172);
+  for (const s of [-1, 1]) { const sw = part(BOX(.14, .04, .02), gold, T, s * .1, .37, .176); sw.rotation.z = s * .5; }
+  for (let k = 0; k < 3; k++) part(BOX(.54 - k * .02, .065, .35 - k * .01), metal, T, 0, .07 - k * .065, 0);
+  const st = part(BOX(.05, .62, .02), leather, T, .1, .32, .18); st.rotation.z = -.55;
+  for (const s of [-1, 1]) { part(BOX(.17, .22, .04), metal, m.hips, s * .13, -.22, .18); part(BOX(.17, .025, .045), gold, m.hips, s * .13, -.12, .182); }
+  [[m.R, -1], [m.L, 1]].forEach(([A, s]) => {
+    for (let k = 0; k < 3; k++) { const p = part(BOX(.28 - k * .03, .07, .28 - k * .02), metal, A.sh, s * .035, .06 - k * .07, 0); p.rotation.z = s * (.28 + k * .08); }
+    const tr = part(BOX(.29, .02, .29), gold, A.sh, s * .035, .1, 0); tr.rotation.z = s * .28;
+    part(BOX(.15, .2, .15), metal, A.sh, 0, -.2, 0);
+    part(new THREE.SphereGeometry(.08, 7, 5), metal, A.el, 0, 0, -.02); part(BOX(.03, .13, .11), metal, A.el, s * .07, 0, -.03);
+    part(BOX(.145, .26, .145), metal, A.el, 0, -.15, 0); part(BOX(.15, .05, .15), gold, A.el, 0, -.08, 0);
+    part(BOX(.18, .06, .18), metal, A.el, 0, -.27, 0); part(BOX(.13, .09, .14), metal, A.hand, 0, .02, 0);
+    const bl = part(BOX(.04, .04, .02), leather, A.sh, 0, -.12, .075); bl.scale.set(4, 1, 1);
+  });
+  [[m.LL, 1], [m.RL, -1]].forEach(([Lg, s]) => {
+    part(BOX(.19, .34, .2), metal, Lg.hp, 0, -.21, 0);
+    part(BOX(.17, .1, .08), metal, Lg.kn, 0, 0, .09); part(BOX(.03, .12, .13), gold, Lg.kn, s * .095, 0, .04);
+    part(BOX(.17, .38, .18), metal, Lg.kn, 0, -.23, 0); part(BOX(.175, .03, .185), gold, Lg.kn, 0, -.05, 0);
+    part(BOX(.16, .08, .28), metal, Lg.kn, 0, -.45, .07); part(new THREE.ConeGeometry(.055, .16, 4), metal, Lg.kn, 0, -.46, .28).rotation.x = Math.PI / 2;
+  });
 }
 function makeHumanoid(cfg) {
   const root = new THREE.Group(), body = new THREE.Group(); root.add(body);
@@ -1103,6 +1147,17 @@ function makeHumanoid(cfg) {
     part(BOX(.26, .05, .27), crestM, head, 0, .27, 0);
   } else if (H === 'kettle') {
     part(BOX(.28, .14, .28), metal, head, 0, .34, 0); part(CYL(.3, .3, .03, 12), metal, head, 0, .27, 0);
+  } else if (H === 'armet') {
+    part(BOX(.3, .34, .32), metal, head, 0, .23, 0); part(BOX(.27, .19, .08), metal, head, 0, .17, .15);
+    for (let i = -3; i <= 3; i++) part(BOX(.012, .1, .02), dark, head, i * .03, .17, .195);
+    part(BOX(.22, .025, .02), dark, head, 0, .27, .192); part(BOX(.04, .05, .36), metal, head, 0, .41, 0);
+    for (const sd of [-1, 1]) part(new THREE.SphereGeometry(.03, 6, 4), metal, head, sd * .16, .2, .04);
+    if (cfg.crown) {
+      const gold = M(0xe8c060, { metalness: .95, roughness: .18 }), gem = M(0xc01818, { emissive: 0x500000, metalness: .3, roughness: .2 });
+      part(CYL(.19, .19, .06, 12), gold, head, 0, .44, 0);
+      for (let i = 0; i < 6; i++) { const a = i / 6 * TAU; part(new THREE.ConeGeometry(.032, .13, 4), gold, head, Math.cos(a) * .17, .53, Math.sin(a) * .17); part(BOX(.03, .03, .02), gem, head, Math.cos(a + TAU / 12) * .195, .44, Math.sin(a + TAU / 12) * .195).lookAt(0, .44, 0); }
+      part(new THREE.SphereGeometry(.035, 6, 4), gem, head, 0, .45, .19);
+    }
   } else if (H === 'giant') {
     part(BOX(.28, .12, .28), M(0x3a2a1a), head, 0, .37, -.01); part(BOX(.3, .22, .06), M(0x3a2a1a), head, 0, .28, -.15);
     part(BOX(.27, .04, .27), M(0xe8dcc0), head, 0, .31, 0);
@@ -1135,6 +1190,7 @@ function makeHumanoid(cfg) {
   if (cfg.bow) { weapon = buildWeapon('bow', metal, wood, glow); L.hand.add(weapon); }
   if (cfg.shield) { shield = buildShield(cfg.shield, M(cfg.paint || 0x8c1f14), metal); shield.position.set(.08, -.12, .14); L.el.add(shield); }
   if (cfg.net) netBundle = part(BOX(.2, .16, .16), M(0x9a8a5a), L.hand, 0, -.08, 0);
+  if (cfg.plate) addPlate({ torso, hips, R, L, LL, RL }, metal, M(0xe0b860, { metalness: .9, roughness: .22 }), M(0x5a3420), dark);
   root.scale.setScalar(cfg.scale || 1);
   const m = { root, body, hips, torso, head, R, L, LL, RL, skirt, weapon, weapon2, shield, netBundle, glow, kind: 'human', reach: weapon ? weapon.userData.reach : 1.6, twoHanded: TWOH.includes(cfg.weapon) || (cfg.weapon === 'club' && (cfg.scale || 1) > 2) };
   if (cfg.cape) addCape(m, cfg.cape);
@@ -1318,12 +1374,14 @@ const ARCH = {
   giant: { kind: 'human', myth: true, name: 'Гигант Антей', epi: 'Черпает силу из земли — не давай ему передышки', hp: 1700, dmg: 36, speed: 2.5, windup: 1.0, strike: .25, recover: .9, cool: [1.4, 2.2], scale: 3.1, reach: 5.2, boss: true, gold: 300, abil: ['sweep', 'slam', 'rock'], slamR: 6, regen: true, look: { weapon: 'tree', helmet: 'giant', chest: 'fur', cloth: 0x5a4a30, skin: 0xb08a68, beard: 0x4a3a2a, metal: 0x6a6a6a } },
 };
 ARCH.allyEques = Object.assign({}, ARCH.eques, { hp: 140, gold: 0 });
+ARCH.arbaros = { kind: 'human', myth: true, name: 'Арбарос', epi: 'Король-рыцарь: отбивает 70% ударов, читает каждый замах и наказывает за ошибки', hp: 950, dmg: 22, speed: 4.3, windup: .36, strike: .13, recover: .3, cool: [.35, .85], combo: .7, scale: 1.1, boss: true, gold: 280, tactician: true, abil: ['dash', 'bash'], look: { weapon: 'longsword', shield: 'royal', helmet: 'armet', crown: true, plate: true, chest: 'skin', skin: 0x26262c, cloth: 0x26262c, metal: 0x9aa0a8, crest: 0x5a1414, cape: 0x5a1414 } };
 const NAMES = ['Крикс', 'Спикул', 'Вер', 'Приск', 'Флавий', 'Тетраит', 'Карпофор', 'Марк', 'Агрон', 'Ганник', 'Тиберий', 'Луций', 'Эномай', 'Каст', 'Децим', 'Феликс', 'Варрон', 'Сабин'];
 const DOG_NAMES = ['Цербер', 'Ферокс', 'Луп', 'Фортис', 'Аргус', 'Гром'];
 
 const P = { skin: 0xc8905f, cloth: 0x8c1f14, metal: 0xc79a4a, crest: 0xb3261a };
 const hero = (o, look) => Object.assign({ st: 105, atkSpeed: 1, blockMul: .5, blockCost: 1.2, parry: .22 }, o, { look: Object.assign({}, P, look) });
 const CLASSES = {
+  arbaros: hero({ name: 'Арбарос', k: 'Король-рыцарь', d: 'Двухметровый король в латах. Сам отбивает 70% ударов спереди и 30% сзади, бьёт быстро и точно. Навык — королевская тактика: удар щитом и стойка рипоста.', stats: 'Здоровье 165 · Автоотбив 70% · Мастер боя', hp: 165, st: 140, speed: 5.6, light: 18, heavy: 38, atkSpeed: 1.25, blockMul: 0, blockCost: .9, parry: .35, autoParry: .7, skill: 'tactics', skillName: 'Королевская тактика', skillCd: 7 }, { weapon: 'longsword', shield: 'royal', helmet: 'armet', crown: true, plate: true, chest: 'skin', skin: 0x26262c, cloth: 0x26262c, metal: 0x9aa0a8, crest: 0x5a1414, cape: 0x5a1414, scale: 1.1 }),
   achillesKatana: hero({ name: 'Ахиллес', k: 'Катана', d: 'Клинок режет как масло: враги распадаются на части ровно по линии удара. Навык — молниеносный рывок-разрез сквозь строй.', stats: 'Здоровье 115 · Блок 60% · Рассекающий', hp: 115, st: 115, speed: 5.7, light: 17, heavy: 36, atkSpeed: 1.15, blockMul: .4, parry: .3, bleedBonus: .15, skill: 'iaido', skillName: 'Рывок-разрез', skillCd: 6 }, { weapon: 'katana', helmet: 'achilles', chest: 'armor', metal: 0xd4a84a, crest: 0xb3261a, cloth: 0xe8e0cc, greaves: true, cape: 0xb3261a, pteruges: true, skin: 0xd8a070 }),
   murmillo: hero({ name: 'Гладиатор', k: 'Щит и гладиус', d: 'Классический боец арены. Большой щит держит любой удар. Навык — удар щитом, оглушает.', stats: 'Здоровье 115 · Блок 100% · Надёжный', hp: 115, st: 100, speed: 5.0, light: 14, heavy: 30, blockMul: 0, blockCost: 1.5, skill: 'bash', skillName: 'Удар щитом', skillCd: 6 }, { weapon: 'sword', shield: 'scutum', paint: 0x8c1f14, helmet: 'full', chest: 'strap', manica: true, greaves: true }),
   swordsman: hero({ name: 'Мечник', k: 'Меч и баклер', d: 'Быстрые точные удары. Навык — шквал из шести ударов подряд.', stats: 'Здоровье 105 · Блок 60% · Быстрый', hp: 105, speed: 5.5, light: 13, heavy: 27, atkSpeed: 1.15, blockMul: .4, skill: 'flurry', skillName: 'Шквал ударов', skillCd: 6 }, { weapon: 'sword', shield: 'parmula', paint: 0x8c1f14, helmet: 'kettle', chest: 'chain', greaves: true }),
@@ -1857,6 +1915,23 @@ function hit(t, dmg, src, o = {}) {
   const hp = t.pos.clone().setY(t.height * .6);
   const playerInvolved = t.isPlayer || (srcUnit && srcUnit.isPlayer);
   let noStagger = !!o.noStagger;
+  if (!t.isPlayer && t.a.tactician && !['charge', 'stomp'].includes(kind) && !['kneel', 'stagger', 'netted', 'dazed'].includes(t.state)) {
+    if (t.evadeT > 0) { t.tacEv = (t.tacEv || 0) + 1; floatText(hp, 'уклон', 'block'); return false; }
+    if (kind === 'net' && Math.random() < .6) { sfx.clang(); floatText(hp, 'разрубил сеть', 'block'); return false; }
+    const busy = t.state === 'windup' || t.state === 'strike';
+    const pB = t.guardUp > 0 ? .8 : (front ? .7 : .3) * (busy ? .45 : 1);
+    if (kind !== 'net' && Math.random() < pB) {
+      t.tacPar = (t.tacPar || 0) + 1; sfx.clang(); burst(hp.clone().addScaledVector(dirFromTo(t.pos, sp), .5), 'spark', 16, 6); floatText(hp.clone().setY(t.height + .2), 'Отбито', 'block');
+      if (srcUnit && srcUnit.isPlayer && (kind === 'light' || kind === 'heavy') && player.state === 'attack') { player.state = 'stagger'; player.t = 0; player.stunT = .3; player.combo = 0; player.queued = null; }
+      if (!busy && srcUnit && srcUnit.alive && Math.random() < .55) { t.state = 'windup'; t.action = 'melee'; t.t = 0; t.windDur = .2; t.hitSet.clear(); t.comboLeft = 0; t.facing = toSrc; }
+      return false;
+    }
+  }
+  if (t.isPlayer && t.cls.autoParry && !o.unblockable && !['stomp', 'charge', 'net', 'trap'].includes(kind) && t.state !== 'dead' && Math.random() < (front ? t.cls.autoParry : t.cls.autoParry * .43)) {
+    sfx.clang(); burst(hp.clone().addScaledVector(dirFromTo(t.pos, sp), .5), 'spark', 16, 6); floatText(hp.clone().setY(2.7), 'Отбито!', 'block'); gainGlory(3);
+    if (srcUnit && srcUnit.alive && srcUnit.a && srcUnit.a.kind !== 'elephant' && kind !== 'arrow') stun(srcUnit, .55);
+    return false;
+  }
   if (t.isPlayer && G.buffs.wall > 0 && front && kind !== 'stomp') { sfx.clang(); burst(hp.clone().addScaledVector(dirFromTo(t.pos, sp), .5), 'spark', 14, 6); floatText(hp, 'стена', 'block'); if (srcUnit && srcUnit.vel) srcUnit.vel.addScaledVector(dirFromTo(t.pos, srcUnit.pos), 7 / (srcUnit.mass || 1)); return false; }
   if (t.isPlayer && G.buffs.riposte > 0 && srcUnit && srcUnit.alive && srcUnit.hp !== undefined && !['arrow', 'net', 'stomp', 'charge'].includes(kind)) { sfx.bell(); floatText(hp.clone().setY(2.6), 'Рипост!', 'crit'); G.slowmo = .25; hit(srcUnit, 25 * G.up.dmg, t, { kind: 'heavy', ignoreGuard: true }); stun(srcUnit, 1); return false; }
 
@@ -1886,6 +1961,7 @@ function hit(t, dmg, src, o = {}) {
     return false;
   }
   if (kind === 'net') { entangle(t, o.dur || 3); return true; }
+  if (t.a && t.a.tactician && kind !== 'net') { t.tacHits = (t.tacHits || 0) + 1; }
   if (t.a && t.a.heel && srcUnit && Math.abs(angDiff(t.facing, toSrc)) > 1.9) { dmg *= 2.4; floatText(hp.clone().setY(t.height * .25), 'В пяту!', 'crit'); }
   if (t.isPlayer) dmg *= (1 - .1 * G.armor);
   let exec = false;
@@ -2235,6 +2311,7 @@ function updateUnit(u, dt) {
   tickWounds(u, dt);
   if (!u.alive) return;
   for (const k in u.cd) u.cd[k] -= dt;
+  if (u.evadeT > 0) u.evadeT -= dt; if (u.guardUp > 0) u.guardUp -= dt;
   if (u.tempT !== undefined) { u.tempT -= dt; if (u.tempT <= 0) { burst(u.pos.clone().setY(1), 'dust', 15, 2, 1); u.alive = false; u.removed = true; scene.remove(m.root); if (u.tag) u.tag.remove(); if (u.trail) u.trail.dispose(); return; } }
   if (a.heroSkill === 'berserk' && !u.raged && u.hp < u.maxHp * .5) { u.raged = true; u.dmg *= 1.35; u.speedMul = 1.3; sfx.bossRoar(u.pos); floatText(u.pos.clone().setY(u.height + .4), 'Ярость!', 'crit'); }
   if (a.heroSkill === 'holy' && !u.healed && u.hp < u.maxHp * .4) { u.healed = true; u.hp += u.maxHp * .35; burst(u.pos.clone().setY(1), 'gold', 25, 4, 2); sfx.bell(); floatText(u.pos.clone().setY(u.height + .4), 'Священный свет', 'block'); }
@@ -2280,6 +2357,7 @@ function updateUnit(u, dt) {
       if (!mounted) u.facing += clamp(angDiff(u.facing, faceT), -6 * dt, 6 * dt);
       const maxTok = tgt.isPlayer ? (G.wave >= 6 ? 2 : 1) : 2;
       const canAtk = u.cool <= 0 && (a.boss || attackersOn(tgt, u) < maxTok) && !(tgt.isPlayer && !player.alive);
+      if (a.tactician && tgt) { move = tacticianThink(u, dt, tgt, dist, toT, md, canAtk); break; }
       if (a.abil && tryAbility(u, dist)) break;
       if (role === 'medic' || role === 'banner') {
         u.healT = (u.healT === undefined ? 3 : u.healT) - dt;
@@ -2402,6 +2480,8 @@ function updateUnit(u, dt) {
         }
       } else if (act === 'summon') {
         if (!u.hitSet.has('done')) { u.hitSet.add('done'); u.summons = (u.summons || 0) + 1; for (let i = 0; i < 2; i++) queueSpawn('rebel', .2 + i * .5, i + u.summons, G.waveMult || 1); toast(`${a.name} зовёт братьев на помощь!`, 2); sfx.roar(1.2); }
+      } else if (act === 'bash') {
+        if (!u.hitSet.has('done') && u.t > .05) { u.hitSet.add('done'); sfx.thud(); for (const h of hostilesOf(u)) { const d = flatDist(h.pos, u.pos), an = Math.abs(angDiff(u.facing, Math.atan2(h.pos.x - u.pos.x, h.pos.z - u.pos.z))); if (d < 2.6 + h.radius && an < 1.3) { hit(h, u.dmg * .5, u, { kind: 'bash', kb: 9 }); stun(h, .9); } } }
       } else if (act === 'kick') {
         if (!u.hitSet.has('done') && u.t > .1) { u.hitSet.add('done'); for (const h of hostilesOf(u)) { const d = flatDist(h.pos, u.pos), an = Math.abs(angDiff(u.facing, Math.atan2(h.pos.x - u.pos.x, h.pos.z - u.pos.z))); if (d < 3 + h.radius && an < 1.1) hit(h, u.dmg * 1.2, u, { kind: 'claw', kb: 9 }); } }
       } else if (a.kind === 'horse' && tgt) move = mountedMove(u, dt, toT, dist, md);
@@ -2426,6 +2506,11 @@ function updateUnit(u, dt) {
         } else { u.state = 'recover'; u.t = 0; u.recDur = .9; clearGlow(u); }
       } else if (u.t > cc.maxT) { u.state = 'recover'; u.t = 0; clearGlow(u); }
       if (u.state !== 'charge') u.chargeCd = rand(6, 9);
+      break;
+    }
+    case 'sidestep': {
+      move = 9.5; md.copy(u.sideDir || toT); if (tgt) u.facing += clamp(angDiff(u.facing, faceT), -9 * dt, 9 * dt);
+      if (u.t > .28) { u.state = 'move'; u.t = 0; if (tgt && dist < u.reach + 1.2 && Math.random() < .6) { startWindup(u, 'melee'); u.windDur = .22; } }
       break;
     }
     case 'dash': {
@@ -2471,8 +2556,8 @@ function updateUnit(u, dt) {
   if (m.kind === 'human') animateHuman(u, dt); else if (m.kind === 'beast') animateBeast(u, dt); else if (m.kind === 'horse') animateHorse(u, dt); else animateElephant(u, dt);
 }
 /* -------- boss abilities, mounted movement, telegraphs -------- */
-const ACT = { slam: [1.0, .35, .9], sweep: [.95, .35, .8], rock: [.9, .3, .6], dash: [.45, 0, .5], charge: [1.3, 0, .8], summon: [.8, .5, .3], volley: [.8, .15, .45], kick: [.45, .25, .5], ride: [.7, 0, .7] };
-const ABIL_CD = { slam: [6, 9], sweep: [5, 7], rock: [5, 8], dash: [3.5, 5.5], charge: [7, 10], summon: [1, 1], volley: [3.5, 5], kick: [2, 3] };
+const ACT = { bash: [.3, .2, .4], slam: [1.0, .35, .9], sweep: [.95, .35, .8], rock: [.9, .3, .6], dash: [.45, 0, .5], charge: [1.3, 0, .8], summon: [.8, .5, .3], volley: [.8, .15, .45], kick: [.45, .25, .5], ride: [.7, 0, .7] };
+const ABIL_CD = { bash: [3.5, 5], slam: [6, 9], sweep: [5, 7], rock: [5, 8], dash: [3.5, 5.5], charge: [7, 10], summon: [1, 1], volley: [3.5, 5], kick: [2, 3] };
 const teleRingGeo = new THREE.RingGeometry(.93, 1, 48), teleDiscGeo = new THREE.CircleGeometry(1, 48);
 function makeTele() {
   const g = new THREE.Group();
@@ -2522,6 +2607,30 @@ function ensureRock(u) {
   if (u.rockMesh) return u.rockMesh;
   const r = new THREE.Mesh(new THREE.DodecahedronGeometry(.35, 0), M(0x8a7a68)); r.castShadow = true;
   r.position.set(0, -.25, .1); u.model.R.hand.add(r); u.rockMesh = r; return r;
+}
+function tacticianThink(u, dt, tgt, dist, toT, md, canAtk) {
+  const a = u.a, tang = new V3(-toT.z, 0, toT.x).multiplyScalar(u.strafe);
+  u.facing += clamp(angDiff(u.facing, Math.atan2(toT.x, toT.z)), -9 * dt, 9 * dt);
+  const near = hostilesOf(u).filter(h => flatDist(h.pos, u.pos) < 3.2).length;
+  if (near >= 2 && (u.cd.bash || 0) <= 0) { startWindup(u, 'bash'); u.windDur = ACT.bash[0]; u.cd.bash = rand(3.5, 5); return 0; }
+  if (tgt.isPlayer && player.state === 'attack' && player.atk && player.t < player.atk.dur * .45 && dist < 3.8 && !u.reacted) {
+    u.reacted = true;
+    const r = Math.random();
+    if (r < .25) { u.state = 'sidestep'; u.t = 0; u.evadeT = .32; u.sideDir = tang.clone().addScaledVector(toT, -.35).normalize(); sfx.dodge(); return 0; }
+    if (r > .7) u.guardUp = .6;
+  }
+  if (player.state !== 'attack') u.reacted = false;
+  const open = tgt.isPlayer && ['stagger', 'bandage', 'skill', 'netted', 'throw'].includes(player.state) || (tgt.isPlayer && player.state === 'attack' && player.atk && player.t > player.atk.dur * .62);
+  if (open && dist < u.reach + 1.5 && u.cool < .9) { startWindup(u, 'melee'); u.windDur = .2; md.copy(toT); return a.speed; }
+  if (dist > 6.5 && (u.cd.dash || 0) <= 0) { startWindup(u, 'dash'); u.windDur = ACT.dash[0]; u.cd.dash = rand(3, 5); return 0; }
+  const want = u.reach * .85;
+  let sp;
+  if (dist > want + .6) { md.copy(toT).addScaledVector(tang, .35).normalize(); sp = a.speed; }
+  else if (dist < want - .7) { md.copy(toT).multiplyScalar(-1).addScaledVector(tang, .5).normalize(); sp = a.speed * .8; }
+  else { md.copy(tang); sp = a.speed * .55; }
+  avoidWall(u, md, 2.5);
+  if (canAtk && dist < u.reach + .8) startWindup(u, 'melee');
+  return sp;
 }
 function canMercy(t) { return t.team === 'enemy' && t.a.boss && t.a.kind !== 'elephant' && !t.mercyDone; }
 
@@ -2573,6 +2682,9 @@ function animateHuman(u, dt) {
     else if (u.action === 'charge') { pose.torX = .7 * k; pose.headX = .4; pose.shRx = .3; pose.shLx = .3; }
   }
   if (st === 'dash') { applyCurve(pose, CURVE.thrustH, .64); pose.bodyX = .2; }
+  if (u.guardUp > 0 && (st === 'move' || st === 'recover') && look.shield) { pose.shLx = -1.3; pose.shLz = -.25; pose.elLx = 1.15; pose.torY = .25; pose.bodyY = -.1; }
+  if (st === 'sidestep') { pose.bodyY = -.2; pose.torX = .2; pose.bodyZ = .25 * (u.strafe || 1); pose.shLx = -1.2; pose.elLx = 1.1; }
+  if ((st === 'windup' || st === 'strike') && u.action === 'bash') { pose.shLx = -1.5; pose.elLx = 1.4; pose.torY = .5; pose.torX = .3; }
   if (st === 'charge') { pose.torX = .7; pose.headX = .4; pose.shRx = .3; pose.shLx = .3; }
   if (st === 'dazed') { pose.torX = -.2; pose.headX = Math.sin(G.time * 3) * .4; pose.shRx = .1; pose.shLx = .1; pose.bodyY = -.15; }
   if (st === 'taunt') { pose.shRx = -2.9 + Math.sin(G.time * 7) * .15; pose.shLx = -2.6; pose.elRx = -.1; }
@@ -2918,6 +3030,13 @@ function updatePlayer(dt) {
     } else if (['berserk', 'holy', 'riposte', 'execute', 'wall', 'cry', 'showoff', 'drain'].includes(s)) {
       if (!p.skillDone && p.t > .2) { p.skillDone = true; applyBuffSkill(s); }
       if (p.t > .5) { p.state = 'free'; p.t = 0; }
+    } else if (s === 'tactics') {
+      if (p.t < .2) p.pos.addScaledVector(fw, 7 * dt);
+      if (!p.skillDone && p.t > .16) {
+        p.skillDone = true; sfx.thud(); G.buffs.riposte = 2.5; floatText(p.pos.clone().setY(2.8), 'Королевская тактика', 'crit');
+        for (const e of G.units) { if (!e.alive || e.team !== 'enemy') continue; const d = flatDist(e.pos, p.pos), an = Math.abs(angDiff(p.facing, Math.atan2(e.pos.x - p.pos.x, e.pos.z - p.pos.z))); if (d < 2.6 + e.radius && an < 1.4) { hit(e, 14 * G.up.dmg, p, { kind: 'bash', ignoreGuard: true }); stun(e, 1.5); } }
+      }
+      if (p.t > .5) { p.state = 'free'; p.t = 0; }
     } else if (s === 'iaido') {
       if (p.t > .1 && p.t < .42) {
         p.pos.addScaledVector(fw, 20 * dt); p.iframes = .15;
@@ -3020,6 +3139,7 @@ function updatePlayer(dt) {
     if (p.skill === 'bash') { pose.shLx = -1.5; pose.elLx = 1.4; pose.torY = .5; pose.torX = .3; pose.bodyY = -.15; }
     else if (p.skill === 'net') applyCurve(pose, CURVE.throwL, clamp(p.t / .55, 0, 1));
     else if (['berserk', 'holy', 'riposte', 'execute', 'wall', 'cry', 'showoff', 'drain'].includes(p.skill)) { pose.shRx = -2.8; pose.elRx = -.2; pose.headX = -.35; pose.torX = -.15; if (p.skill === 'wall' || p.skill === 'riposte') { pose.shRx = -1.4; pose.shLx = -1.3; pose.elLx = 1.15; pose.headX = 0; } }
+    else if (p.skill === 'tactics') { pose.shLx = -1.5; pose.elLx = 1.4; pose.torY = .5; pose.torX = .3; pose.bodyY = -.15; }
     else if (p.skill === 'iaido') { pose.shRz = p.t < .42 ? -.3 : -1.5; pose.shRx = p.t < .42 ? -1.2 : -.5; pose.elRx = -.05; pose.torY = p.t < .42 ? -.6 : .7; pose.bodyY = -.25; pose.bodyX = .2; }
     else if (p.skill === 'flurry') { applyCurve(pose, Math.floor(p.t * 8) % 2 ? CURVE.light2 : CURVE.light, (p.t * 8) % 1); }
     else if (p.skill === 'sweep360') { pose.shRz = -1.5; pose.shRx = -.4; pose.elRx = 0; pose.shLz = 1.2; pose.bodyY = -.15; }
@@ -3181,7 +3301,7 @@ function updateCamera(dt) {
     G.camYaw += angDiff(G.camYaw, want) * (1 - Math.exp(-4 * dt));
   } else if (isTouch && touchState.stickActive && Math.abs(input.moveX) > .3 && player.state === 'free' && G.view !== 'fp') G.camYaw += -input.moveX * dt * .6;
   if (G.view === 'fp' && player.alive) {
-    const eye = 1.72 + (player.pose.bodyY || 0) + Math.sin(player.walk * 2) * .035 * player.moveAmt;
+    const eye = 1.72 * (player.cls.look.scale || 1) + (player.pose.bodyY || 0) + Math.sin(player.walk * 2) * .035 * player.moveAmt;
     camera.position.set(player.pos.x - Math.sin(player.facing) * .12, eye, player.pos.z - Math.cos(player.facing) * .12);
     if (G.shake > 0) { camera.position.x += rand(-1, 1) * G.shake * .12; camera.position.y += rand(-1, 1) * G.shake * .12; G.shake = Math.max(0, G.shake - dt * 1.8); }
     camera.rotation.set(-G.fpPitch, G.camYaw, (player.state === 'dodge' ? .08 : 0));
@@ -3318,9 +3438,9 @@ const MODS = {
   favor:  { name: 'Щедрость императора', d: 'больше даров и денариев' },
   rage:   { name: 'Жажда зрелищ', d: 'слава копится вдвое быстрее' },
 };
-const WAVE_NAMES = { tiro: ['новобранец', 'новобранца'], rebel: ['восставший', 'восставших'], retiarius: ['ретиарий', 'ретиария'], murmillo: ['мурмиллон', 'мурмиллона'], sagittarius: ['лучник', 'лучника'], dimachaerus: ['димахер', 'димахера'], champion: ['чемпион арены', 'чемпиона'], wolf: ['волк', 'волка'], lion: ['лев', 'льва'], tiger: ['тигр', 'тигра'], bear: ['медведь', 'медведя'], elephant: ['боевой слон', 'слона'], eques: ['эквит', 'эквита'], hippotoxotes: ['конный лучник', 'конных лучника'], spartacus: ['Спартак', ''], achilles: ['Ахиллес', ''], minotaur: ['Минотавр', ''], centaur: ['кентавр Несс', ''], hercules: ['Геракл', ''], cyclops: ['циклоп Полифем', ''], giant: ['гигант Антей', ''] };
-const MYTH = ['spartacus', 'achilles', 'minotaur', 'centaur', 'hercules', 'cyclops', 'giant'];
-const CAMPAIGN = [null, ['tiro'], ['tiro', 'wolf', 'wolf'], ['h_swordsman', 'h_spearman'], ['eques', 'h_shieldBearer'], ['spartacus'], ['lion', 'h_berserker'], ['h_halberdier', 'h_duelist', 'sagittarius'], ['achilles'], ['bear', 'h_warriorMonk', 'h_mercCaptain'], ['hippotoxotes', 'eques', 'h_veteranKnight'], ['minotaur'], ['champion', 'h_executioner'], ['elephant', 'h_paladin'], ['centaur', 'wolf', 'wolf'], ['h_darkKnight', 'h_royalGuard', 'h_greatsword'], ['hercules'], ['h_blackKnight', 'h_giantHammer', 'hippotoxotes'], ['cyclops'], ['h_royalExecutioner', 'h_arenaChampion', 'eques'], ['giant']];
+const WAVE_NAMES = { tiro: ['новобранец', 'новобранца'], rebel: ['восставший', 'восставших'], retiarius: ['ретиарий', 'ретиария'], murmillo: ['мурмиллон', 'мурмиллона'], sagittarius: ['лучник', 'лучника'], dimachaerus: ['димахер', 'димахера'], champion: ['чемпион арены', 'чемпиона'], wolf: ['волк', 'волка'], lion: ['лев', 'льва'], tiger: ['тигр', 'тигра'], bear: ['медведь', 'медведя'], elephant: ['боевой слон', 'слона'], eques: ['эквит', 'эквита'], hippotoxotes: ['конный лучник', 'конных лучника'], spartacus: ['Спартак', ''], achilles: ['Ахиллес', ''], minotaur: ['Минотавр', ''], centaur: ['кентавр Несс', ''], hercules: ['Геракл', ''], cyclops: ['циклоп Полифем', ''], giant: ['гигант Антей', ''], arbaros: ['Арбарос', ''] };
+const MYTH = ['spartacus', 'achilles', 'minotaur', 'centaur', 'hercules', 'cyclops', 'giant', 'arbaros'];
+const CAMPAIGN = [null, ['tiro'], ['tiro', 'wolf', 'wolf'], ['h_swordsman', 'h_spearman'], ['eques', 'h_shieldBearer'], ['spartacus'], ['lion', 'h_berserker'], ['h_halberdier', 'h_duelist', 'sagittarius'], ['achilles'], ['bear', 'h_warriorMonk', 'h_mercCaptain'], ['hippotoxotes', 'eques', 'h_veteranKnight'], ['minotaur'], ['champion', 'h_executioner'], ['elephant', 'h_paladin'], ['centaur', 'wolf', 'wolf'], ['h_darkKnight', 'h_royalGuard', 'h_greatsword'], ['hercules'], ['h_blackKnight', 'h_giantHammer', 'hippotoxotes'], ['cyclops'], ['h_royalExecutioner', 'h_arenaChampion', 'eques'], ['giant'], ['arbaros']];
 function waveList(n) {
   if (G.mode === 'bosses') {
     if (n <= MYTH.length) return { list: [MYTH[n - 1]], mult: 1 };
@@ -3852,7 +3972,7 @@ function frame(now) {
 }
 requestAnimationFrame(frame);
 
-window.__arena = { scene, Post, Q, applyQuality, CLASSES, ARCH, buildPlayerModel, G, player, sun, todCur, setTod, startGame, input, spawnAlly, createUnit, crowdThrow, openIntermission,
+window.__arena = { hit, scene, Post, Q, applyQuality, CLASSES, ARCH, buildPlayerModel, G, player, sun, todCur, setTod, startGame, input, spawnAlly, createUnit, crowdThrow, openIntermission,
   jumpToWave(n) { G.wave = n - 1; for (const u of G.units) if (u.team === 'enemy') { u.alive = false; u.removed = true; scene.remove(u.model.root); u.tag && u.tag.remove(); } G.units = G.units.filter(u => !u.removed); startWave(); } };
 })();
 </script>
