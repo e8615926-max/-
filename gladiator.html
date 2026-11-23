@@ -300,7 +300,7 @@
   <div class="tablet wide">
     <div class="eyebrow">Ludus Magnus · Рим</div>
     <h1 class="title">Песок <em>Арены</em></h1>
-    <p class="lede">Выбери одного из двадцати трёх героев, собери отряд из воинов и зверей, перевязывай раны и одолей семь мифических боссов. Толпа любит смелых — и бросает им дары.</p>
+    <p class="lede">Выбери одного из двадцати четырёх героев, собери отряд из воинов и зверей, перевязывай раны и одолей семь мифических боссов. Толпа любит смелых — и бросает им дары.</p>
     <div class="section-h"><span>Выбери героя</span><b id="heroCount"></b></div>
     <div class="hero-detail" id="heroDetail"></div>
     <div class="heroes" id="classCards"></div>
@@ -414,6 +414,7 @@ renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 renderer.outputEncoding = THREE.sRGBEncoding;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 1.0;
+renderer.localClippingEnabled = true;
 
 const scene = new THREE.Scene();
 scene.fog = new THREE.Fog(0xd9a56e, 45, 140);
@@ -906,6 +907,17 @@ function buildWeapon(kind, metal, wood, glowMat) {
     for (let i = 0; i < 4; i++) { const b = part(CYL(.05, .07, .7, 5), wood, g, (i % 2 ? .2 : -.2), .1, 1.6 + i * .25); b.rotation.set(X, 0, (i % 2 ? -1 : 1) * .7); }
     part(new THREE.DodecahedronGeometry(.5, 0), M(0x3f5a2a), g, 0, .1, 2.6);
     ud.reach = 2.6; ud.blunt = true; ud.base.position.z = 1; ud.tip.position.z = 2.6;
+  } else if (kind === 'katana') {
+    const wrap = M(0x16161c), gold = M(0xd4a84a, { metalness: .9, roughness: .25 });
+    const bm = M(0xeef4ff, { metalness: .95, roughness: .1, emissive: 0x1a2a3a });
+    part(BOX(.045, .05, .32), wrap, g, 0, 0, -.02);
+    for (let i = 0; i < 4; i++) { const d = part(BOX(.05, .02, .03), M(0xe8e0d0), g, 0, 0, -.13 + i * .07); d.rotation.z = Math.PI / 4; }
+    part(CYL(.085, .085, .016, 12), gold, g, 0, 0, .16).rotation.x = X;
+    part(BOX(.02, .062, .52), bm, g, 0, 0, .43);
+    const b2 = part(BOX(.02, .056, .46), bm, g, 0, .03, .9); b2.rotation.x = -.12;
+    part(new THREE.ConeGeometry(.03, .14, 4), bm, g, 0, .065, 1.18).rotation.x = X - .2;
+    part(BOX(.006, .01, .95), M(0xffffff, { emissive: 0x8899aa }), g, 0, -.03, .68);
+    ud.reach = 2.3; ud.base.position.z = .2; ud.tip.position.set(0, .07, 1.2);
   } else if (kind === 'greatsword') {
     part(BOX(.05, .05, .4), wood, g, 0, 0, .05); part(BOX(.36, .06, .07), metal, g, 0, 0, .27);
     part(BOX(.1, .025, 1.2), glowMat, g, 0, 0, .9); part(new THREE.ConeGeometry(.05, .16, 4), glowMat, g, 0, 0, 1.58).rotation.x = X;
@@ -1293,6 +1305,7 @@ const DOG_NAMES = ['Цербер', 'Ферокс', 'Луп', 'Фортис', 'А
 const P = { skin: 0xc8905f, cloth: 0x8c1f14, metal: 0xc79a4a, crest: 0xb3261a };
 const hero = (o, look) => Object.assign({ st: 105, atkSpeed: 1, blockMul: .5, blockCost: 1.2, parry: .22 }, o, { look: Object.assign({}, P, look) });
 const CLASSES = {
+  achillesKatana: hero({ name: 'Ахиллес', k: 'Катана', d: 'Клинок режет как масло: враги распадаются на части ровно по линии удара. Навык — молниеносный рывок-разрез сквозь строй.', stats: 'Здоровье 115 · Блок 60% · Рассекающий', hp: 115, st: 115, speed: 5.7, light: 17, heavy: 36, atkSpeed: 1.15, blockMul: .4, parry: .3, bleedBonus: .15, skill: 'iaido', skillName: 'Рывок-разрез', skillCd: 6 }, { weapon: 'katana', helmet: 'achilles', chest: 'armor', metal: 0xd4a84a, crest: 0xb3261a, cloth: 0xe8e0cc, greaves: true, cape: 0xb3261a, pteruges: true, skin: 0xd8a070 }),
   murmillo: hero({ name: 'Гладиатор', k: 'Щит и гладиус', d: 'Классический боец арены. Большой щит держит любой удар. Навык — удар щитом, оглушает.', stats: 'Здоровье 115 · Блок 100% · Надёжный', hp: 115, st: 100, speed: 5.0, light: 14, heavy: 30, blockMul: 0, blockCost: 1.5, skill: 'bash', skillName: 'Удар щитом', skillCd: 6 }, { weapon: 'sword', shield: 'scutum', paint: 0x8c1f14, helmet: 'full', chest: 'strap', manica: true, greaves: true }),
   swordsman: hero({ name: 'Мечник', k: 'Меч и баклер', d: 'Быстрые точные удары. Навык — шквал из шести ударов подряд.', stats: 'Здоровье 105 · Блок 60% · Быстрый', hp: 105, speed: 5.5, light: 13, heavy: 27, atkSpeed: 1.15, blockMul: .4, skill: 'flurry', skillName: 'Шквал ударов', skillCd: 6 }, { weapon: 'sword', shield: 'parmula', paint: 0x8c1f14, helmet: 'kettle', chest: 'chain', greaves: true }),
   berserker: hero({ name: 'Берсерк', k: 'Два топора', d: 'Чем злее, тем сильнее. Навык — ярость берсерка: удары быстрее, сильнее и лечат.', stats: 'Здоровье 120 · Блок 40% · Яростный', hp: 120, speed: 5.4, light: 14, heavy: 30, atkSpeed: 1.15, blockMul: .6, bleedBonus: .1, skill: 'berserk', skillName: 'Ярость берсерка', skillCd: 14 }, { weapon: 'axe', weapon2: 'axe', helmet: 'horned', chest: 'fur', cloth: 0x4a3a28, beard: 0xa0602a, pelt: true, skin: 0xe0b890 }),
@@ -1639,6 +1652,7 @@ Object.assign(sfx, {
   hoof: (pos) => { const v = distVol(pos) * .7; if (v < .1) return; tone(rand(120, 150), .07, 'sine', .25 * v, 55); nz(.05, 500, .8, .15 * v, 'lowpass'); },
   neigh: (pos) => { if (!A.ctx) return; const v = distVol(pos); const t = A.ctx.currentTime; const o = A.ctx.createOscillator(); o.type = 'sawtooth'; o.frequency.setValueAtTime(520, t); o.frequency.linearRampToValueAtTime(900, t + .2); o.frequency.linearRampToValueAtTime(480, t + .8); const l = A.ctx.createOscillator(); l.frequency.value = 18; const lg = A.ctx.createGain(); lg.gain.value = 40; l.connect(lg); lg.connect(o.frequency); const bp = A.ctx.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = 1300; bp.Q.value = 2; const g = A.ctx.createGain(); env(g, t, .04, .14 * v, .8); o.connect(bp); bp.connect(g); g.connect(A.master); o.start(t); l.start(t); o.stop(t + .9); l.stop(t + .9); },
   rockLand: (pos) => { const v = distVol(pos); tone(55, .6, 'sine', .7 * v, 28); nz(.6, 300, .6, .5 * v, 'lowpass'); for (let i = 0; i < 5; i++) nz(.05, rand(800, 2500), 1, .12 * v, 'bandpass', null, rand(.05, .35)); },
+  slice: () => { tone(2600, .55, 'sine', .07); tone(3900, .4, 'sine', .035); nz(.16, 5200, 2, .28, 'bandpass', 9500); nz(.3, 700, .8, .28, 'lowpass'); },
   step: (pos) => nz(.05, rand(500, 800), .8, .035 * distVol(pos), 'lowpass'),
 });
 
@@ -1886,6 +1900,7 @@ function hit(t, dmg, src, o = {}) {
 function die(u, src, exec) {
   if (!u.alive) return;
   u.alive = false; u.state = 'dead'; u.t = 0; u.deadT = 0; clearGlow(u); u.deathType = pick(['back', 'back', 'front', 'side']); u.deathSide = Math.random() < .5 ? -1 : 1;
+  if (!u.isPlayer && src && src.isPlayer && player.cls.look.weapon === 'katana') { try { const c = katanaCutFor(u); sliceUnit(u, c.n, c.pt, c.sweep); u.sliced = true; } catch (err) {} }
   if (u.trail) u.trail.mesh.visible = false; if (u.trail2) u.trail2.mesh.visible = false;
   if (u.netMesh) u.netMesh.visible = false;
   if (u.model.ring) { u.model.ring.material.opacity = 0; u.model.disc.material.opacity = 0; }
@@ -2016,6 +2031,95 @@ function feedTrail(owner, key, weapon, active, color, dt) {
   if (!active) tr.hot -= dt;
 }
 
+/* -------- katana slicing: clip the body along the real blade plane -------- */
+const slices = [];
+const _sm = new THREE.Matrix4();
+function cutRedShader(sh) {
+  sh.fragmentShader = sh.fragmentShader.replace('#include <dithering_fragment>', '#include <dithering_fragment>\n  if (!gl_FrontFacing) { float nn = fract(sin(dot(floor(gl_FragCoord.xy * .5), vec2(12.9898, 78.233))) * 43758.5453); gl_FragColor = vec4(0.46 + nn * .14, 0.03 + nn * .02, 0.025, 1.0); }');
+}
+function makeHalf(srcRoot, plane, pivot) {
+  const container = new THREE.Group(); container.position.copy(pivot);
+  const inner = new THREE.Group(); inner.position.copy(pivot).multiplyScalar(-1); container.add(inner);
+  const clone = srcRoot.clone(true); clone.visible = true; inner.add(clone);
+  const pl = plane.clone(), map = new Map();
+  clone.traverse(o => {
+    if (!o.isMesh) return;
+    let m = map.get(o.material);
+    if (!m) { m = o.material.clone(); m.clippingPlanes = [pl]; m.clipShadows = true; m.side = THREE.DoubleSide; m.onBeforeCompile = cutRedShader; m.customProgramCacheKey = () => 'cutRed'; if (m.emissive) m.emissive.setHex(0); map.set(o.material, m); }
+    o.material = m;
+  });
+  scene.add(container);
+  return { c: container, inner, pl, base: plane.clone(), mats: [...map.values()], vel: new V3(), axis: new V3(1, 0, 0), angle: 0, av: 0, target: 0, delay: 0, mode: 'topple', floorY: 0 };
+}
+function sliceUnit(u, n, pt, sweep) {
+  const root = u.model.root; root.updateMatrixWorld(true);
+  n = n.clone().normalize();
+  const plane = new THREE.Plane().setFromNormalAndCoplanarPoint(n, pt);
+  const horiz = Math.abs(n.y) > .55, feet = new V3(u.pos.x, 0, u.pos.z), sc = u.a.scale || 1;
+  const A = makeHalf(root, plane, horiz && n.y > 0 ? pt : feet);
+  const B = makeHalf(root, plane.clone().negate(), horiz && n.y < 0 ? pt : feet);
+  root.visible = false;
+  const sw = (sweep && sweep.lengthSq() > 1e-6 ? sweep.clone() : n.clone()).setY(0); if (sw.lengthSq() < 1e-6) sw.set(1, 0, 0); sw.normalize();
+  [[A, n.clone()], [B, n.clone().negate()]].forEach(([h, d]) => {
+    const upper = horiz && d.y > 0;
+    if (upper) {
+      h.mode = 'fly'; h.vel.copy(sw).multiplyScalar(rand(1.2, 2.2)).add(new V3(0, rand(.8, 1.6), 0));
+      h.axis.crossVectors(new V3(0, 1, 0), sw).normalize(); if (h.axis.lengthSq() < .1) h.axis.set(1, 0, 0);
+      h.target = rand(1.2, 1.6); h.av = rand(2, 4); h.floorY = Math.min(pt.y, .2 * sc + .1);
+    } else {
+      const dh = horiz ? sw.clone().negate() : d.clone().setY(0).normalize();
+      if (dh.lengthSq() < .1) dh.set(1, 0, 0);
+      h.axis.crossVectors(new V3(0, 1, 0), dh).normalize(); h.target = rand(1.35, 1.55); h.delay = horiz ? rand(.25, .5) : rand(.05, .2);
+      h.vel.copy(dh).multiplyScalar(horiz ? 0 : .35);
+    }
+  });
+  // flash along the cut and a fountain of blood
+  const flash = new THREE.Mesh(new THREE.CircleGeometry(1, 24), new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: .85, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide }));
+  flash.position.copy(pt); flash.lookAt(pt.clone().add(n)); flash.scale.set(u.height * .6, u.height * .6, 1); scene.add(flash);
+  for (let i = 0; i < 3; i++) burst(pt, 'blood', 14, 5, 2);
+  burst(pt, 'spark', 8, 6, 1); addPool(u.pos, .9 * sc);
+  sfx.slice(); G.slowmo = Math.max(G.slowmo, .35);
+  slices.push({ halves: [A, B], t: 0, flash, cut: pt.clone(), sc });
+}
+function updateSlices(dt) {
+  for (let i = slices.length - 1; i >= 0; i--) {
+    const S = slices[i]; S.t += dt;
+    if (S.flash) { S.flash.material.opacity -= dt * 3.5; S.flash.scale.multiplyScalar(1 + dt * 1.5); if (S.flash.material.opacity <= 0) { scene.remove(S.flash); S.flash = null; } }
+    for (const h of S.halves) {
+      if (h.mode === 'fly') {
+        h.vel.y -= 9.8 * dt; h.c.position.addScaledVector(h.vel, dt);
+        h.angle = Math.min(h.target, h.angle + h.av * dt);
+        if (h.c.position.y <= h.floorY) { h.c.position.y = h.floorY; h.vel.set(0, 0, 0); h.mode = 'rest'; h.angle = h.target; burst(h.c.position.clone(), 'dust', 8, 2, .5); }
+      } else if (h.mode === 'topple' && S.t > h.delay) {
+        h.av += 7 * dt; h.angle = Math.min(h.target, h.angle + h.av * dt);
+        h.c.position.addScaledVector(h.vel, dt); h.vel.multiplyScalar(Math.exp(-3 * dt));
+        if (h.angle >= h.target) h.mode = 'rest';
+      }
+      if (S.t > 10) h.c.position.y -= dt * .3;
+      h.c.quaternion.setFromAxisAngle(h.axis, h.angle);
+      h.c.updateMatrixWorld(true);
+      _sm.multiplyMatrices(h.c.matrixWorld, h.inner.matrix);
+      h.pl.copy(h.base).applyMatrix4(_sm);
+      if (S.t < 3 && Math.random() < .3) { const cp = S.cut.clone().applyMatrix4(_sm); burst(cp, 'blood', 1, 1.2, .3); }
+    }
+    if (S.t > 13) { for (const h of S.halves) { scene.remove(h.c); h.mats.forEach(m => m.dispose()); } slices.splice(i, 1); }
+  }
+}
+function playerRight() { return new V3(-Math.cos(player.facing), 0, Math.sin(player.facing)); }
+function katanaCutFor(u) {
+  const pc = G.pendingCut, h = u.height;
+  let n, y = null, sweep = null;
+  if (pc) { n = pc.n; y = pc.y; sweep = pc.sweep; }
+  else {
+    const r = playerRight(), up = new V3(0, 1, 0), cv = player.state === 'attack' && player.atk ? player.atk.curve : 'heavy';
+    n = cv === 'light2' ? up.clone().addScaledVector(r, .2) : cv === 'light' ? r.clone().addScaledVector(up, .6) : r.clone();
+    if (player.state === 'skill' || (player.atk && player.atk.kind === 'special')) n = up.clone().addScaledVector(r, .15);
+  }
+  const yy = clamp(y === null ? h * .55 : y, h * .3, h * .85);
+  const pt = new V3(u.pos.x, yy, u.pos.z);
+  if (u.state === 'kneel' && y === null) pt.y = h * .45;
+  return { n, pt, sweep: sweep || new V3(Math.sin(player.facing), 0, Math.cos(player.facing)) };
+}
 /* -------- crowd gifts (pickups) -------- */
 const GIFTS = {
   bread: { name: 'Хлеб', w: 3, apply: () => { player.hp = Math.min(player.maxHp, player.hp + 20); return '+20 здоровья'; } },
@@ -2509,7 +2613,8 @@ function animateHorse(u, dt) {
 function animateDeath(u, dt) {
   const m = u.model; u.deadT += dt;
   const k = 1 - Math.exp(-6 * dt);
-  if (m.kind === 'human') {
+  if (u.sliced) { m.root.visible = false; }
+  else if (m.kind === 'human') {
     const dt2 = u.deathType || 'back';
     if (dt2 === 'front') { m.body.rotation.x = lerp(m.body.rotation.x, 1.4, k); m.body.position.y = lerp(m.body.position.y, .22, k); m.body.position.z = lerp(m.body.position.z, .6, k); }
     else if (dt2 === 'side') { m.body.rotation.z = lerp(m.body.rotation.z, 1.45 * (u.deathSide || 1), k); m.body.position.y = lerp(m.body.position.y, .22, k); m.body.position.x = lerp(m.body.position.x, .6 * (u.deathSide || 1), k); }
@@ -2557,6 +2662,12 @@ function playerStrikeCheck(kind) {
   const C = player.cls, reachBonus = Math.max(0, (player.model.reach - 1.95) * .85), thrust = THRUST.includes(C.look.weapon);
   const range = (kind === 'heavy' ? 2.5 : 2.15) + reachBonus, cone = C.cleave ? 1.6 : thrust ? .75 : kind === 'heavy' ? 1.25 : 1.05;
   let any = false;
+  if (C.look.weapon === 'katana' && player.tipHist) {
+    const [a, b] = player.tipHist, base = player.baseHist;
+    const blade = a.clone().sub(base), sweep = a.clone().sub(b);
+    const n = blade.clone().cross(sweep);
+    G.pendingCut = n.lengthSq() > 1e-6 ? { n: n.normalize(), y: (a.y + base.y) / 2, sweep } : null;
+  }
   for (const e of G.units) {
     if (!e.alive || e.team !== 'enemy' || player.hitSet.has(e)) continue;
     const d = flatDist(e.pos, player.pos), an = Math.atan2(e.pos.x - player.pos.x, e.pos.z - player.pos.z);
@@ -2568,6 +2679,7 @@ function playerStrikeCheck(kind) {
       if (G.buffs.execute > 0 && e.alive && e.hp < e.maxHp * .3 && !canMercy(e)) { burst(e.pos.clone().setY(1.2), 'blood', 25, 6, 2); die(e, player, true); }
     }
   }
+  G.pendingCut = null;
   if (any && G.buffs.execute > 0) G.buffs.execute = 0;
   return any;
 }
@@ -2769,6 +2881,16 @@ function updatePlayer(dt) {
     } else if (['berserk', 'holy', 'riposte', 'execute', 'wall', 'cry', 'showoff', 'drain'].includes(s)) {
       if (!p.skillDone && p.t > .2) { p.skillDone = true; applyBuffSkill(s); }
       if (p.t > .5) { p.state = 'free'; p.t = 0; }
+    } else if (s === 'iaido') {
+      if (p.t > .1 && p.t < .42) {
+        p.pos.addScaledVector(fw, 20 * dt); p.iframes = .15;
+        G.pendingCut = { n: new V3(0, 1, 0).addScaledVector(playerRight(), .18).normalize(), y: 1.25, sweep: fw.clone() };
+        for (const e of G.units) { if (!e.alive || e.team !== 'enemy' || p.hitSet.has(e)) continue; if (flatDist(e.pos, p.pos) < 1.7 + e.radius) { p.hitSet.add(e); hit(e, 40 * G.up.dmg, p, { kind: 'special', ignoreGuard: true, bleed: .6 }); } }
+        G.pendingCut = null;
+        if (Math.random() < .6) burst(p.pos.clone().setY(1), 'spark', 2, 2, .2);
+      }
+      if (p.t > .42 && !p.skillDone) { p.skillDone = true; sfx.slice(); G.slowmo = .4; }
+      if (p.t > .75) { p.state = 'free'; p.t = 0; }
     } else if (s === 'flurry') {
       p.flT = (p.flT || 0) - dt;
       if (p.t > .08 && p.t < .85 && p.flT <= 0) {
@@ -2861,6 +2983,7 @@ function updatePlayer(dt) {
     if (p.skill === 'bash') { pose.shLx = -1.5; pose.elLx = 1.4; pose.torY = .5; pose.torX = .3; pose.bodyY = -.15; }
     else if (p.skill === 'net') applyCurve(pose, CURVE.throwL, clamp(p.t / .55, 0, 1));
     else if (['berserk', 'holy', 'riposte', 'execute', 'wall', 'cry', 'showoff', 'drain'].includes(p.skill)) { pose.shRx = -2.8; pose.elRx = -.2; pose.headX = -.35; pose.torX = -.15; if (p.skill === 'wall' || p.skill === 'riposte') { pose.shRx = -1.4; pose.shLx = -1.3; pose.elLx = 1.15; pose.headX = 0; } }
+    else if (p.skill === 'iaido') { pose.shRz = p.t < .42 ? -.3 : -1.5; pose.shRx = p.t < .42 ? -1.2 : -.5; pose.elRx = -.05; pose.torY = p.t < .42 ? -.6 : .7; pose.bodyY = -.25; pose.bodyX = .2; }
     else if (p.skill === 'flurry') { applyCurve(pose, Math.floor(p.t * 8) % 2 ? CURVE.light2 : CURVE.light, (p.t * 8) % 1); }
     else if (p.skill === 'sweep360') { pose.shRz = -1.5; pose.shRx = -.4; pose.elRx = 0; pose.shLz = 1.2; pose.bodyY = -.15; }
     else if (p.skill === 'charge') { pose.shLx = -1.5; pose.elLx = 1.4; pose.torX = .4; pose.bodyY = -.18; pose.bodyX = .15; }
@@ -2881,12 +3004,13 @@ function updatePlayer(dt) {
   m.root.position.set(p.pos.x, 0, p.pos.z);
   m.root.rotation.y = p.facing;
   m.body.position.set(0, 0, 0); m.body.rotation.x = 0;
+  if (m.weapon && m.weapon.userData.tip) { m.root.updateMatrixWorld(true); const tw = m.weapon.userData.tip.getWorldPosition(new V3()), bw = m.weapon.userData.base.getWorldPosition(new V3()); p.tipHist = [tw, p.tipHist ? p.tipHist[0] : tw.clone()]; p.baseHist = bw; }
   if (G.view !== 'fp') {
     let on = false;
     if (p.state === 'attack' && p.atk) { const k = p.t / p.atk.dur; on = p.atk.kind === 'special' || (k > p.atk.hitAt - .2 && k < p.atk.hitAt + .12); }
     if (p.state === 'skill' && p.skill !== 'net' && p.skill !== 'bash') on = true;
     if (p.state === 'execute') on = p.t > .45 && p.t < .8;
-    feedTrail(p, 'trail', m.weapon, on, 0xffe2a0, dt);
+    feedTrail(p, 'trail', m.weapon, on, C.look.weapon === 'katana' ? 0xbfe4ff : 0xffe2a0, dt);
     if (m.weapon2) feedTrail(p, 'trail2', m.weapon2, on, 0xffe2a0, dt);
   } else { if (p.trail) p.trail.mesh.visible = false; if (p.trail2) p.trail2.mesh.visible = false; }
   if (m.netBundle) m.netBundle.visible = p.skillCd <= 0;
@@ -3595,7 +3719,7 @@ function frame(now) {
     if (G.lock) { lockRing.position.set(G.lock.pos.x, .04, G.lock.pos.z); lockRing.scale.setScalar(G.lock.radius * 1.4); lockRing.rotation.z += dt * 2; }
     updateHud(dt); updateTags(); updateFloaters(dt); updateIndicators();
   }
-  updateParticles(dt);
+  updateParticles(dt); updateSlices(dt);
   ambient(dt);
   updateCamera(dt);
   updateViewModel(rdt);
