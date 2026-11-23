@@ -211,7 +211,7 @@
             ".validate": "newData.isString()"
           },
           "j": {
-            ".validate": "newData.isString() && newData.val().length <= 14000"
+            ".validate": "newData.isString() && newData.val().length <= 60000"
           },
           "ts": {
             ".validate": "newData.val() === now"

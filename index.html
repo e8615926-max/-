@@ -2270,81 +2270,11 @@ async function fbProfile(e) {
 // Окно входа Google и привязку делает официальный Firebase Auth SDK: он грузится только по кнопке «Google».
 // Дальше игра, как и раньше, работает по REST с тем же ключом обновления; у гостя после привязки остаётся тот же uid.
 const FB_SDK = 'https://www.gstatic.com/firebasejs/10.14.1/';
-const fbAuthDomain = () => FIREBASE.authDomain || (FIREBASE.databaseURL.match(/\/\/([a-z0-9-]+?)(?:-default-rtdb)?\./) || [])[1] + '.firebaseapp.com';
 const acctInfo = () => { const a = store.get('acct', null); return a && typeof a === 'object' ? a : null; };
 const acctG = () => fbOn() && !!(acctInfo() || {}).g;   // вошёл через Google: прогресс хранится в облаке
-let fbSdkP = null, fbSdkN = 0;
-function fbSdkMods() {
-  return fbSdkP || (fbSdkP = Promise.all([import(FB_SDK + 'firebase-app.js'), import(FB_SDK + 'firebase-auth.js')]).then(([A, U]) => ({ A, U }), () => { fbSdkP = null; throw { code: 'sdk' }; }));
-}
 // новый игрок — нечего терять: при входе в существующий аккаунт его прогресс просто загружается
 const saveFresh = () => best === 0 && owned.length <= 1 && troTotal() === 0;
 // вход Google панелью поверх игры (Google One Tap): токен Google сразу меняем на аккаунт Firebase через REST
-const gisLoad = () => gisLoad.p || (gisLoad.p = new Promise((ok, no) => { const sc = document.createElement('script'); sc.src = 'https://accounts.google.com/gsi/client'; sc.async = true; sc.onload = ok; sc.onerror = () => { gisLoad.p = null; no({ code: 'gis/load' }); }; document.head.appendChild(sc); }));
-async function fbGoogleTap() {
-  await gisLoad();
-  const idTok = await new Promise((ok, no) => {
-    let done = false;
-    const fin = (f, v) => { if (done) return; done = true; f(v); };
-    fbGoogleTap.cb = r => r && r.credential ? fin(ok, r.credential) : fin(no, { code: 'auth/popup-closed-by-user' });   // initialize — только один раз, повторный вызов GIS не любит
-    if (!fbGoogleTap.init) { google.accounts.id.initialize({ client_id: FIREBASE.googleClientId, callback: r => fbGoogleTap.cb && fbGoogleTap.cb(r), cancel_on_tap_outside: false, context: 'signin', use_fedcm_for_prompt: true, itp_support: true }); fbGoogleTap.init = true; }
-    google.accounts.id.prompt(n => {   // панель не показалась (адрес не зарегистрирован у клиента Google, пауза после закрытия, нет входа в Google) — обычное окно Google
-      if (!done && ((n.isNotDisplayed && n.isNotDisplayed()) || (n.isSkippedMoment && n.isSkippedMoment()))) fin(no, { code: 'gis/not-shown' });
-    });
-  });
-  const fresh = saveFresh();
-  if (!fresh) await fbAuth().catch(() => { throw { code: 'auth/network-request-failed' }; });
-  const old = { uid: FB.uid, tok: FB.tok }, key = encodeURIComponent(FIREBASE.apiKey);
-  const call = async link => {
-    const body = { postBody: 'id_token=' + encodeURIComponent(idTok) + '&providerId=google.com', requestUri: location.origin && location.origin !== 'null' ? location.origin : 'http://localhost', returnSecureToken: true, returnIdpCredential: true };
-    if (link) body.idToken = FB.tok;   // гость → привязываем Google к нему, прогресс тот же
-    const r = await fetch(fbAuthBase() + '/v1/accounts:signInWithIdp?key=' + key, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }).catch(() => null);
-    if (!r) throw { code: 'auth/network-request-failed' };
-    const j = await r.json().catch(() => ({})); return { ok: r.ok, j };
-  };
-  let link = !fresh && !!FB.tok, res = await call(link);
-  if (!res.ok && link && /ALREADY|IN_USE|EXISTS/.test(String((res.j.error || {}).message))) { link = false; res = await call(false); }   // этот Google уже у другого аккаунта — входим в него
-  if (!res.ok) throw { code: /OPERATION_NOT_ALLOWED/.test(String((res.j.error || {}).message)) ? 'auth/operation-not-allowed' : 'auth/internal-error' };
-  const j = res.j;
-  FB.uid = j.localId; FB.tok = j.idToken; FB.exp = Date.now() + (+j.expiresIn || 3600) * 1000;
-  store.set('fbAuth', { rt: j.refreshToken, uid: j.localId });
-  store.set('acct', { g: 1, email: String(j.email || '').slice(0, 80), name: String(j.displayName || j.fullName || '').slice(0, 40) });
-  return { fresh, linked: link, same: !!old.uid && old.uid === FB.uid, old };
-}
-async function fbGoogle() {
-  if (FIREBASE.googleClientId && !FIREBASE.emu) { try { return await fbGoogleTap(); } catch (e) { if (!e || (e.code !== 'gis/not-shown' && e.code !== 'gis/load')) throw e; } }   // панель не показалась — обычное окно Google
-  const { A, U } = await fbSdkMods();
-  const fresh = saveFresh();
-  if (!fresh) await fbAuth().catch(() => { throw { code: 'auth/network-request-failed' }; });
-  const old = { uid: FB.uid, tok: FB.tok };
-  const name = 'wp' + (++fbSdkN), key = 'firebase:authUser:' + FIREBASE.apiKey + ':' + name, sv = store.get('fbAuth', null);
-  if (!fresh && sv && sv.rt && FB.uid) {   // отдаём SDK текущего гостя, чтобы привязать Google именно к нему
-    try { sessionStorage.setItem(key, JSON.stringify({ uid: FB.uid, isAnonymous: true, emailVerified: false, providerData: [], stsTokenManager: { refreshToken: sv.rt, accessToken: FB.tok, expirationTime: FB.exp }, createdAt: String(Date.now()), lastLoginAt: String(Date.now()), apiKey: FIREBASE.apiKey, appName: name })); } catch (e) {}
-  }
-  const app = A.initializeApp({ apiKey: FIREBASE.apiKey, authDomain: fbAuthDomain() }, name);
-  let user, linked = false;
-  try {
-    const auth = U.initializeAuth(app, { persistence: U.browserSessionPersistence, popupRedirectResolver: U.browserPopupRedirectResolver });
-    if (FIREBASE.emu) U.connectAuthEmulator(auth, FIREBASE.emu.auth, { disableWarnings: true });
-    await auth.authStateReady();
-    const prov = new U.GoogleAuthProvider(); prov.setCustomParameters({ prompt: 'select_account' });
-    try {
-      if (auth.currentUser) { user = (await U.linkWithPopup(auth.currentUser, prov)).user; linked = true; }
-      else user = (await U.signInWithPopup(auth, prov)).user;
-    } catch (e) {
-      // этот Google уже привязан к другому аккаунту — входим в него, а что делать с прогрессом, решает игрок
-      if (!e || (e.code !== 'auth/credential-already-in-use' && e.code !== 'auth/email-already-in-use')) throw e;
-      const cred = U.GoogleAuthProvider.credentialFromError(e); if (!cred) throw e;
-      user = (await U.signInWithCredential(auth, cred)).user;
-    }
-    const res = await user.getIdTokenResult(), g = (user.providerData || []).find(q => q.providerId === 'google.com') || {};
-    FB.uid = user.uid; FB.tok = res.token; FB.exp = Date.parse(res.expirationTime) || Date.now() + 3e6;
-    store.set('fbAuth', { rt: user.refreshToken, uid: user.uid });
-    store.set('acct', { g: 1, email: String(g.email || user.email || '').slice(0, 80), name: String(g.displayName || user.displayName || '').slice(0, 40) });
-    await U.signOut(auth).catch(() => {});
-  } finally { try { sessionStorage.removeItem(key); } catch (e) {} A.deleteApp(app).catch(() => {}); }
-  return { fresh, linked, same: !!old.uid && old.uid === FB.uid, old };
-}
 // старая строка гостя в рейтинге после перехода в другой аккаунт — обнуляем (удалять строки правила не дают)
 function fbBoardBlank(old) {
   if (!old.uid || !old.tok || old.uid === FB.uid) return;
@@ -2489,53 +2419,8 @@ async function fbCloudSync() {
     if (!c || +(localStorage.getItem('wk3__savedAt') || 0) > c.s) await fbCloudPush(); else { fbSave.st = 'on'; fbSave.at = Date.now(); }
   } catch (e) { if (!fbSave.ready) { fbSave.st = 'error'; setTimeout(fbCloudSync, 30000); } }
 }
-function acctErrText(e) {
-  const c = e && e.code || '';
-  if (c === 'auth/popup-blocked') return tr('БРАУЗЕР НЕ ОТКРЫЛ ОКНО ВХОДА. НАЖМИ КНОПКУ ЕЩЁ РАЗ', 'THE BROWSER BLOCKED THE SIGN-IN WINDOW. TAP THE BUTTON AGAIN');
-  if (c === 'auth/unauthorized-domain') return tr('ВХОД GOOGLE НЕ РАЗРЕШЁН НА САЙТЕ ' + location.hostname + '. ДОБАВЬ ЕГО В FIREBASE: AUTHENTICATION → SETTINGS → AUTHORIZED DOMAINS', 'GOOGLE SIGN-IN IS NOT ALLOWED ON ' + location.hostname + '. ADD IT IN FIREBASE: AUTHENTICATION → SETTINGS → AUTHORIZED DOMAINS');
-  if (c === 'auth/operation-not-supported-in-this-environment' || !/^https?:$/.test(location.protocol)) return tr('ВХОД GOOGLE РАБОТАЕТ, КОГДА ИГРА ОТКРЫТА С САЙТА (НАПРИМЕР ' + fbAuthDomain().replace('firebaseapp.com', 'web.app') + '), А НЕ ИЗ ФАЙЛА', 'GOOGLE SIGN-IN WORKS WHEN THE GAME IS OPENED FROM A WEBSITE, NOT FROM A FILE');
-  if (c === 'auth/operation-not-allowed') return tr('В FIREBASE ВЫКЛЮЧЕН ВХОД GOOGLE (AUTHENTICATION → SIGN-IN METHOD)', 'GOOGLE SIGN-IN IS OFF IN FIREBASE (AUTHENTICATION → SIGN-IN METHOD)');
-  if (c === 'sdk' || c === 'auth/network-request-failed' || e && e.net) return tr('НЕТ СВЯЗИ С GOOGLE. ПРОВЕРЬ ИНТЕРНЕТ', 'NO CONNECTION TO GOOGLE. CHECK THE INTERNET');
-  return tr('НЕ ПОЛУЧИЛОСЬ ВОЙТИ', 'SIGN-IN FAILED') + (c ? ' (' + c.replace('auth/', '') + ')' : '');
-}
-const acctQuiet = e => e && (e.code === 'auth/popup-closed-by-user' || e.code === 'auth/cancelled-popup-request' || e.code === 'auth/user-cancelled');
 // кнопка «Google» с цветной буквой G
-function googleBtn(label, onTap) {
-  const b = moEl('button', 'btn'); b.style.cssText += ';background:#fff;color:#3a2a6a;text-shadow:none;display:flex;align-items:center;justify-content:center;gap:10px;width:100%;font-size:15px';
-  b.innerHTML = '<svg width="22" height="22" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.5 0 6.6 1.2 9.1 3.6l6.8-6.8C35.8 2.4 30.3 0 24 0 14.6 0 6.6 5.4 2.7 13.3l7.9 6.1C12.5 13.6 17.8 9.5 24 9.5z"/><path fill="#4285F4" d="M46.1 24.5c0-1.6-.1-3.1-.4-4.5H24v9h12.4c-.5 2.9-2.2 5.3-4.6 6.9l7.4 5.7c4.3-4 6.9-9.9 6.9-17.1z"/><path fill="#FBBC05" d="M10.6 28.6c-.5-1.4-.8-3-.8-4.6s.3-3.2.8-4.6l-7.9-6.1C1 16.6 0 20.2 0 24s1 7.4 2.7 10.7l7.9-6.1z"/><path fill="#34A853" d="M24 48c6.5 0 11.9-2.1 15.9-5.8l-7.4-5.7c-2.1 1.4-4.8 2.3-8.5 2.3-6.2 0-11.5-4.1-13.4-9.9l-7.9 6.1C6.6 42.6 14.6 48 24 48z"/></svg>';
-  b.appendChild(moTxt('span', '', label)); b.onclick = onTap; return b;
-}
 // нажали «Google»: вход или привязка, потом решаем судьбу прогресса
-async function acctGoogle(msg) {
-  if (acctGoogle.busy) return; acctGoogle.busy = true;
-  const say = (t, bad) => { if (msg && msg.isConnected) { msg.textContent = t; msg.style.color = bad ? '#ff8a7a' : '#d8d0ff'; } };
-  say(tr('ОТКРЫВАЮ ВХОД GOOGLE…', 'OPENING GOOGLE SIGN-IN…'));
-  try {
-    const prev = { auth: store.get('fbAuth', null), acct: localStorage.getItem('wk3_acct'), uid: FB.uid, tok: FB.tok, exp: FB.exp };
-    const r = await fbGoogle(); fbSave.ready = true;
-    // эта почта уже есть в другом аккаунте на устройстве — сразу открываем его (раньше сюда сначала грузилась копия из облака,
-    // и получались два аккаунта с одной почтой: переключение по таймеру не успевало до перезагрузки)
-    const ai = acctInfo(), here = ai && ai.email ? accByEmail(emailNorm(ai.email)) : null;
-    if (here) { accEmailCheck.done = true; fbSave.ready = false; say(tr('ЭТА ПОЧТА УЖЕ ЕСТЬ НА УСТРОЙСТВЕ — ОТКРЫВАЮ ЕЁ АККАУНТ', 'THIS EMAIL IS ALREADY ON THIS DEVICE — OPENING ITS ACCOUNT')); const fr = saveFresh(); setTimeout(() => accSwitch(here.id, { drop: fr, unlink: !fr }), 500); return; }
-    if (r.same) {   // гость стал аккаунтом Google — прогресс тот же, просто кладём его в облако
-      await fbCloudPush().catch(() => {}); boardPush();
-      moOpen(tr('АККАУНТ', 'ACCOUNT'), bd => acctDone(bd, tr('GOOGLE ПРИВЯЗАН! ПРОГРЕСС СОХРАНЁН В ОБЛАКЕ', 'GOOGLE LINKED! PROGRESS SAVED TO THE CLOUD')));
-      if (!obOpen()) giftCharodey();
-      return;
-    }
-    const c = await fbCloudGet().catch(() => null);
-    if (c && (r.fresh || saveFresh())) { fbBoardBlank(r.old); fbCloudApply(c); return; }
-    if (!c) { fbBoardBlank(r.old); await fbCloudPush().catch(() => {}); boardPush(); moOpen(tr('АККАУНТ', 'ACCOUNT'), bd => acctDone(bd, tr('ВЫ ВОШЛИ ЧЕРЕЗ GOOGLE. ПРОГРЕСС СОХРАНЁН В ОБЛАКЕ', 'SIGNED IN WITH GOOGLE. PROGRESS SAVED TO THE CLOUD'))); if (!obOpen()) giftCharodey(); return; }
-    // пока игрок не выбрал, ничего не сохраняем в облако; «назад» — остаёмся гостем, как было
-    fbSave.ready = false;
-    acctPick(c, () => fbBoardBlank(r.old), () => {
-      if (prev.auth) store.set('fbAuth', prev.auth);
-      try { if (prev.acct === null) { localStorage.removeItem('wk3_acct'); delete memStore.wk3_acct; } else localStorage.setItem('wk3_acct', prev.acct); } catch (e) {}
-      FB.uid = prev.uid; FB.tok = prev.tok; FB.exp = prev.exp;
-    });
-  } catch (e) { if (!acctQuiet(e)) say(acctErrText(e), true); else say(''); }
-  finally { acctGoogle.busy = false; }
-}
 // =====================================================================================
 // ---- вход по почте: игрок пишет email, получает письмо со ссылкой — и он в аккаунте (без пароля и регистрации) ----
 // Ссылка из письма нужна, чтобы чужой аккаунт нельзя было открыть, просто написав чужую почту.
@@ -2831,7 +2716,6 @@ const vib = ms => { if (SET.vibe && navigator.vibrate) try { navigator.vibrate(m
 const cv = document.getElementById('game');
 let ctx = cv.getContext('2d', { alpha: false });   // непрозрачный холст быстрее на телефонах; let — врагов рисуем в пиксельный буфер, подменяя ctx
 let scale = 1;
-const DPR_STEPS = [2, 1.75, 1.5, 1.25, 1];
 // качество графики (настройки): низкое / нормальное / высокое — это резкость холста. С базы — нормальное.
 // Если телефон не тянет, игра сама опускает резкость, но только на одну ступень от выбранной
 // низкое — 1× (пиксель-арт остаётся чётким: холст растягивается без размытия), нормальное — 2×, высокое — во всю резкость экрана
@@ -3511,7 +3395,7 @@ function pick(opts) {
 }
 
 // Пиксельные примитивы: «пиксель» = 2×2 точки
-const APP_VER = 'v111';
+const APP_VER = 'v112';
 let AV_HQ = false;   // рисуем аватарку: точные фигуры без привязки к сетке 2×2 (иначе глаза выходили разного размера)
 function prect(c, x, y, w, h, col) {
   if (AV_HQ) { c.fillStyle = col; c.fillRect(x, y, w, h); return; }
@@ -7366,15 +7250,6 @@ function heroEmoFace(k, cx, cy, s, t) {   // смайлик героя: пикс
   hamFace('hhappy', cx, cy, 3.4 * s, t, heroFaceCols(k), k);
   const gb = Math.abs(Math.sin(t * 5)) * 4 * s; ctx.save(); ctx.translate(cx + 30 * s, cy - 24 * s - gb); ctx.rotate(Math.sin(t * 3) * 0.2); heroGlyphDraw(heroGlyph(k), 0, 0, 16 * s); ctx.restore();
 }
-function heroEmoDraw(k, cx, cy, s, t) {   // смайлик героя: целый герой в позе радости, прыгает; аура пульсирует, искры кружат, над головой — его значок
-  const ac = heroAuraCols(k), b = Math.abs(Math.sin(t * 4.5)), pu = 1 + Math.sin(t * 6) * 0.06;
-  ctx.globalAlpha = 0.28 + Math.sin(t * 6) * 0.08; pell(ctx, cx, cy + 6 * s, 40 * s * pu, 40 * s * pu, ac[0]); ctx.globalAlpha = 0.35; pell(ctx, cx, cy + 6 * s, 26 * s * pu, 26 * s * pu, ac[1]); ctx.globalAlpha = 1;   // аура
-  for (let i = 0; i < 6; i++) { const a = t * 2.2 + i * Math.PI / 3, rx = 36 * s, ry = 14 * s, px = cx + Math.cos(a) * rx, py = cy + 18 * s + Math.sin(a) * ry; if (Math.sin(a) < 0) { ctx.globalAlpha = 0.7; emoStar(px, py, 2.5 * s, i % 2 ? ac[0] : '#ffffff'); ctx.globalAlpha = 1; } }   // искры сзади
-  heroSprite(k, 'cheer', t, false);
-  ctx.save(); ctx.translate(cx, cy + 12 * s - b * 7 * s); ctx.rotate(Math.sin(t * 3) * 0.08); ctx.scale(1 + (1 - b) * 0.05, 1 - (1 - b) * 0.05); ctx.drawImage(hcv, -32 * s, -52 * s, 64 * s, 80 * s); ctx.restore();
-  for (let i = 0; i < 6; i++) { const a = t * 2.2 + i * Math.PI / 3, px = cx + Math.cos(a) * 36 * s, py = cy + 18 * s + Math.sin(a) * 14 * s; if (Math.sin(a) >= 0) emoStar(px, py, 3 * s, i % 2 ? ac[0] : '#ffffff'); }   // искры спереди
-  const gb = Math.abs(Math.sin(t * 5)) * 5 * s; ctx.save(); ctx.translate(cx + 22 * s, cy - 26 * s - gb); ctx.rotate(Math.sin(t * 3) * 0.2); heroGlyphDraw(heroGlyph(k), 0, 0, 18 * s); ctx.restore();
-}
 function hamFace(id, cx, cy, c, t, cols, hk) {
   const O = (cols && cols.O) || '#2a1408', mad = id === 'hmad', col = cols || (mad ? HF_MAD : HF_COL);
   let ox = 0, oy = 0, sx = 1, sy = 1, rot = 0;
@@ -7679,7 +7554,6 @@ function emoDo(id) {
   if (mp.active) mpSend({ t: 'em', e: id });
 }
 // смайлики в меню: облачко «…» (будто кто-то пишет); нажал — веер смайликов, выбрал — герой показывает, веер закрывается
-const MENU_EMO = { x: W - 60, y: 392, w: 46, h: 38 };
 let menuEmOpen = false, menuEmT = 0;
 function emoPlayClick(pt) {
   const wl = emoWheel(); if (!wl.length || TUT.on) return false;
@@ -8439,9 +8313,81 @@ const farTiles = new Map(), FAR_KEEP = 4;
 const idleRun = (f) => (window.requestIdleCallback ? requestIdleCallback(f, { timeout: 400 }) : setTimeout(f, 30));
 const idleWarm = (key, f) => { if (idleWarm.q.has(key)) return; idleWarm.q.add(key); idleRun(() => { idleWarm.q.delete(key); f(); }); };
 idleWarm.q = new Set();
+// дальний план под тему карты: пальмы у моря, ели в снегу, кактусы в пустыне, водоросли под водой, планеты в космосе…
+// R — прямоугольник, E — овал (оба отмечают занятые полосы); всё — крупными пикселями, как остальной фон
+const farRows = (R, x, y0, h, wAt, col, step = 2) => { for (let r = 0; r < h; r += step) { const w = even(Math.max(2, wAt(r / h))); R(x - w / 2, y0 + r, w, step, col); } };
+const FAR_KINDS = {
+  palm(R, E, x, Y, z, k, left) {
+    const lean = left ? 1 : -1;
+    for (let s2 = 0; s2 < 130; s2 += 4) { const bx = x + lean * Math.pow(s2 / 130, 2) * -22; R(bx - 5, Y + s2, 10, 4, z.farD); if ((s2 / 4) % 3 === 0) R(bx - 3, Y + s2, 6, 2, z.far); }
+    for (let j = 0; j < 6; j++) { const an = -Math.PI + j * (Math.PI / 5) + 0.1; for (let q = 1; q < 9; q++) { const fx = x + Math.cos(an) * q * 5.5, fy = Y + Math.sin(an) * q * 3 + q * q * 0.35; R(fx - 3, fy - 2, 6, 4, q % 2 ? z.farD : z.far); } }
+    E(x - 3, Y + 4, 4, 4, z.farD); E(x + 4, Y + 5, 4, 4, z.farD);
+  },
+  fir(R, E, x, Y, z) {
+    R(x - 4, Y + 70, 8, 22, z.farD);
+    for (let t = 0; t < 3; t++) { const y0 = Y - 10 + t * 26, w0 = 26 + t * 14;
+      farRows(R, x, y0, 34, u => 6 + u * (w0 + 4), z.farD); farRows(R, x, y0 + 2, 30, u => 2 + u * w0, z.far);
+      farRows(R, x, y0 + 2, 10, u => 2 + u * w0 * 0.33, '#ffffff'); R(x - w0 / 2, y0 + 30, w0, 2, '#ffffff'); }
+  },
+  cactus(R, E, x, Y, z, k) {
+    farRows(R, x, Y, 110, () => 18, z.farD); farRows(R, x, Y + 2, 106, u => u < 0.06 ? 10 : 14, z.far);
+    for (let r = 6; r < 104; r += 8) R(x - 1, Y + r, 2, 4, z.farD);
+    const arm = (sx, h, up) => { R(x + sx * 7, Y + h, 16 * sx > 0 ? 16 : 16, 10, z.farD); R(x + (sx > 0 ? 7 : -23), Y + h, 16, 10, z.farD);
+      R(x + (sx > 0 ? 17 : -23), Y + h - up, 10, up + 10, z.farD); R(x + (sx > 0 ? 19 : -21), Y + h - up + 2, 6, up + 6, z.far); R(x + (sx > 0 ? 7 : -19), Y + h + 2, 14, 6, z.far); };
+    arm(1, 40 + (k % 3) * 6, 24); arm(-1, 58, 18);
+    E(x, Y - 2, 4, 3, '#ff6ab0');
+  },
+  kelp(R, E, x, Y, z, k) {
+    for (let st = 0; st < 3; st++) { const ox = (st - 1) * 12, h = 120 - st * 22;
+      for (let s2 = 0; s2 < h; s2 += 4) { const wx = x + ox + Math.sin(s2 * 0.09 + st * 2 + k) * 6; R(wx - 3, Y + 140 - s2, 6, 4, st === 1 ? z.far : z.farD); if (s2 % 24 === 12) R(wx + (st & 1 ? -9 : 3), Y + 140 - s2, 6, 4, z.far); } }
+    for (let b = 0; b < 4; b++) E(x + (b - 1.5) * 9, Y + 10 - b * 18, 2 + (b & 1), 2 + (b & 1), '#ffffff');
+  },
+  balloon(R, E, x, Y, z, k) {
+    E(x, Y, 30, 34, z.farD); E(x, Y - 1, 27, 31, z.far);
+    for (let i = -1; i <= 1; i++) farRows(R, x + i * 16, Y - 28, 56, u => Math.sin(u * Math.PI) * 7, z.farD);
+    E(x - 9, Y - 14, 5, 7, '#ffffff');
+    R(x - 12, Y + 30, 2, 18, z.farD); R(x + 10, Y + 30, 2, 18, z.farD); R(x - 10, Y + 46, 20, 12, '#8a5a2a'); R(x - 10, Y + 46, 20, 2, '#c08a4a');
+  },
+  cloud(R, E, x, Y, z) {
+    const cD = hexMix(z.farD, '#ffffff', 0.45), cF = hexMix(z.far, '#ffffff', 0.78);
+    for (let j = 0; j < 5; j++) { const cy = Y + j * 26, rx = 30 - j * 3 + (j & 1) * 6; E(x + (j & 1 ? 8 : -6), cy + 2, rx + 2, 15, cD); E(x + (j & 1 ? 8 : -6), cy, rx, 13, cF); E(x + (j & 1 ? 2 : -12), cy - 4, rx * 0.5, 7, '#ffffff'); }
+  },
+  planet(R, E, x, Y, z, k) {
+    const r = 18 + (k % 3) * 6;
+    E(x, Y, r + 2, r + 2, z.farD); E(x, Y, r, r, z.far); E(x + r * 0.35, Y + r * 0.3, r * 0.6, r * 0.6, z.farD); E(x - r * 0.35, Y - r * 0.35, r * 0.25, r * 0.25, '#ffffff');
+    if (k % 2 === 0) { for (let i = -r - 12; i <= r + 12; i += 2) { const yy = Y + i * 0.25; if (Math.abs(i) > r * 0.8 || i > 0) R(x + i - 1, yy - 1, 2, 2, '#ffffff'); } }
+    for (let a = 0; a < 5; a++) E(x + (hash(k * 9 + a) - 0.5) * 70, Y + 50 + hash(a * 7 + k) * 60, 3, 2, z.farD);
+  },
+  crystal(R, E, x, Y, z, k) {
+    const shard = (cx, top, h, w) => { farRows(R, cx, top, h, u => u < 0.25 ? u / 0.25 * w : w, z.farD); farRows(R, cx, top + 2, h - 2, u => (u < 0.25 ? u / 0.25 * w : w) - 4, z.far); R(cx - w / 2 + 3, top + h * 0.3, 2, h * 0.5, '#ffffff'); };
+    shard(x - 14, Y + 30, 70, 14); shard(x + 14, Y + 20, 80, 16); shard(x, Y, 110, 20);
+  },
+  deadtree(R, E, x, Y, z, k) {
+    for (let s2 = 0; s2 < 120; s2 += 4) R(x - 4 + Math.sin(s2 * 0.05 + k) * 3, Y + s2, 8 - Math.min(4, (120 - s2) / 30 | 0) * 0, 4, z.farD);
+    const br = (sx, sy, dx, dy, n) => { for (let i = 0; i < n; i++) { R(sx + dx * i - 2, sy + dy * i - 2, 4, 4, z.farD); if (i === (n >> 1)) for (let j = 1; j < 5; j++) R(sx + dx * i + dx * j * 0.5 - 1, sy + dy * i - j * 3 - 1, 3, 3, z.farD); } };
+    br(x, Y + 30, 4, -3, 9); br(x, Y + 50, -4, -3, 8); br(x, Y + 12, 2, -4, 6); br(x, Y + 70, -4, -1, 7);
+  },
+  rock(R, E, x, Y, z, k) {
+    farRows(R, x, Y, 140, u => 8 + u * 46 + (hash(k * 5 + (u * 20 | 0)) - 0.5) * 10, z.farD);
+    farRows(R, x - 4, Y + 10, 126, u => 4 + u * 26, z.far);
+    if (z.fx === 'ember') for (let c2 = 0; c2 < 30; c2 += 2) R(x + Math.sin(c2 * 0.7 + k) * 6 - 1, Y + 40 + c2 * 3, 2, 6, '#ff8a2a');
+  },
+  gear(R, E, x, Y, z, k) {
+    const r = 26 + (k % 2) * 8;
+    for (let t = 0; t < 10; t++) { const an = t * Math.PI / 5 + k; E(x + Math.cos(an) * r, Y + Math.sin(an) * r, 6, 6, z.farD); }
+    E(x, Y, r + 1, r + 1, z.farD); E(x, Y, r - 3, r - 3, z.far); E(x, Y, r * 0.35, r * 0.35, z.farD);
+    for (let t = 0; t < 4; t++) { const an = t * Math.PI / 2 + k; R(x + Math.cos(an) * r * 0.6 - 3, Y + Math.sin(an) * r * 0.6 - 3, 6, 6, z.farD); }
+    R(x - 2, Y + r, 4, 80, z.farD);
+  },
+};
+// у карты без своего дальнего плана — подбираем по теме
+const FAR_BY_DYN = { bay: 'palm', beach: 'palm', oasis: 'palm', pyramids: 'palm', dunes: 'cactus', village: 'fir', peaks: 'fir', aurora: 'fir', arctic: 'fir',
+  atlantis: 'kelp', underwater: 'kelp', deep: 'kelp', reef: 'kelp', balloons: 'balloon', skywhales: 'cloud', cloudland: 'cloud', heaven: 'cloud', rainbowsky: 'cloud', islands: 'cloud', storm: 'cloud',
+  moon: 'planet', deepspace: 'planet', blackhole: 'planet', starry: 'planet', crystalcave: 'crystal', haunted: 'deadtree', swamp: 'deadtree', fireflies: 'deadtree',
+  eruption: 'rock', meteor: 'rock', factory: 'gear', steampunk: 'gear', mines: 'gear' };
 function farTile(zi) {
   const fk = ZONES[zi].nid, had = farTiles.get(fk); if (had) { farTiles.delete(fk); farTiles.set(fk, had); return had; }
-  const z = ZONES[zi], th = 640, kind = z.farKind || 'tree';
+  const z = ZONES[zi], th = 640, kind = z.farKind || FAR_BY_DYN[z.dyn] || 'tree';
   const c = document.createElement('canvas'); c.width = W; c.height = th;
   const g = c.getContext('2d');
   // какие полосы по ширине заняты рисунком — отмечаем прямо по ходу рисования (раньше читали все пиксели готовой картинки: медленно)
@@ -8473,6 +8419,8 @@ function farTile(zi) {
         R(x - 6, Y, 12, 90, '#f0e0c8'); R(x + 2, Y, 4, 90, '#c8b8a0');
         E(x, Y, 40, 22, z.farD); E(x, Y - 2, 36, 18, z.far);
         for (let j = 0; j < 5; j++) E(x - 24 + j * 12 + hash(k + j) * 6, Y - 8 + hash(j * 3 + k) * 8, 4, 3, '#ffffff');
+      } else if (FAR_KINDS[kind]) {
+        FAR_KINDS[kind](R, E, x, Y, z, k, left);
       } else {
         for (let s2 = 0; s2 < 70; s2 += 4) R(x + Math.sin((y + s2) * 0.08) * 6 - 4, Y + 10 + s2, 8, 4, z.farD);
         for (let j = 0; j < 6; j++) {
@@ -12292,11 +12240,9 @@ function drawEntsPx() {
 // тело шарами со светотенью и дизерингом, блики, тени, своя тёмная обводка; кадровая анимация (крылья, лапки, моргание,
 // шипы, щупальца) и живые эффекты поверх (огненные хвосты, искры, покачивание). Кадры рисуются один раз и берутся из кэша.
 const ENA_F = 8;   // кадров анимации на врага
-const BAYER = [[0, 8, 2, 10], [12, 4, 14, 6], [3, 11, 1, 9], [15, 7, 13, 5]];
 const enHx = h => { h = h.replace('#', ''); if (h.length === 3) h = h.split('').map(c => c + c).join(''); return [parseInt(h.slice(0, 2), 16), parseInt(h.slice(2, 4), 16), parseInt(h.slice(4, 6), 16)]; };
 const enRgb = (r, g, b) => '#' + [r, g, b].map(v => Math.max(0, Math.min(255, Math.round(v))).toString(16).padStart(2, '0')).join('');
 const entn = (h, a) => { const [r, g, b] = enHx(h); return a >= 0 ? enRgb(r + (255 - r) * a, g + (255 - g) * a, b + (255 - b) * a) : enRgb(r * (1 + a), g * (1 + a), b * (1 + a)); };
-const enRamp = h => [entn(h, -0.45), entn(h, -0.22), h, entn(h, 0.28), entn(h, 0.55)];   // 5 тонов от тени к блику
 function enKit(g) {
   const K = {
     g,
@@ -12737,7 +12683,6 @@ function roundBtn(b) {
   pell(ctx, b.x + b.w / 2, b.y + b.h / 2 + 2, b.w / 2 + 2, b.h / 2 + 2, OL);
   pell(ctx, b.x + b.w / 2, b.y + b.h / 2, b.w / 2, b.h / 2, '#ffffff');
 }
-const GEAR_PIX0 = ['.....###.....', '.##.#####.##.', '.###########.', '..####.####..', '.###.....###.', '####.....####', '###.......###', '####.....####', '.###.....###.', '..####.####..', '.###########.', '.##.#####.##.', '.....###.....'];
 // настройки: ровная шестерёнка на 8 зубцов (симметричная по обеим осям), с объёмом и тенью
 const GEAR_PIX = ['.................', '.......OOO.......', '...OO..OLO..OO...', '..OLLOOLLMOOMMO..', '..OLLLLLMMMMMMO..', '...OLLLMOMMMMO...', '...OLLMO.OMMMO...', '.OOLLMO...OMMMOO.', '.OLLMO.....OMDDO.', '.OOMMMO...OMDDOO.', '...OMMMO.OMDDO...', '...OMMMMOMDDDO...', '..OMMMMMMDDDDDO..', '..OMMOOMDDOODDO..', '...OO..ODO..OO...', '.......OOO.......', '.................'];
 const GEAR_COL = { O: '#1a1030', L: '#ffffff', M: '#c8d0e8', D: '#8a92b8' }, GEAR_SH = { O: 'rgba(0,0,0,0.35)', L: 'rgba(0,0,0,0.35)', M: 'rgba(0,0,0,0.35)', D: 'rgba(0,0,0,0.35)' };
@@ -13131,7 +13076,6 @@ function drawMenuMsg() {
   ctx.restore();
 }
 // шаг времени для анимаций меню (draw не получает dt)
-function dtMenu() { const n = performance.now(), d = dtMenu.l ? Math.min(0.05, (n - dtMenu.l) / 1000) : 0; dtMenu.l = n; return d; }
 
 function chestIcon(x, y, open, shakeX, gold) {
   x += shakeX;
@@ -17908,7 +17852,6 @@ function openCosmetics() {
 // Первое имя (у Пиклса) — бесплатно, потом ещё 1 смена бесплатно, дальше — за кристаллы. Те же правила проверяет база.
 const NICK_MIN = 3, NICK_MAX = 16, NICK_PRICE = 10, NICK_FREE = 1;
 const NICK_INVIS = /[\p{Cc}\p{Cf}\p{Co}\p{Cn}\p{Zl}\p{Zp} ͏ᅟᅠ ឴឵᠋-᠏ -   ⠀　ㅤ︀-️ﾠ]/u;
-const NICK_EMOJI = /[\p{Extended_Pictographic}\p{Emoji_Presentation}\u{1F1E6}-\u{1F1FF}⃣]/u;
 // смайлик (с вариантом, цветом кожи и «склейками») считается одним знаком
 const NICK_EMO_SEQ = /(?:\p{Extended_Pictographic}|\p{Emoji_Presentation}|[\u{1F1E6}-\u{1F1FF}])(?:\u{FE0F}|[\u{1F3FB}-\u{1F3FF}]|\u{200D}(?:\p{Extended_Pictographic}|\p{Emoji_Presentation}))*/gu;
 // имя для базы (рейтинг, друзья): смайлики убираем — правила базы пропускают только буквы; слишком мало осталось — запасное имя
@@ -18039,7 +17982,6 @@ const passSeason = () => { const d = new Date(); return Math.max(1, d.getFullYea
 const leftTxt = ms => { const t = Math.max(0, Math.floor(ms / 1000)), d = Math.floor(t / 86400), hms = [Math.floor(t % 86400 / 3600), Math.floor(t % 3600 / 60), t % 60].map(v => String(v).padStart(2, '0')).join(':'); return (d ? d + tr(' ДН. ', 'D ') : '') + hms; };
 function liveChip(cls, end) { const el = moTxt('span', cls, '⏳ ' + leftTxt(end - Date.now())); moAnim.push({ c: el, paint: () => { const s = '⏳ ' + leftTxt(end - Date.now()); if (el.textContent !== s) el.textContent = s; } }); return el; }
 const passEnd = () => { const d = new Date(); return new Date(d.getFullYear(), d.getMonth() + 1, 1).getTime(); };
-const passDaysLeft = () => { const d = new Date(), e = new Date(d.getFullYear(), d.getMonth() + 1, 1); return Math.max(1, Math.ceil((e - d) / 864e5)); };
 function passData() {
   let v = store.get('pass', null);
   if (!v || typeof v !== 'object' || v.s !== passSeason()) {
@@ -18124,7 +18066,6 @@ function passBoxOpen(free, startLv) {
   pop.append(t, box, nm, hint); moUi.appendChild(pop); try { sfx.click(); } catch (x) {}
 }
 // «Награды за игры» (как ежедневные победы в Brawl Stars): за 1, 2, 3 и 5 игр за день — опыт, монеты, ящик
-const DAYG = [{ need: 1, rw: { k: 'xp', n: 60 } }, { need: 2, rw: { k: 'coins', n: 80 } }, { need: 3, rw: { k: 'xp', n: 100 } }, { need: 5, rw: { k: 'box' } }];
 function dayGames() { let g = store.get('dayG', null); if (!g || g.d !== dayNum() || !Array.isArray(g.cl)) { g = { d: dayNum(), n: 0, cl: [] }; store.set('dayG', g); } g.n = Math.min(99, nat(g.n)); return g; }
 function dayGameAdd() { if (quiet) return; const g = dayGames(); g.n++; store.set('dayG', g); try { fbClubSync(); } catch (e) {} try { pigAdd(1); } catch (e) {} }
 // «Победы дня»: 10 наград за день. Победа — забег выше 50 м или топ-3 в раунде «Сети». Первая — особый ящик (сразу эпический)
@@ -18316,7 +18257,6 @@ function A_NEWDAY() { [523, 659, 784, 1047, 1319].forEach((f, i) => tone(f, f * 
 function dayWinAdd() { if (quiet) return; const g = dayWins(); if (g.n >= DWIN_N) return; g.n++; store.set('dwin', g); dwinPop = time; }
 const dayWinReady = () => { const g = dayWins(); return g.cl < g.n; };
 let dwinPop = -9;
-function dayWinClaim() { if (!dayWinReady()) return false; dropShow(); return true; }
 const passReady = memo(() => { const v = passData(), lv = passLevel(); return v.cf < lv || (v.prem && v.cp < lv) || v.bx > 0; });
 
 // ---- конец забега: кубки герою, опыт пропуска, задания ----
@@ -18325,7 +18265,6 @@ function metaRunEnd() {
   META.runOn = false;
   const raw = heightM(), m = legitM(raw), id = skinId;
   // кубки дают только сетевые раунды (за место); одиночный забег — только рекорд высоты и награды
-  if (false && m > troOf(id)) { META.troGain = { id, n: Math.min(99999, m) - troOf(id), t: Date.now() }; META.tro[id] = Math.min(99999, m); try { gloryReady.reset(); } catch (e) {} }   // кубки = рекорд высоты этим героем: дают только за новый рекорд
   if (m > 0) META.stat.totM = (META.stat.totM || 0) + m;
   META.stat.runs = (META.stat.runs || 0) + 1; dayGameAdd(); if (m >= 50) dayWinAdd();
   META.lastXp = 0;   // опыт Pass теперь только за задания
@@ -18905,17 +18844,9 @@ function profHead(e, me) {
   const nr = moEl('div', 'row'); nr.style.cssText = 'gap:6px;flex-wrap:wrap;align-items:center';
   nr.appendChild(nickStyle(moTxt('div', 'ol big', me ? (mp.nick || tr('ИГРОК', 'PLAYER')) : e.n), me ? myNc() : e.nc)); nr.lastChild.style.textTransform = 'none';
   if (me) { nr.lastChild.style.cursor = 'pointer'; nr.lastChild.onclick = () => { sfx.click(); profNickSheet(); }; const pen = moTxt('button', 'pen', '✎'); pen.onclick = () => { sfx.click(); profNickSheet(); }; nr.appendChild(pen); }
-  if (false) { const pal = moTxt('button', 'btn pink', tr('ЦВЕТ', 'COLOR')); pal.style.cssText += ';padding:3px 8px;font-size:10px'; pal.onclick = () => { sfx.click(); openNickColor(); }; nr.appendChild(pal); }
   if (titleText(e.ti)) { const t = moTxt('div', e.ti === 'divine' ? 'divine' : '', '«' + titleText(e.ti) + '»'); t.style.cssText = 'color:#2a1408;font-weight:900;font-size:11px;background:linear-gradient(#fff6a0,#ffd23a);border:2px solid #2a1408;border-radius:8px;padding:2px 6px;text-shadow:none'; nr.appendChild(t); }
   if (me) { const tb = moTxt('button', 'tbtn ol', titleText(e.ti) ? '▾' : tr('+ ТИТУЛ', '+ TITLE')); tb.onclick = () => { sfx.click(); profTitleSheet(); }; nr.appendChild(tb); }
   col.appendChild(nr);
-  if (false) {
-    const ch = moEl('button', 'btn blue'); ch.style.cssText += ';padding:4px 8px;font-size:11px;align-self:flex-start;display:flex;align-items:center;gap:4px';
-    const free = !mp.nick || !store.get('nickSet', 0) || nickFix() || nickFreeLeft() > 0;
-    ch.append(moTxt('span', '', '✎ ' + tr('СМЕНИТЬ ИМЯ', 'CHANGE NAME'))); if (!free) ch.append(iconCnv('gems', 0, 14), moTxt('span', '', String(NICK_PRICE))); else if (store.get('nickSet', 0) && mp.nick) ch.append(moTxt('span', '', '(' + tr('БЕСПЛАТНО: ', 'FREE: ') + nickFreeLeft() + ')'));
-    ch.onclick = () => { sfx.click(); openNick(); };
-    col.appendChild(ch);
-  }
   const trw = moEl('div', 'row'); trw.append(iconCnv('trophy', 0, 24), moTxt('span', 'ol', String(e.tr))); col.appendChild(trw);
   const club = me ? myClubInfo() : e.cl;   // клуб игрока: видно всем, нажми — откроется клуб
   if (club) { const cr = moEl('div', 'clubrow'); cr.append(clanBadgeCnv(club.bd, 22), moTxt('span', 'ol', club.nm)); const cid = me ? club.id : club.id === 'my' ? clubSeen(e) : club.id;
@@ -19515,7 +19446,6 @@ Object.assign(BTN, { prof: { x: 52, y: 12, w: 150, h: 34 }, rank: { x: 12, y: 90
   quest: { x: 152, y: 584, w: 46, h: 46 }, pass: { x: 12, y: 584, w: 132, h: 46 }, wheel: { x: -999, y: -999, w: 0, h: 0 },   // колесо — во вкладке магазина
   clan: { x: W - 46, y: 154, w: 34, h: 34 }, ach: { x: W - 88, y: 12, w: 34, h: 34 }, menuB: { x: W - 46, y: 54, w: 34, h: 34 },   // награды — круглой иконкой у новостей, под звуком — меню
   tent: { x: 12, y: 282, w: 116, h: 34 }, allies: { x: -999, y: -999, w: 0, h: 0 }, emo: { x: -999, y: -999, w: 0, h: 0 }, more: { x: -999, y: -999, w: 0, h: 0 } });   // надписи WALL PLAY больше нет — всё поднято
-const MORE_KEYS = ['tent', 'allies', 'emo'];
 // круглые иконки меню: награды (у новостей), меню (под звуком), друзья (справа от рейтинга)
 function drawTopIcons() {
   { const b = BTN.ach, cx = b.x + b.w / 2, cy = b.y + b.h / 2;   // награды: точный круг (раньше — ступеньками, кубок казался смещённым) и кубок ровно по центру
@@ -19534,12 +19464,9 @@ function drawTopIcons() {
     if (FR.inbox.length) badge(b.x + b.w - 2, b.y + 4);
     text(tr('ДРУЗЬЯ', 'FRIENDS'), x, b.y + b.h + 12, 1, '#ffffff', 'center', OL, 50); }
 }
-const FRI_PIX0 = ['....................', '......OO............', '....OOssOO..........', '....OssssO..OO......', '...OsOssOsOOttOO....', '...OssssssOttttO....', '....OssssOtOttOtO...', '....OOssOOpttttpO...', '......OO.OttmmttO...', '....OObbOOOttttO....', '...ObbbbbbOOttO.....', '..ObbbbbbbbOggO.....', '..ObbbbbbOOggggOO...', '.ObbbbbbOggggggggO..', '.ObbbbbbOggggggggO..', '.OOOOOOOOOOOOOOOOOO.'];
-const FRI_COL0 = { O: '#2a1a3a', s: '#ffe0c0', t: '#fff0dc', m: '#d84a4a', p: '#ff9aa0', b: '#3ab0ff', g: '#3ce06a' };
 // значки меню по точкам: друзья, газета, задания, мечи «Сети»
 const FRI_PIX = ["...........OOOO....", "..........OBBBBO...", "....OOOO.OBBBBBDO..", "...OWWWWOOBBBBBDO..", "..OWWWWWLOBBBBBDO..", "..OWWWWWLOOBBBDO...", "..OWWWWWLO.OOOO....", "...OWWWLO..OOOOOO..", "....OOOO..OBBBBBDO.", "..OOOOOOOOBBBBBBBDO", ".OWWWWWWWLOBBBBBBDO", "OWWWWWWWWWLOBBBBBDO", "OWWWWWWWWWLOBBBBBDO", "OWWWWWWWWWLOOOOOOOO", "OOOOOOOOOOOO......."], FRI_COL = { O: '#1a1030', W: '#ffffff', L: '#c8d0e8', B: '#8ad8ff', D: '#3a90d8' };
 const NEWS_PIX = ["OOOOOOOOOOOOOOOO..", "OWWWWWWWWWWWWWWO..", "OWRRRRRRRRRRRRWOO.", "OWRRRRRRRRRRRRWOSO", "OWWWWWWWWWWWWWWOSO", "OWPPPPPWGGGGGGWOSO", "OWPPYPPWWWWWWWWOSO", "OWPPPPPWGGGGGGWOSO", "OWPKKPPWWWWWWWWOSO", "OWKKKKPWGGGGGGWOSO", "OWWWWWWWWWWWWWWOSO", "OWGGGGGGWGGGGGWOSO", "OWWWWWWWWWWWWWWOSO", "OWGGGGGGWGGGGWWOSO", "OWWWWWWWWWWWWWWOSO", "OOOOOOOOOOOOOOOOSO", ".OSSSSSSSSSSSSSSSO", "..OOOOOOOOOOOOOOOO"], NEWS_COL = { O: '#1a1030', W: '#ffffff', R: '#e8264a', G: '#9a9ab0', P: '#7ad8ff', Y: '#ffd23a', K: '#3ac06a', S: '#c8c8d8' };
-const QUEST_PIX = ["....OOOOOO....", ".OOOOYHHYOOOO.", "ONNNOYYYYONNNO", "ONWWOOOOOOWWNO", "ONWWWWWWWWWWNO", "ONWGGWLLLLLWNO", "ONWGGWWWWWWWNO", "ONWWWWWWWWWWNO", "ONWGGWLLLLWWNO", "ONWGGWWWWWWWNO", "ONWWWWWWWWWWNO", "ONWKKWLLLLLWNO", "ONWKKWWWWWWWNO", "ONWWWWWWWWWWNO", "ONNNNNNNNNNNNO", "OOOOOOOOOOOOOO"], QUEST_COL = { O: '#1a1030', N: '#c87a3a', Y: '#ffd23a', H: '#fff6a0', W: '#fff6e0', G: '#3ce06a', K: '#c8b8a0', L: '#8a7a6a' };
 const SWORD_PIX = ["OOOO.............OOOO", "OHSOO...........OOSHO", "OHWSOO.........OOSWHO", "OOHWSOO.......OOSWHOO", ".OOHWSOO.....OOSWHOO.", "..OOHWSOO...OOSWHOO..", "...OOHWSOO.OOSWHOO...", "....OOHWSOOOSWHOO....", ".....OOHWSOSWHOO.....", "...OOOOOHWSWHOOOOO...", "...ODYOOOSWHOOOYDO...", "...OODYOSWHWSOYDOO...", "....OODYOHOHOYDOO....", "....OOODYOOOYDOOO....", "...OOMNODYOYDONMOO...", "..OOMNOOODYDOOONMOO..", ".OOMNOO.OYDYO.OONMOO.", ".OYYOO..OOOOO..OOYYO.", ".ODYO...........OYDO.", ".OOOO...........OOOO."], SWORD_COL = { O: '#1a1030', W: '#ffffff', H: '#e8ecf8', S: '#a8b0c8', Y: '#ffd23a', D: '#c8820a', N: '#8a4a1a', M: '#5a2a0a' };
 let menuMore = false, menuMoreT = 0;   // стрелки «ЕЩЁ» больше нет: палатка — отдельной кнопкой, союзники и эмоции — внутри палатки
 // квадратная кнопка со скруглёнными углами (друзья, клан)
@@ -21372,7 +21299,6 @@ function arEnd(order) {
   if (!AR.given) { AR.given = true; AR.rew = arReward(place); dayGameAdd(); if (place >= 1 && place <= 3) dayWinAdd(); }
   try { if (place === 1) sfx.achieve(); else sfx.zone(); } catch (e) {}
 }
-const AR_TRO = [20, 15, 11, 8, 6, 5, 4, 3, 2, 1];
 // кубки за место — как в Brawl Stars: чем больше у тебя кубков, тем меньше дают за победу и тем больше снимают за последние места.
 // Новичок (до 500) не теряет ничего; кубки режимов не уходят ниже нуля
 const AR_TRO_STEPS = [
@@ -21383,7 +21309,6 @@ const AR_TRO_STEPS = [
   [Infinity, [14, 10, 7, 4, 1, -3, -6, -9, -11, -12]],
 ];
 const arTroFor = (place, total) => { const row = AR_TRO_STEPS.find(r => total < r[0])[1]; return row[clamp(place - 1, 0, 9)]; };
-const AR_XP = [160, 130, 110, 90, 80, 70, 60, 50, 45, 40];
 function arReward(place) {
   const i = clamp(place - 1, 0, 9), tro = Math.max(arTroFor(place, troTotal()), -troOf(skinId)), xp = 0, coins = coinsRun + [120, 80, 60, 40, 30, 25, 20, 15, 10, 10][i];
   if (!quiet) {
@@ -23427,9 +23352,6 @@ function clanBody(bd, cl) {
 }
 // ===== чат клуба: пишешь текст и шлёшь смайлики-мордочки; участники отвечают
 let clubChatTab = false;
-const CCHAT_TXT = [['Всем привет!', 'Hi all!'], ['Кто в забег?', 'Who wants to race?'], ['Я поднял 50 кубков', 'Got +50 trophies'], ['Копилку добиваем!', "Let's fill the piggy!"], ['ГГ', 'GG'], ['Кто играет в сеть?', 'Anyone online?'],
-  ['Новый скин топ', 'New skin is great'], ['Ура, легендарка!', 'Got a legendary!'], ['Кто со мной в пару?', 'Who will team up?'], ['Сегодня 10 побед!', '10 wins today!'], ['Не сдавайтесь!', "Don't give up!"], ['Спокойной ночи', 'Good night'], ['Это было близко', 'That was close'], ['Лучший клуб!', 'Best club!']];
-const CCHAT_REP = [['Привет!', 'Hey!'], ['Го!', 'Go!'], ['Красава', 'Nice'], ['Согласен', 'Agreed'], ['ХАХА', 'LOL'], ['Я в деле', "I'm in"], ['Молодец!', 'Well done!']];
 const CCHAT_STK = ['hhappy', 'hcry', 'hmad', 'hlove', 'hcool', 'hlol', 'hwink', 'hshock', 'hsleep'];
 function emoCnv(id, size = 40) { const c = document.createElement('canvas'); c.width = c.height = 48; c.style.width = c.style.height = size + 'px'; withCtx(c, () => emoIcon(id, 24, 25, isBaseEmo(id) ? 1.7 : 1.4)); return c; }
 const emoHave = id => EMO_BASE.some(e => e.id === id) || emOwn.includes(id);

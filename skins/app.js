@@ -71,6 +71,26 @@ const SND = (() => {
 // ---------- шаблон: хомяк из игры, 4 кадра дыхания ----------
 const TPL = {"pal":["#4a2410","#f0a040","#ff9fb0","#ffffff","#1a1010","#ffe6b0","#ff5a8a","#ff9ab8","#ff3d7f","#c01f5a","#c06a20"],"frames":["..........................................................................................................................................000....00000...................01110..0011110.................0111110.0112110.................012221000122210.................012211111111110..................01111111111100.................0011111111111100................0111111113411340................0111111114411440................0111111114411440................0111111115555566................0111111155555550................0111117755555550................8911111155555550...............9898888888888880................9..8888888888880...............8...0999999999990..............98...01115555511110.............9....01115555511110..................0111555555110...................0111555555100...................001155555500....................0aaaa55aaaaa0..................0aaaaaa0aaaaa0...................0aaaa00aaaaa0....................0000..00000..........................................................................","..........................................................................000....00000...................01110..0011110.................0111110.0112110.................012221000122210.................012211111111110..................01111111111100.................0011111111111100................0111111113411340................0111111114411440................0111111114411440................0111111115555566................0111111155555550................0111117755555550................0011111155555550.............98..08888888888880..............989..8888888888880................98909999999999910................8911115555551110.................011155555551110.................011155555551110.................01115555555510..................01115555555510..................00115555555500...................011155555510....................0aaaa55aaaaa0..................0aaaaaa1aaaaa0...................0aaaa00aaaaa0....................0000..00000..........................................................................","..........................................................................................................................................000....00000...................01110..0011110.................0111110.0112110.................012221000122210.................012211111111110..................01111111111100.................0011111111111100................0111111113411340................0111111114411440................0111111114411440................0111111115555566................0111111155555550................0111117755555550................0981111155555550................898888888888880................98.0888888888880................9..0999999999990..............98...01115555511110.............98...01115555511110..................0111555555110...................0111555555100...................001155555500....................0aaaa55aaaaa0..................0aaaaaa0aaaaa0...................0aaaa00aaaaa0....................0000..00000..........................................................................","..........................................................................................................................................000....00000...................01110..0011110.................0111110.0112110.................012221000122210.................012211111111110..................01111111111100.................0011111111111100................0111111111111110................0111111111111110................0111111114411440................0111111115555566................0111111155555550................0111117755555550................0011111155555550..............89.00888888888880..............9898.8888888888880..............9..898999999999990..................901115555511110..................01115555511110..................0111555555110...................0111555555100...................001155555500....................0aaaa55aaaaa0..................0aaaaaa0aaaaa0...................0aaaa00aaaaa0....................0000..00000.........................................................................."]};
 const tplFrames = () => TPL.frames.map(s => [...s].map(ch => ch === '.' ? null : TPL.pal[parseInt(ch, 36)]));
+// ---------- анимации героя в игре: для каждой — свои кадры (до 4). Дыхание — основные кадры скина ----------
+const STATES = [['idle', 'ДЫХАНИЕ', 'IDLE'], ['run', 'БЕГ', 'RUN'], ['jump', 'ПРЫЖОК', 'JUMP'], ['tuck', 'САЛЬТО', 'FLIP'], ['cling', 'НА СТЕНЕ', 'ON WALL'], ['fall', 'ПАДЕНИЕ', 'FALL'], ['cheer', 'ПОБЕДА', 'WIN'], ['wave', 'ПРИВЕТ', 'WAVE']];
+const ST_KEYS = STATES.map(s => s[0]);
+const gShift = (f, dx, dy) => { const o = Array(G * G).fill(null); for (let i = 0; i < G * G; i++) if (f[i]) { const x = i % G + dx, y = Math.floor(i / G) + dy; if (x >= 0 && y >= 0 && x < G && y < G) o[y * G + x] = f[i]; } return o; };
+const gRot = (f, k) => { let o = f; for (let r = 0; r < k; r++) { const n = Array(G * G).fill(null); for (let i = 0; i < G * G; i++) if (o[i]) { const x = i % G, y = Math.floor(i / G); n[x * G + (G - 1 - y)] = o[i]; } o = n; } return o; };
+const gFlip = f => { const o = Array(G * G).fill(null); for (let i = 0; i < G * G; i++) if (f[i]) { const x = i % G, y = Math.floor(i / G); o[y * G + (G - 1 - x)] = f[i]; } return o; };
+const gLegs = (f, dx) => { const o = f.slice(); for (let y = 26; y < G; y++) for (let x = 0; x < G; x++) o[y * G + x] = null; for (let y = 26; y < G; y++) for (let x = 0; x < G; x++) { const c = f[y * G + x]; if (!c) continue; const nx = x + (x < 16 ? dx : -dx); if (nx >= 0 && nx < G) o[y * G + nx] = c; } return o; };
+// шаблон анимации из кадров дыхания: сальто — поворот, бег — шаги, прыжок/победа — подскок, стена — разворот к стене
+function stateFrom(fr, k) {
+  const a = fr[0], b = fr[1] || a, c = fr[2] || a, d = fr[3] || a;
+  if (k === 'run') return [gLegs(a, 1), gShift(gLegs(b, -1), 0, -1), gLegs(c, 1), gShift(gLegs(d, -1), 0, -1)];
+  if (k === 'jump') return [gShift(a, 0, -1), gShift(b, 0, -3), gShift(c, 0, -4), gShift(d, 0, -2)];
+  if (k === 'tuck') return [0, 1, 2, 3].map(r => gRot(gShift(a, 0, -2), r));
+  if (k === 'cling') return [gShift(gFlip(a), 5, 0), gShift(gFlip(b), 5, 0), gShift(gFlip(c), 5, 1), gShift(gFlip(d), 5, 1)];
+  if (k === 'fall') return [gShift(a, 0, 0), gShift(b, 1, 1), gShift(c, 0, 2), gShift(d, -1, 1)];
+  if (k === 'cheer') return [gShift(a, 0, 0), gShift(b, 0, -3), gShift(c, 0, -4), gShift(d, 0, -2)];
+  if (k === 'wave') return [gShift(a, 0, 0), gShift(b, 0, -1), gShift(c, 1, 0), gShift(d, 0, -1)];
+  return fr;
+}
+const autoStates = fr => { const o = {}; for (const k of ST_KEYS) if (k !== 'idle') o[k] = stateFrom(fr, k); return o; };
 
 // ---------- вход: игровой аккаунт (тот же сайт) или свой гость ----------
 const ME = { uid: null, tok: null, exp: 0, nick: (() => { try { return JSON.parse(localStorage.getItem('wk3_mpnick') || 'null'); } catch (e) { return null; } })() || ls.get('nick', '') || ('PLAYER' + Math.floor(100 + Math.random() * 900)), online: false };
@@ -117,6 +137,15 @@ const spcClone = fr => fr.map(f => f.slice());
 const spcSet = (f, x, y, c) => { if (x >= 0 && y >= 0 && x < G && y < G) f[y * G + x] = c; };
 const spcRect = (f, x, y, w, h, c) => { for (let yy = y; yy < y + h; yy++) for (let xx = x; xx < x + w; xx++) spcSet(f, xx, yy, c); };
 const spcMap = (f, fn) => f.map((c, i) => c ? fn(c, i % G, Math.floor(i / G)) : c);
+// помощники для особых скинов: перекраска частей хомяка и смещение головы (в одном кадре дыхания голова выше на 2)
+const spcHd = f => { for (let i = 0; i < G * G; i++) if (f[i] === '#ff5a8a') return Math.floor(i / G) - 14; return 0; };
+const SCARF = new Set(['#ff3d7f', '#c01f5a']);
+const spcRecolor = (f0, m) => spcMap(f0, (c, x, y) => {
+  if (c === '#4a2410') return m.ol || c; if (c === '#f0a040') return typeof m.fur === 'function' ? m.fur(x, y) : m.fur || c; if (c === '#c06a20') return m.feet || m.dark || c;
+  if (c === '#ffe6b0') return m.cream || c; if (c === '#1a1010') return m.eye || c; if (c === '#ffffff') return m.white || c; if (c === '#ff9fb0') return m.ear || c;
+  if (c === '#ff5a8a') return m.nose || c; if (c === '#ff9ab8') return m.cheek || c; if (SCARF.has(c)) return c === '#ff3d7f' ? (m.scarf || c) : (m.scarfD || m.scarf || c); return c; });
+const spcLine = (f, x0, y0, x1, y1, c) => { const n = Math.max(Math.abs(x1 - x0), Math.abs(y1 - y0), 1); for (let i = 0; i <= n; i++) spcSet(f, Math.round(x0 + (x1 - x0) * i / n), Math.round(y0 + (y1 - y0) * i / n), c); };
+const spcFillBody = (f, y0, y1, c, keepOl = true) => { for (let y = y0; y <= y1; y++) for (let x = 0; x < G; x++) { const i = y * G + x; if (f[i] && !(keepOl && (f[i] === '#1e1a16' || f[i] === '#14101c' || f[i] === '#2a1408'))) f[i] = typeof c === 'function' ? c(x, y, f[i]) : c; } };
 const SPECIALS = [
   // 1) телевизор вместо головы: на экране то мордочка, то помехи, то цветные полосы
   { ru: 'ТЕЛЕХОМЯК', en: 'TV HAMSTER', a: 'NEO_HAMSTER', au: { t: 'glow', c: '#7ad8ff' }, fps: 4, make: base => base.map((f0, k) => {
@@ -132,35 +161,42 @@ const SPECIALS = [
     for (let i = 0; i < 4; i++) { spcSet(f, 12 - i, 4 - i, '#1e1e26'); spcSet(f, 19 + i, 4 - i, '#1e1e26'); } spcSet(f, 8, 0, '#ff3a3a'); spcSet(f, 23, 0, '#ff3a3a');
     spcRect(f, 13, 17, 6, 1, '#1e1e26');
     return f; }) },
-  // 2) бумажный: целый лист мятой бумаги, на нём хомяк карандашом — только линии и штриховка, шарф белый, как лист; моргает и прыгает
-  { ru: 'БУМАЖНЫЙ ХОМЯК', en: 'PAPER HAMSTER', a: 'MILA_PIXEL', au: { t: 'none', c: '#ffffff' }, fps: 5, make: base => {
+  // 2) бумажный: криво вырванный лист мятой бумаги, на нём хомяк карандашом; моргает, а в прыжке лист сминается в комок и расправляется
+  { ru: 'БУМАЖНЫЙ ХОМЯК', en: 'PAPER HAMSTER', a: 'MILA_PIXEL', au: { t: 'none', c: '#ffffff' }, fps: 5, ...(() => {
     const PAPER = '#f6f2e8', CREASE = '#e3dccb', EDGE = '#c9bfa8', SHADOW = '#9a907c', PEN = '#45454f', PEN2 = '#8a8a96';
+    // край листа — рваный и с наклоном: у каждой строки свой сдвиг, весь лист чуть повёрнут
+    const L = y => 2 + Math.round(y * 0.07) + Math.floor(hash(y * 7 + 3) * 2.4), Rr = y => 28 + Math.round(y * 0.07) - Math.floor(hash(y * 11 + 5) * 2.6);
+    const Tp = x => Math.floor(hash(x * 5 + 1) * 2.2) + (x > 20 ? 1 : 0), Bt = x => 30 - Math.floor(hash(x * 13 + 2) * 2.6);
+    const inSheet = (x, y) => y >= Tp(x) && y <= Bt(x) && x >= L(y) && x <= Rr(y);
     const sheet = () => { const f = Array(G * G).fill(null);
-      spcRect(f, 3, 1, 26, 31, SHADOW);                        // тень листа
-      spcRect(f, 2, 0, 26, 31, EDGE); spcRect(f, 3, 1, 24, 29, PAPER);   // лист — почти на весь кадр: хомяк целиком, даже в прыжке
-      // мятые грани: светлые и тёмные полосы-сгибы
-      for (let y = 1; y < 30; y++) for (let x = 3; x < 27; x++) { const a = (x * 2 + y) % 17, b2 = (x - y * 2 + 60) % 23; if (a === 0 || b2 === 0) f[y * G + x] = CREASE; }
-      for (const [x0, y0, x1, y1] of [[3, 9, 26, 5], [6, 29, 20, 1], [3, 21, 26, 26]]) { const n = Math.max(Math.abs(x1 - x0), Math.abs(y1 - y0)); for (let i = 0; i <= n; i++) { const x = Math.round(x0 + (x1 - x0) * i / n), y = Math.round(y0 + (y1 - y0) * i / n); if (f[y * G + x] === PAPER || f[y * G + x] === CREASE) f[y * G + x] = CREASE; } }
-      spcSet(f, 26, 1, EDGE); spcSet(f, 25, 1, EDGE); spcSet(f, 26, 2, EDGE); spcSet(f, 27, 0, null); spcSet(f, 26, 0, null); spcSet(f, 27, 1, null); spcSet(f, 28, 1, null);   // загнутый уголок
+      for (let y = 0; y < G; y++) for (let x = 0; x < G; x++) if (inSheet(x - 1, y - 1) && !inSheet(x, y)) f[y * G + x] = SHADOW;   // тень
+      for (let y = 0; y < G; y++) for (let x = 0; x < G; x++) if (inSheet(x, y)) { const edge = !inSheet(x - 1, y) || !inSheet(x + 1, y) || !inSheet(x, y - 1) || !inSheet(x, y + 1);
+        f[y * G + x] = edge ? EDGE : ((x * 2 + y) % 17 === 0 || (x - y * 2 + 60) % 23 === 0 ? CREASE : PAPER); }
       return f; };
-    // хомяк карандашом поверх листа: ox/oy — сдвиг (прыжок), blink — глаза закрыты
-    const draw = (src, oy, blink, seed) => { const f = sheet(), cell = (x, y) => src[y * G + x], at = (x, y) => (y >= 0 && y < G && x >= 0 && x < G) ? cell(x, y) : null;
-      const isScarf = c => c === '#ff5a8a' || c === '#ff9ab8' || c === '#ff3d7f' || c === '#c01f5a';
-      for (let y = 0; y < G; y++) for (let x = 0; x < G; x++) { const c = cell(x, y); if (!c) continue; const ty = y + oy, X = x + 1;
-        if (ty < 1 || ty > 29 || X < 3 || X > 26) continue;
+    const isScarf = c => c === '#ff5a8a' || c === '#ff9ab8' || c === '#ff3d7f' || c === '#c01f5a';
+    const draw = (src, oy, blink, seed) => { const f = sheet(), at = (x, y) => (y >= 0 && y < G && x >= 0 && x < G) ? src[y * G + x] : null;
+      for (let y = 0; y < G; y++) for (let x = 0; x < G; x++) { const c = src[y * G + x]; if (!c) continue; const ty = y + oy, X = x + 2;
+        if (!inSheet(X, ty) || f[ty * G + X] === EDGE) continue;
         let col = null;
-        if (SPC_OL.has(c) && c !== '#1a1010') col = PEN;                                   // контур — карандаш
-        else if (c === '#1a1010') col = blink ? (y === 12 ? PEN : null) : PEN;              // глаз (закрыт — черта)
-        else if (c === '#ffffff') col = blink ? null : null;                                 // блик — бумага
-        else if (c === '#c06a20') col = (x + y) % 2 ? PEN2 : null;                           // лапки — штриховка
-        else if (c === '#ff9fb0') col = (x + y) % 3 === 0 ? PEN2 : null;                     // уши — точечки
-        else if (isScarf(c)) { const edge = [[1, 0], [-1, 0], [0, 1], [0, -1]].some(([dx, dy]) => { const n = at(x + dx, y + dy); return n && !isScarf(n) && !SPC_OL.has(n); }); col = edge ? PEN : null; }   // шарф белый, только край
-        else if (c === '#f0a040' && hash(x * 7 + y * 13 + seed) < 0.06) col = PEN2;          // лёгкие карандашные штрихи по шерсти
-        if (col) f[ty * G + X] = col;
-        else if (blink && c === '#1a1010' && y === 12) f[ty * G + X] = PEN; }
-      for (let i = 0; i < G * G; i++) if (f[i] === PEN && hash(i * 31 + seed) < 0.08) { const x = i % G, y = Math.floor(i / G), nx = x + (hash(i + seed) < 0.5 ? 1 : -1); if (f[y * G + nx] === PAPER || f[y * G + nx] === CREASE) f[y * G + nx] = PEN2; }   // карандаш «дрожит»
+        if (SPC_OL.has(c) && c !== '#1a1010') col = PEN;
+        else if (c === '#1a1010') col = blink ? (y === 13 || y === 11 ? PEN : null) : PEN;
+        else if (c === '#c06a20') col = (x + y) % 2 ? PEN2 : null;
+        else if (c === '#ff9fb0') col = (x + y) % 3 === 0 ? PEN2 : null;
+        else if (isScarf(c)) col = [[1, 0], [-1, 0], [0, 1], [0, -1]].some(([dx, dy]) => { const n = at(x + dx, y + dy); return n && !isScarf(n) && !SPC_OL.has(n); }) ? PEN : null;   // шарф белый — только край
+        else if (c === '#f0a040' && hash(x * 7 + y * 13 + seed) < 0.06) col = PEN2;
+        if (col) f[ty * G + X] = col; }
+      for (let i = 0; i < G * G; i++) if (f[i] === PEN && hash(i * 31 + seed) < 0.08) { const x = i % G, y = Math.floor(i / G), nx = x + (hash(i + seed) < 0.5 ? 1 : -1); if (f[y * G + nx] === PAPER || f[y * G + nx] === CREASE) f[y * G + nx] = PEN2; }
       return f; };
-    return [draw(base[0], 0, false, 1), draw(base[1], 0, true, 2), draw(base[2], -3, false, 3), draw(base[0], 0, false, 4)]; } },
+    // смятый лист: комок неправильной формы со сгибами и обрывками карандашных линий; k — 0..1 насколько смят
+    const crumple = (k, seed) => { const f = Array(G * G).fill(null), cx = 16, cy = 18, R = 15 - k * 8;
+      for (let y = 0; y < G; y++) for (let x = 0; x < G; x++) { const a = Math.atan2(y - cy, x - cx), r = R * (0.82 + 0.28 * hash(Math.floor((a + 4) * 3.2) * 17 + seed)), d = Math.hypot(x - cx, (y - cy) * 1.05);
+        if (d <= r) f[y * G + x] = d > r - 1.2 ? EDGE : hash(x * 31 + y * 17 + seed) < 0.18 ? CREASE : PAPER;
+        if (d <= r + 1.4 && d > r && x > cx - 2 && y > cy - 2) f[y * G + x] = f[y * G + x] || SHADOW; }
+      for (let i = 0; i < 6 + k * 6; i++) { let x = cx + Math.round((hash(i * 7 + seed) - 0.5) * R * 1.4), y = cy + Math.round((hash(i * 9 + seed) - 0.5) * R * 1.4); for (let j = 0; j < 4; j++) { if (f[y * G + x] === PAPER || f[y * G + x] === CREASE) f[y * G + x] = j < 2 ? '#d2c9b4' : PEN2; x += hash(i + j * 3) < 0.5 ? 1 : -1; y += hash(i * 2 + j) < 0.5 ? 1 : 0; } }   // сгибы и обрывки рисунка
+      return f; };
+    return { make: base => [draw(base[0], 0, false, 1), draw(base[1], 0, true, 2), draw(base[2], 0, false, 3), draw(base[0], 0, false, 4)],
+      st: base => ({ jump: [crumple(0.35, 1), crumple(1, 2), crumple(0.6, 3), draw(base[0], -2, false, 5)], tuck: [crumple(1, 4), gRot(crumple(1, 4), 1), gRot(crumple(1, 4), 2), gRot(crumple(1, 4), 3)] }) };
+  })() },
   // 3) вирус: весь чёрный, аура из цифр; в прыжке растекается чёрной жижей с цифрами и собирается обратно
   { ru: 'ВИРУС', en: 'VIRUS', a: 'TOXIC_FOX', au: { t: 'digits', c: '#3aff6a' }, fps: 5, make: base => {
     const black = f0 => spcMap(f0, c => SPC_OL.has(c) ? '#000000' : c === '#c06a20' ? '#0a0a10' : SPC_FUR.has(c) ? '#16161e' : c === SPC_CREAM ? '#22222e' : c === '#1a1010' || c === '#ffffff' ? '#3aff6a' : '#1a3a22');
@@ -222,6 +258,111 @@ const SPECIALS = [
   { ru: 'ТЕНЬ', en: 'SHADOW', a: 'MRBLACK_2008', au: { t: 'glow', c: '#ff2a2a' }, fps: 4, make: base => base.map((f0, k) => spcMap(f0, (c, x, y) => {
     if (c === '#1a1010') return k === 3 ? '#14101c' : '#ff2a2a'; if (c === '#ffffff') return k === 3 ? '#14101c' : '#ffb0b0';
     return SPC_OL.has(c) ? '#000000' : (x + y + k) % 9 === 0 ? '#2a1a3a' : '#14101c'; })) },
+  // ===== ещё 12: солдат в противогазе, футболист №7, рыцарь, самурай, космонавт, волшебник, вампир, капитан пиратов, фараон, дракон, супергерой, пришелец =====
+  { ru: 'ПРОТИВОГАЗ', en: 'GAS MASK', a: 'MRBLACK_2008', au: { t: 'none', c: '#ffffff' }, fps: 4, make: base => base.map((f0, k) => {
+    const h = spcHd(f0), OL = '#1e1a16';
+    const f = spcRecolor(f0, { ol: OL, fur: '#6a5a48', feet: '#2a2420', cream: '#8a7a64', ear: '#5a4a3a', nose: '#3a3e44', cheek: '#8a7a64', scarf: '#4a5a3a', scarfD: '#3a4a2e' });
+    spcFillBody(f, 18, 26, (x, y) => (y === 20 || y === 23) ? '#3a4a2e' : '#4a5a3a');                // бронежилет
+    spcRect(f, 11, 24, 3, 2, '#3a4a2e'); spcRect(f, 11, 24, 3, 1, OL);
+    spcRect(f, 8, 3 + h, 15, 6, '#4a5a3a'); spcRect(f, 9, 3 + h, 13, 1, '#6a7a52'); spcRect(f, 8, 8 + h, 15, 1, '#2e3a24'); spcRect(f, 7, 4 + h, 1, 5, OL); spcRect(f, 8, 2 + h, 15, 1, OL);   // каска
+    spcRect(f, 15, 9 + h, 10, 9, '#3a3e44'); spcRect(f, 15, 9 + h, 10, 1, '#5a6068'); spcRect(f, 25, 10 + h, 1, 7, OL); spcRect(f, 15, 18 + h, 10, 1, OL);   // маска
+    spcRect(f, 15, 10 + h, 5, 4, OL); spcRect(f, 16, 10 + h, 3, 3, '#7a9ab0'); spcSet(f, 17, 10 + h, '#ffffff'); spcSet(f, 16, 11 + h, '#ffffff'); spcSet(f, 18, 12 + h, '#ffffff');   // разбитая линза
+    spcRect(f, 20, 10 + h, 5, 4, OL); spcRect(f, 21, 10 + h, 3, 3, '#141418'); spcSet(f, 22, 11 + h, k % 2 ? '#a01010' : '#ff2a2a');           // красная точка в глазу
+    spcRect(f, 23, 14 + h, 4, 4, '#5a5e64'); spcRect(f, 26, 14 + h, 1, 4, '#2a2e34'); spcSet(f, 24, 15 + h, OL); spcSet(f, 24, 16 + h, OL);   // фильтр
+    for (const [x, y, c] of [[12, 19, '#5a0a10'], [13, 21, '#5a0a10'], [14, 21, '#3a0608'], [14, 22, '#5a0a10'], [19, 24, '#3a0608'], [20, 25, '#5a0a10'], [16, 15 + h, '#3a0608']]) spcSet(f, x, y, c);   // тёмная кровь
+    spcRect(f, 18, 18, 7, 10, '#3a404a'); spcRect(f, 19, 19, 5, 8, '#7a828e'); spcRect(f, 20, 19, 1, 8, '#a8b0bc'); spcSet(f, 22, 22, '#4a0a0e'); spcSet(f, 22, 23, '#4a0a0e'); spcSet(f, 21, 24, '#3a0608');   // щит
+    spcRect(f, 24, 20, 6, 2, '#2a2a30'); spcRect(f, 25, 22, 2, 2, '#2a2a30'); spcSet(f, 29, 20, '#5a5a64'); if (k === 2) { spcSet(f, 30, 20, '#ffd23a'); spcSet(f, 31, 20, '#ff8a1e'); }   // пистолет, вспышка
+    return f; }) },
+  { ru: 'ФУТБОЛИСТ №7', en: 'STRIKER #7', a: 'GAMER_PRO', au: { t: 'spark', c: '#ffd23a' }, fps: 5, make: base => base.map((f0, k) => {
+    const h = spcHd(f0);
+    const f = spcRecolor(f0, { scarf: '#ffffff', scarfD: '#d8dce4', feet: '#1a1a1a' });
+    spcFillBody(f, 17, 24, (x, y, c) => c === '#2a1408' || c === '#4a2410' ? c : x > 19 ? '#d8dce4' : '#ffffff'); spcRect(f, 9, 17, 13, 1, '#d81a2a');   // футболка
+    for (const [x, y] of [[15, 20], [16, 20], [17, 20], [17, 21], [16, 22], [16, 23], [16, 24]]) spcSet(f, x, y, '#d81a2a');                                 // номер 7
+    spcFillBody(f, 25, 25, (x, y, c) => c === '#4a2410' ? c : '#1a1a2a'); spcFillBody(f, 26, 27, (x, y, c) => c === '#4a2410' ? c : '#ffffff');
+    spcRect(f, 9, 3 + h, 13, 4, '#2a1a10'); spcRect(f, 10, 3 + h, 10, 1, '#5a3a20'); for (const x of [10, 13, 16, 19]) spcSet(f, x, 2 + h, '#2a1a10'); spcSet(f, 21, 4 + h, '#2a1a10');   // причёска
+    const by = [0, -2, -3, -1][k]; spcRect(f, 24, 24 + by, 4, 4, '#2a1408'); spcRect(f, 25, 24 + by, 2, 4, '#ffffff'); spcRect(f, 24, 25 + by, 4, 2, '#ffffff'); spcSet(f, 25, 25 + by, '#1a1a1a'); spcSet(f, 26, 26 + by, '#1a1a1a');   // мяч
+    return f; }) },
+  { ru: 'РЫЦАРЬ', en: 'KNIGHT', a: 'DRAKON777', au: { t: 'glow', c: '#e8eef8' }, fps: 4, make: base => base.map((f0, k) => {
+    const h = spcHd(f0);
+    const f = spcRecolor(f0, { ol: '#2a2e36', fur: (x, y) => (x + y) % 5 === 0 ? '#e0e6ee' : '#a8b0bc', feet: '#6a7280', cream: '#c8d0dc', ear: '#8a92a0', nose: '#4a5260', cheek: '#c8d0dc', scarf: '#c01a1a', scarfD: '#8a0a0a' });
+    spcRect(f, 15, 10 + h, 10, 4, '#4a5260'); spcRect(f, 16, 11 + h, 8, 1, '#14161a'); spcSet(f, 21, 11 + h, k % 2 ? '#7ad8ff' : '#14161a');   // забрало
+    const sw = [0, 1, 0, -1][k]; spcRect(f, 12 + sw, 1 + h, 3, 3, '#e02a2a'); spcRect(f, 13 + sw, 0 + h, 3, 2, '#ff5a5a'); spcRect(f, 12, 3 + h, 3, 2, '#e02a2a');   // плюмаж
+    spcRect(f, 25, 6, 1, 13, '#e8eef8'); spcRect(f, 26, 6, 1, 13, '#8a92a0'); spcRect(f, 24, 19, 4, 1, '#ffd23a'); spcRect(f, 25, 20, 2, 3, '#6a3a14'); spcSet(f, 25, 5, '#e8eef8');   // меч
+    return f; }) },
+  { ru: 'САМУРАЙ', en: 'SAMURAI', a: 'NEO_HAMSTER', au: { t: 'none', c: '#ffffff' }, fps: 4, make: base => base.map((f0, k) => {
+    const h = spcHd(f0);
+    const f = spcRecolor(f0, { scarf: '#141018', scarfD: '#141018' });
+    spcFillBody(f, 18, 26, (x, y, c) => c === '#4a2410' ? c : y % 3 === 0 ? '#ffd23a' : '#8a1a1a');   // доспех
+    spcRect(f, 11, 1 + h, 4, 4, '#141018'); spcRect(f, 12, 0 + h, 2, 1, '#141018');                    // пучок волос
+    spcRect(f, 9, 6 + h, 14, 1, '#ffffff'); spcSet(f, 15, 6 + h, '#e02a2a');                           // повязка
+    spcLine(f, 5, 27, 13, 15, '#e0e8f0'); spcLine(f, 6, 27, 14, 15, '#8a92a0'); spcLine(f, 3, 30, 5, 27, '#2a1a2a'); spcSet(f, 5, 27, '#ffd23a');   // катана за спиной
+    if (k === 2) for (let i = 0; i < 4; i++) spcSet(f, 15 + i * 3, 3 + h - i, '#ffffff');          // блик клинка
+    return f; }) },
+  { ru: 'КОСМОНАВТ', en: 'ASTRONAUT', a: 'SKY_WOLF', au: { t: 'spark', c: '#ffffff' }, fps: 4, make: base => base.map((f0, k) => {
+    const h = spcHd(f0);
+    const f = spcRecolor(f0, { ol: '#3a4258', fur: (x, y) => y > 17 ? (x > 19 ? '#c8ccd8' : '#f0f2f8') : '#f0a040', feet: '#8a92a8', scarf: '#3a6ad8', scarfD: '#2a4aa8' });
+    spcRect(f, 5, 17, 5, 9, '#a8b0c0'); spcRect(f, 5, 17, 5, 1, '#3a4258'); spcRect(f, 6, 19, 3, 1, '#ff3a3a'); spcRect(f, 6, 21, 3, 1, '#3aff6a');   // ранец
+    const cx = 16, cy = 11 + h; for (let y = 0; y < G; y++) for (let x = 0; x < G; x++) { const d = Math.hypot(x - cx, (y - cy) * 1.05); if (d > 9.3 && d < 10.5) spcSet(f, x, y, '#5a6a88'); }   // шлем
+    spcSet(f, 11, 6 + h, '#ffffff'); spcSet(f, 10, 7 + h, '#ffffff'); spcSet(f, 12, 5 + h, '#ffffff'); if (k === 1) spcSet(f, 21, 5 + h, '#ffffff');
+    return f; }) },
+  { ru: 'ВОЛШЕБНИК', en: 'WIZARD', a: 'LUNA_ART', au: { t: 'spark', c: '#c07aff' }, fps: 5, make: base => base.map((f0, k) => {
+    const h = spcHd(f0);
+    const f = spcRecolor(f0, { scarf: '#4a1a8a', scarfD: '#3a1070' });
+    spcFillBody(f, 18, 28, (x, y, c) => c === '#4a2410' ? c : (x * 3 + y) % 11 === 0 ? '#ffd23a' : '#5a2aa0');   // мантия со звёздами
+    spcRect(f, 7, 6 + h, 17, 2, '#4a1a8a'); for (let r = 0; r < 7; r++) spcRect(f, 10 + Math.floor(r / 2), 5 + h - r, 8 - r, 1, '#5a2aa0'); spcSet(f, 13, 3 + h, '#ffd23a'); spcSet(f, 15, 0 + h, '#ffd23a');   // колпак
+    spcRect(f, 19, 15 + h, 5, 4, '#f0f0f0'); spcRect(f, 20, 19 + h, 3, 1, '#f0f0f0');                     // борода
+    spcRect(f, 26, 8, 1, 20, '#8a5a2a'); const orb = ['#7af0ff', '#c07aff', '#ff7ad8', '#7aff9a'][k]; spcRect(f, 25, 5, 3, 3, orb); spcSet(f, 25, 5, '#ffffff'); spcSet(f, 24, 6, orb); spcSet(f, 28, 6, orb);   // посох
+    return f; }) },
+  { ru: 'ВАМПИР', en: 'VAMPIRE', a: 'ZOMBIE_MAX', au: { t: 'glow', c: '#a01020' }, fps: 4, make: base => base.map((f0, k) => {
+    const h = spcHd(f0), BK = '#14101c';
+    const cape = Array(G * G).fill(null); const flap = [0, 1, 2, 1][k];
+    for (let y = 15; y < 31; y++) for (let x = 4 - Math.floor((y - 15) * flap / 8); x < 12; x++) spcSet(cape, x, y, x < 6 - Math.floor((y - 15) * flap / 8) + 2 ? BK : '#8a0a1a');   // плащ с красной подкладкой
+    const f = spcRecolor(f0, { ol: BK, fur: '#c8c0d0', feet: '#2a2030', cream: '#e8e4ee', eye: '#ff2a2a', ear: '#a898b8', nose: '#8a2a3a', cheek: '#e8e4ee', scarf: BK, scarfD: '#8a0a1a' });
+    for (let i = 0; i < G * G; i++) if (!f[i] && cape[i]) f[i] = cape[i];
+    spcRect(f, 9, 4 + h, 13, 2, BK); spcSet(f, 15, 6 + h, BK);                                           // волосы мысиком
+    spcSet(f, 22, 16 + h, '#ffffff'); spcSet(f, 20, 16 + h, '#ffffff');                                  // клыки
+    spcRect(f, 8, 15, 2, 4, BK); spcRect(f, 21, 15, 2, 4, BK);                                           // высокий воротник
+    return f; }) },
+  { ru: 'КАПИТАН ПИРАТОВ', en: 'PIRATE CAPTAIN', a: 'PIXELKING', au: { t: 'none', c: '#ffffff' }, fps: 4, make: base => base.map((f0, k) => {
+    const h = spcHd(f0);
+    const f = spcRecolor(f0, { scarf: '#7a1020', scarfD: '#4a0812' });
+    spcFillBody(f, 18, 26, (x, y, c) => c === '#4a2410' ? c : (x === 13 && y % 2 === 0) ? '#ffd23a' : x > 19 ? '#4a0812' : '#7a1020');   // камзол с пуговицами
+    spcRect(f, 6, 4 + h, 19, 2, '#8a0c1a'); spcRect(f, 9, 0 + h, 13, 4, '#c0182a'); spcRect(f, 6, 5 + h, 19, 1, '#ffd23a'); spcRect(f, 14, 1 + h, 2, 2, '#ffffff'); spcSet(f, 5, 3 + h, '#c0182a'); spcSet(f, 25, 3 + h, '#c0182a');   // треуголка
+    spcRect(f, 21, 10 + h, 3, 3, '#141018'); spcLine(f, 14, 8 + h, 24, 10 + h, '#141018');                 // повязка
+    spcRect(f, 24, 20, 1, 3, '#d0d8e0'); spcRect(f, 25, 19, 2, 1, '#d0d8e0'); spcSet(f, 27, 20, '#d0d8e0'); spcSet(f, 23, 23, '#ffd23a');   // крюк
+    return f; }) },
+  { ru: 'ФАРАОН', en: 'PHARAOH', a: 'ICE_QUEEN', au: { t: 'glow', c: '#ffd23a' }, fps: 4, make: base => base.map((f0, k) => {
+    const h = spcHd(f0);
+    const f = spcRecolor(f0, { fur: '#e8b070', feet: '#a06a30', scarf: '#ffd23a', scarfD: '#2a4ac0' });
+    for (let y = 3 + h; y <= 18 + h; y++) for (let x = 7; x <= 14; x++) if (y < 9 + h || x < 13) spcSet(f, x, y, (y - h) % 2 ? '#ffd23a' : '#2a4ac0');   // немес
+    spcRect(f, 9, 3 + h, 13, 2, '#ffd23a'); spcRect(f, 19, 2 + h, 2, 3, k % 2 ? '#3ae05a' : '#ffd23a');   // повязка и кобра
+    spcRect(f, 17, 13 + h, 7, 1, '#141018');                                                               // подводка
+    spcFillBody(f, 18, 19, (x, y, c) => c === '#4a2410' ? c : x % 2 ? '#ffd23a' : '#2a4ac0');              // воротник
+    return f; }) },
+  { ru: 'ДРАКОН', en: 'DRAGON', a: 'DRAKON777', au: { t: 'fire', c: '#ff6a1a' }, fps: 5, make: base => base.map((f0, k) => {
+    const h = spcHd(f0);
+    const wing = Array(G * G).fill(null), up = k % 2 === 0;
+    for (let y = 0; y < 14; y++) for (let x = 0; x < 9; x++) { const yy = up ? 6 + y : 10 + y, ok = up ? x >= 8 - y * 0.7 : x >= 1 + y * 0.4; if (ok && yy < 24) spcSet(wing, x, yy, (x + y) % 4 === 0 ? '#1a5a2a' : '#2a8a3a'); }   // крыло машет
+    const f = spcRecolor(f0, { ol: '#0e3a16', fur: (x, y) => (x + y) % 3 === 0 ? '#1a7a2a' : '#3ab04a', feet: '#1a5a2a', cream: '#c8e870', ear: '#2a8a3a', nose: '#1a5a2a', cheek: '#c8e870', scarf: '#ffd23a', scarfD: '#e0a020' });
+    for (let i = 0; i < G * G; i++) if (!f[i] && wing[i]) f[i] = wing[i];
+    spcRect(f, 11, 2 + h, 1, 3, '#f0e0c0'); spcRect(f, 19, 2 + h, 1, 3, '#f0e0c0'); spcSet(f, 10, 1 + h, '#f0e0c0'); spcSet(f, 20, 1 + h, '#f0e0c0');   // рога
+    if (k === 2) for (let i = 0; i < 7; i++) spcSet(f, 24 + i, 14 + h + (i % 2), i < 3 ? '#ffd23a' : '#ff6a1a');   // огонь из пасти
+    return f; }) },
+  { ru: 'СУПЕРГЕРОЙ', en: 'SUPERHERO', a: 'STARGIRL', au: { t: 'spark', c: '#ffd23a' }, fps: 5, make: base => base.map((f0, k) => {
+    const h = spcHd(f0), cape = Array(G * G).fill(null), wv = [0, 1, 2, 1][k];
+    for (let y = 16; y < 31; y++) for (let x = 3 - Math.floor((y - 16) * wv / 6); x < 11; x++) spcSet(cape, x, y, x < 5 ? '#a01818' : '#e02a2a');
+    const f = spcRecolor(f0, { ol: '#0e1a4a', fur: (x, y) => y > 17 ? '#2a5ae0' : '#f0a040', feet: '#e02a2a', scarf: '#e02a2a', scarfD: '#a01818' });
+    for (let i = 0; i < G * G; i++) if (!f[i] && cape[i]) f[i] = cape[i];
+    spcRect(f, 15, 10 + h, 10, 3, '#14183a'); spcSet(f, 17, 11 + h, '#ffffff'); spcSet(f, 22, 11 + h, '#ffffff');   // маска
+    for (const [x, y] of [[16, 20], [15, 21], [16, 21], [17, 21], [16, 22]]) spcSet(f, x, y, '#ffd23a');              // эмблема
+    return f; }) },
+  { ru: 'ПРИШЕЛЕЦ', en: 'ALIEN', a: 'TOXIC_FOX', au: { t: 'glow', c: '#7aff7a' }, fps: 4, make: base => base.map((f0, k) => {
+    const h = spcHd(f0);
+    const f = spcRecolor(f0, { ol: '#1a4a1a', fur: '#7aff7a', feet: '#3ac03a', cream: '#c8ffc8', ear: '#3ac03a', nose: '#3ac03a', cheek: '#c8ffc8', scarf: '#ffd23a', scarfD: '#e0a020' });
+    spcFillBody(f, 18, 26, (x, y, c) => c === '#1a4a1a' ? c : '#8a3ad8');
+    spcRect(f, 16, 9 + h, 8, 5, '#0a0a0a'); spcSet(f, 17, 10 + h, '#ffffff'); spcSet(f, 21, 10 + h, '#ffffff');      // большие глаза
+    spcLine(f, 12, 3 + h, 10, 0 + h, '#3ac03a'); spcLine(f, 18, 3 + h, 20, 0 + h, '#3ac03a'); const o = k % 2 ? '#ff7af0' : '#ffd23a'; spcSet(f, 10, 0 + h, o); spcSet(f, 20, 0 + h, o);   // антенны
+    return f; }) },
 ];
 function botSkins() {
   const out = [], base = tplFrames(), now = Date.now();
@@ -233,7 +374,7 @@ function botSkins() {
     out.push({ id: 'b' + R.n + '_' + i, bot: true, u: 'bot_' + author, n: author, t: T(idea[0], idea[1]), d: T('СКИН ОТ ' + author + '. ЛАЙКНИ, ЕСЛИ НРАВИТСЯ!', 'A SKIN BY ' + author + '. LIKE IT IF YOU DO!'), k: i % 4 === 3 ? 'a' : 's', an: true, fps: 6, frames, au: { t: idea[2], c: idea[3] }, bg: '#3a2a6a', ts: born });
   });
   // особые скины — всегда в ленте (у каждого конкурса свой номер)
-  { const R = round(now); SPECIALS.forEach((sp, i) => { try { out.push({ id: 'x' + R.n + '_' + i, bot: true, u: 'bot_' + sp.a, n: sp.a, t: T(sp.ru, sp.en), d: T('ОСОБЫЙ СКИН ОТ ' + sp.a + '. ЛАЙКНИ, ЕСЛИ НРАВИТСЯ!', 'A SPECIAL SKIN BY ' + sp.a + '. LIKE IT IF YOU DO!'), k: 's', an: true, fps: sp.fps, frames: sp.make(base), au: { ...sp.au }, bg: '#3a2a6a', ts: R.start + i * 3600e3 }); } catch (e) {} }); }
+  { const R = round(now); SPECIALS.forEach((sp, i) => { try { out.push({ id: 'x' + R.n + '_' + i, bot: true, u: 'bot_' + sp.a, n: sp.a, t: T(sp.ru, sp.en), d: T('ОСОБЫЙ СКИН ОТ ' + sp.a + '. ЛАЙКНИ, ЕСЛИ НРАВИТСЯ!', 'A SPECIAL SKIN BY ' + sp.a + '. LIKE IT IF YOU DO!'), k: 's', an: true, fps: sp.fps, frames: sp.fr || (sp.fr = sp.make(base)), st: sp.stc || (sp.stc = Object.assign(autoStates(sp.fr), sp.st ? sp.st(base, sp.fr) : {})), au: { ...sp.au }, bg: '#3a2a6a', ts: R.start + i * 3600e3 }); } catch (e) {} }); }
   return out;
 }
 const botLikes = s => { const age = Math.max(0, (Date.now() - s.ts) / 36e5), h = hash(strHash(s.id) * 13 + 5); return Math.floor(Math.min(40 + h * 260, age * (0.25 + h * 1.6))); };   // NPC тоже лайкают — и чужие, и твои скины
@@ -244,12 +385,16 @@ function decode(id, v) {
   try { const j = typeof v.j === 'string' ? JSON.parse(v.j) : v; const pal = (j.p || []).slice(0, 64).filter(c => /^#[0-9a-f]{6}$/i.test(c));
     const frames = (j.fr || []).slice(0, MAX_F).map(s => [...String(s).slice(0, G * G)].map(ch => ch === '.' ? null : (pal[parseInt(ch, 36)] || null)));
     if (!frames.length) return null; while (frames[0].length < G * G) frames[0].push(null);
-    return { id, u: String(v.u || j.u || ''), n: String(j.n || 'PLAYER').slice(0, 20), t: String(j.t || '').slice(0, 30), d: String(j.d || '').slice(0, 160), k: j.k === 'a' ? 'a' : 's', an: !!j.an && frames.length > 1, fps: Math.max(2, Math.min(12, +j.fps || 6)), frames, au: { t: String((j.au || {}).t || 'none'), c: /^#[0-9a-f]{6}$/i.test((j.au || {}).c) ? j.au.c : '#ffd23a' }, bg: /^#[0-9a-f]{6}$/i.test(j.bg) ? j.bg : '#3a2a6a', ts: +v.ts || Date.now() };
+    const dec = s0 => { const a = [...String(s0).slice(0, G * G)].map(ch => ch === '.' ? null : (pal[parseInt(ch, 36)] || null)); while (a.length < G * G) a.push(null); return a; };
+    let st = null; if (j.A && typeof j.A === 'object') { st = {}; for (const k of ST_KEYS) if (k !== 'idle' && Array.isArray(j.A[k]) && j.A[k].length) st[k] = j.A[k].slice(0, MAX_F).map(dec); }
+    return { id, st, u: String(v.u || j.u || ''), n: String(j.n || 'PLAYER').slice(0, 20), t: String(j.t || '').slice(0, 30), d: String(j.d || '').slice(0, 160), k: j.k === 'a' ? 'a' : 's', an: !!j.an && frames.length > 1, fps: Math.max(2, Math.min(12, +j.fps || 6)), frames, au: { t: String((j.au || {}).t || 'none'), c: /^#[0-9a-f]{6}$/i.test((j.au || {}).c) ? j.au.c : '#ffd23a' }, bg: /^#[0-9a-f]{6}$/i.test(j.bg) ? j.bg : '#3a2a6a', ts: +v.ts || Date.now() };
   } catch (e) { return null; }
 }
 function encode(sk) {
   const pal = []; const fr = sk.frames.map(f => f.map(c => { if (!c) return '.'; let i = pal.indexOf(c); if (i < 0) { pal.push(c); i = pal.length - 1; } return i.toString(36); }).join(''));
-  return JSON.stringify({ n: ME.nick, t: sk.t, d: sk.d, k: sk.k, an: sk.an, fps: sk.fps, p: pal, fr, au: sk.au, bg: sk.bg });
+  const enc = f => f.map(c => { if (!c) return '.'; let i = pal.indexOf(c); if (i < 0) { pal.push(c); i = pal.length - 1; } return i.toString(36); }).join('');
+  const A = {}; if (sk.k === 's' && sk.st) for (const k of ST_KEYS) if (k !== 'idle' && Array.isArray(sk.st[k]) && sk.st[k].some(f => f.some(Boolean))) A[k] = sk.st[k].slice(0, MAX_F).map(enc);   // кадры всех анимаций игры
+  return JSON.stringify({ n: ME.nick, t: sk.t, d: sk.d, k: sk.k, an: sk.an, fps: sk.fps, p: pal, fr, A, au: sk.au, bg: sk.bg });
 }
 async function load() {
   const local = ls.get('local', []).map(v => decode(v.id, v)).filter(Boolean);
@@ -270,18 +415,21 @@ async function toggleLike(s, btn) {
 }
 async function publish(sk) {
   const j = encode(sk), id = (ME.uid ? ME.uid.slice(0, 6) : 'loc') + Date.now().toString(36);
-  try { if (j.length > 14000) throw new Error('big'); await db('PUT', 'sm/s/' + id, { u: ME.uid, j, ts: { '.sv': 'timestamp' } }); try { await db('PUT', 'sm/u/' + ME.uid, ME.nick.slice(0, 20)); } catch (e) {} return { id, online: true }; }
+  try { if (j.length > 60000) throw new Error('big'); await db('PUT', 'sm/s/' + id, { u: ME.uid, j, ts: { '.sv': 'timestamp' } }); try { await db('PUT', 'sm/u/' + ME.uid, ME.nick.slice(0, 20)); } catch (e) {} return { id, online: true }; }
   catch (e) { const L = ls.get('local', []); L.unshift({ id, u: ME.uid || 'me', j, ts: Date.now() }); ls.set('local', L.slice(0, 40)); return { id, online: false }; }
 }
 
 // ---------- предпросмотр: кадры + аура, анимация одним циклом ----------
 const PREV = new Set();
 function drawSkin(c, s, t, opt = {}) {
-  const g = c.getContext('2d'), W = c.width, H = c.height, f = s.an ? Math.floor(t * s.fps) % s.frames.length : 0, cell = Math.floor(Math.min(W, H) * (opt.fill || 0.78) / G), ox = Math.floor((W - cell * G) / 2), oy = Math.floor((H - cell * G) / 2);
+  // какая анимация: в редакторе — выбранная, в ленте — по очереди все (каждая 1,6 с), если скин их задал
+  const names = s.st ? ['idle', ...ST_KEYS.filter(k => k !== 'idle' && s.st[k] && s.st[k].length)] : ['idle'];
+  const stn = s.view || (opt.cycle !== false && names.length > 1 ? names[Math.floor(t / 1.6) % names.length] : 'idle'), FR = stn === 'idle' ? s.frames : s.st[stn] || s.frames;
+  const g = c.getContext('2d'), W = c.width, H = c.height, f = (s.an || stn !== 'idle') ? Math.floor(t * s.fps) % FR.length : 0, cell = Math.floor(Math.min(W, H) * (opt.fill || 0.78) / G), ox = Math.floor((W - cell * G) / 2), oy = Math.floor((H - cell * G) / 2);
   g.clearRect(0, 0, W, H);
   if (s.k === 'a') { g.fillStyle = s.bg; g.beginPath(); g.roundRect(ox - cell, oy - cell, cell * (G + 2), cell * (G + 2), cell * 4); g.fill(); }
   aura(g, s.au, W / 2, H / 2, cell * G * 0.5, t, false);
-  const fr = s.frames[f] || s.frames[0];
+  const fr = FR[f] || FR[0] || s.frames[0];
   for (let i = 0; i < G * G; i++) { const col = fr[i]; if (!col) continue; g.fillStyle = col; g.fillRect(ox + (i % G) * cell, oy + Math.floor(i / G) * cell, cell, cell); }
   aura(g, s.au, W / 2, H / 2, cell * G * 0.5, t, true);
 }
@@ -403,10 +551,24 @@ function viewEditor(kind) {
   const m = $('#main'); m.innerHTML = '';
   const st = { k: kind, frames: kind === 's' ? tplFrames() : [Array(G * G).fill(null)], f: 0, tool: 'pen', col: '#ff3a3a', mirror: false, onion: true, an: kind === 's', fps: 6, au: { t: 'none', c: '#ffd23a' }, bg: '#3a2a6a', undo: [], redo: [], playing: false };
   if (kind === 'a') { const tf = tplFrames()[0]; st.frames = [tf.slice()]; }
+  // у скина — кадры для каждой анимации игры; st.frames — кадры выбранной анимации
+  st.S = { idle: st.frames }; st.cur = 'idle'; delete st.frames;
+  Object.defineProperty(st, 'frames', { get() { return st.S[st.cur]; }, set(v) { st.S[st.cur] = v; } });
   const wrap = el('div', 'ed'); m.appendChild(wrap);
   wrap.appendChild(el('div', 'edt', kind === 's' ? T('НОВЫЙ СКИН', 'NEW SKIN') : T('НОВАЯ АВАТАРКА', 'NEW AVATAR')));
   // холст
-  const cw = Math.min(480, innerWidth - 24), cell = Math.floor(cw / G), cv = el('canvas', 'grid32'); cv.width = cv.height = cell * G; wrap.appendChild(cv);
+  // вкладки анимаций (бег, прыжок, сальто, на стене…) — только у скина героя
+  if (kind === 's') {
+    const sb = el('div', 'arow'); sb.style.cssText = 'flex-wrap:wrap;gap:6px;margin:6px 0';
+    const tabs = () => { sb.innerHTML = ''; STATES.forEach(([k, ru, en]) => { const b = el('button', 'chip' + (st.cur === k ? ' on' : ''), T(ru, en) + (k !== 'idle' && st.S[k] ? ' ✓' : '')); b.onclick = () => { if (!st.S[k]) st.S[k] = stateFrom(st.S.idle, k).map(f => f.slice()); st.cur = k; st.f = 0; st.undo = []; st.redo = []; tabs(); paint(); }; sb.appendChild(b); }); };
+    tabs(); wrap.appendChild(el('div', 'lbl', T('АНИМАЦИИ В ИГРЕ — НАРИСУЙ КАЖДУЮ', 'IN-GAME ANIMATIONS — DRAW EACH ONE'))); wrap.appendChild(sb);
+  }
+  const cw = Math.min(480, innerWidth - 24), cell = Math.floor(cw / G), cv = el('canvas', 'grid32'); cv.width = cv.height = cell * G;
+  // приближение: холст растёт, его можно двигать пальцем в рамке
+  const zw = el('div'); zw.style.cssText = 'overflow:auto;max-width:100%;max-height:72vh;border-radius:12px;touch-action:pan-x pan-y;margin:0 auto'; zw.appendChild(cv); wrap.appendChild(zw);
+  let zoom = 1; const zbar = el('div', 'arow'); zbar.style.cssText = 'justify-content:center;gap:8px;margin:6px 0';
+  const zl = el('span', 'lbl', '×1'); const setZ = z => { zoom = Math.max(1, Math.min(4, z)); cv.style.width = cv.style.height = (cell * G * zoom) + 'px'; cv.style.maxWidth = 'none'; zl.textContent = '×' + zoom; };
+  const zm = el('button', 'btn small', '−'), zp = el('button', 'btn small', '+'); zm.onclick = () => setZ(zoom - 1); zp.onclick = () => setZ(zoom + 1); zbar.append(zm, zl, zp); wrap.appendChild(zbar); setZ(1);
   const g = cv.getContext('2d');
   const fr = () => st.frames[st.f];
   const paint = () => {
@@ -434,7 +596,7 @@ function viewEditor(kind) {
     const mi = el('button', 'tl' + (st.mirror ? ' on' : '')); mi.append(el('span', '', '🪞'), el('i', '', T('ЗЕРКАЛО', 'MIRROR'))); mi.onclick = () => { st.mirror = !st.mirror; tools(); paint(); }; tb.appendChild(mi);
     const un = el('button', 'tl'); un.append(el('span', '', '↩️'), el('i', '', T('НАЗАД', 'UNDO'))); un.onclick = () => { if (!st.undo.length) return; st.redo.push(JSON.stringify(st.frames)); st.frames = JSON.parse(st.undo.pop()); st.f = Math.min(st.f, st.frames.length - 1); paint(); }; tb.appendChild(un);
     const re = el('button', 'tl'); re.append(el('span', '', '↪️'), el('i', '', T('ВПЕРЁД', 'REDO'))); re.onclick = () => { if (!st.redo.length) return; st.undo.push(JSON.stringify(st.frames)); st.frames = JSON.parse(st.redo.pop()); paint(); }; tb.appendChild(re);
-    const tp = el('button', 'tl'); tp.append(el('span', '', '🐹'), el('i', '', T('ШАБЛОН', 'TEMPLATE'))); tp.onclick = () => { snap(); const T0 = tplFrames(); st.frames = st.an ? T0.slice(0, Math.max(1, st.frames.length)).map(f => f.slice()) : [T0[0].slice()]; st.f = 0; paint(); }; tb.appendChild(tp);
+    const tp = el('button', 'tl'); tp.append(el('span', '', '🐹'), el('i', '', T('ШАБЛОН', 'TEMPLATE'))); tp.onclick = () => { snap(); const T0 = tplFrames(); st.frames = st.cur !== 'idle' ? stateFrom(T0, st.cur).map(f => f.slice()) : st.an ? T0.slice(0, Math.max(1, st.frames.length)).map(f => f.slice()) : [T0[0].slice()]; st.f = 0; paint(); }; tb.appendChild(tp);
     const cl = el('button', 'tl'); cl.append(el('span', '', '🗑️'), el('i', '', T('ОЧИСТИТЬ', 'CLEAR'))); cl.onclick = () => { snap(); st.frames[st.f] = Array(G * G).fill(null); paint(); }; tb.appendChild(cl); }
   tools();
   // цвета
@@ -446,8 +608,8 @@ function viewEditor(kind) {
   const fs = el('div', 'frames'); wrap.appendChild(fs);
   function strip() {
     fs.innerHTML = '';
-    const an = el('label', 'chk'); const ac = el('input'); ac.type = 'checkbox'; ac.checked = st.an; ac.onchange = () => { st.an = ac.checked; if (!st.an) { st.frames = [st.frames[0]]; st.f = 0; } paint(); }; an.append(ac, el('span', '', T('АНИМАЦИЯ', 'ANIMATION'))); fs.appendChild(an);
-    if (st.an) {
+    const an = el('label', 'chk'); const ac = el('input'); ac.type = 'checkbox'; ac.checked = st.an; ac.onchange = () => { st.an = ac.checked; if (!st.an) { st.frames = [st.frames[0]]; st.f = 0; } paint(); }; an.append(ac, el('span', '', T('АНИМАЦИЯ', 'ANIMATION'))); if (st.cur === 'idle') fs.appendChild(an);
+    if (st.an || st.cur !== 'idle') {
       st.frames.forEach((F, i) => { const c = el('canvas', 'fth' + (i === st.f ? ' on' : '')); c.width = c.height = G; const q = c.getContext('2d'); F.forEach((col, j) => { if (col) { q.fillStyle = col; q.fillRect(j % G, Math.floor(j / G), 1, 1); } }); c.onclick = () => { st.f = i; paint(); }; fs.appendChild(c); });
       if (st.frames.length < MAX_F) { const add = el('button', 'btn small', T('+ КАДР', '+ FRAME')); add.onclick = () => { snap(); st.frames.splice(st.f + 1, 0, fr().slice()); st.f++; paint(); }; fs.appendChild(add); }
       if (st.frames.length > 1) { const del = el('button', 'btn small red', '✕'); del.onclick = () => { snap(); st.frames.splice(st.f, 1); st.f = Math.max(0, st.f - 1); paint(); }; fs.appendChild(del); }
@@ -462,15 +624,15 @@ function viewEditor(kind) {
   const ac2 = el('input'); ac2.type = 'color'; ac2.value = st.au.c; ac2.className = 'cpick'; ac2.oninput = () => { st.au.c = ac2.value; live.s = skinObj(); }; ar.appendChild(ac2); ab.appendChild(ar);
   if (kind === 'a') { ab.appendChild(el('div', 'lbl', T('ФОН АВАТАРКИ', 'AVATAR BACKGROUND'))); const bg = el('input'); bg.type = 'color'; bg.value = st.bg; bg.className = 'cpick'; bg.oninput = () => { st.bg = bg.value; paint(); }; ab.appendChild(bg); }
   // живой предпросмотр
-  const pv = el('div', 'pv'); pv.appendChild(el('div', 'lbl', T('ТАК БУДЕТ ВЫГЛЯДЕТЬ', 'PREVIEW'))); const skinObj = () => ({ id: 'edit', k: kind, an: st.an && st.frames.length > 1, fps: st.fps, frames: st.frames, au: { ...st.au }, bg: st.bg }); const pc = preview(skinObj(), 150, { fill: 0.78 }); const live = [...PREV].find(p => p.c === pc); pv.appendChild(pc); wrap.appendChild(pv);
+  const pv = el('div', 'pv'); pv.appendChild(el('div', 'lbl', T('ТАК БУДЕТ ВЫГЛЯДЕТЬ', 'PREVIEW'))); const skinObj = () => { const o = { id: 'edit', k: kind, an: st.an && st.S.idle.length > 1, fps: st.fps, frames: st.S.idle, au: { ...st.au }, bg: st.bg, view: st.cur }; if (kind === 's') { o.st = {}; for (const k of ST_KEYS) if (k !== 'idle' && st.S[k]) o.st[k] = st.S[k]; } return o; }; const pc = preview(skinObj(), 150, { fill: 0.78 }); const live = [...PREV].find(p => p.c === pc); pv.appendChild(pc); wrap.appendChild(pv);
   // название и публикация
   const form = el('div', 'form'); const nm = el('input', 'inp'); nm.placeholder = T('НАЗВАНИЕ (ДО 30)', 'TITLE (UP TO 30)'); nm.maxLength = 30; const ds = el('textarea', 'inp'); ds.placeholder = T('ОПИСАНИЕ (ДО 140)', 'DESCRIPTION (UP TO 140)'); ds.maxLength = 140;
   const pub = el('button', 'btn gold big', T('ОПУБЛИКОВАТЬ', 'PUBLISH'));
   pub.onclick = async () => {
     const title = nm.value.replace(/[<>]/g, '').trim(); if (title.length < 2) { SND.error(); toast(T('НАПИШИ НАЗВАНИЕ', 'ADD A TITLE')); nm.focus(); return; }
-    if (!st.frames.some(F => F.some(Boolean))) { SND.error(); toast(T('НАРИСУЙ ХОТЬ ЧТО-НИБУДЬ', 'DRAW SOMETHING')); return; }
+    if (!st.S.idle.some(F => F.some(Boolean))) { SND.error(); toast(T('НАРИСУЙ ХОТЬ ЧТО-НИБУДЬ', 'DRAW SOMETHING')); return; }
     pub.disabled = true; pub.textContent = T('ПУБЛИКУЮ…', 'PUBLISHING…');
-    const sk = { ...skinObj(), t: title, d: ds.value.replace(/[<>]/g, '').trim() }, r = await publish(sk);
+    const sk = { ...skinObj(), view: undefined, t: title, d: ds.value.replace(/[<>]/g, '').trim() }, r = await publish(sk);
     S.list.unshift({ ...sk, id: r.id, u: ME.uid || 'me', n: ME.nick, ts: Date.now() }); SND.publish();
     toast(r.online ? T('ГОТОВО! СКИН В ОБЩЕЙ ЛЕНТЕ', 'DONE! YOUR SKIN IS LIVE') : T('СОХРАНЕНО НА УСТРОЙСТВЕ', 'SAVED ON THIS DEVICE')); go('#s=' + r.id);
   };
