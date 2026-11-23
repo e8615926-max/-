@@ -1,0 +1,395 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#0b0d0c">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>Линия Фронта</title>
+<style>
+  :root {
+    --bg: #0b0d0c; --panel: rgba(12, 16, 14, .62); --line: rgba(255, 255, 255, .14);
+    --text: #eef0ea; --dim: #a8ada3; --ally: #3d8bff; --enemy: #ff3b30; --gold: #ffd23d; --ok: #4cd964;
+    --font: "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    color-scheme: dark;
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text); font-family: var(--font); overflow: hidden; touch-action: none; user-select: none; -webkit-user-select: none; }
+  body { display: grid; place-items: center; background: radial-gradient(ellipse at 50% 40%, #1a201c 0%, #070807 75%); }
+  /* portrait game frame: full screen on phones, 9:16 column on desktop */
+  #app { position: relative; height: 100vh; height: 100dvh; width: min(100vw, calc(100dvh * 0.5625)); overflow: hidden; background: #000; box-shadow: 0 0 80px rgba(0, 0, 0, .8); --blur: 0px; }
+  #app.mobile { width: 100vw; }
+  #c { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+  .layer { position: absolute; inset: 0; pointer-events: none; }
+  .t0 { color: #7fb2ff; } .t1 { color: #ff7a70; } .t-1 { color: #ccc; }
+
+  /* top bar */
+  #topbar { position: absolute; top: max(8px, env(safe-area-inset-top)); left: 8px; right: 8px; display: flex; align-items: center; gap: 6px; }
+  #pauseBtn { pointer-events: auto; width: 34px; height: 34px; border-radius: 10px; border: 1px solid var(--line); background: var(--panel); color: var(--text); font-weight: 800; font-size: 13px; }
+  .score { flex: 1; display: flex; align-items: center; justify-content: center; gap: 6px; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 4px 8px; height: 34px; }
+  .tick { font-weight: 800; font-size: 15px; min-width: 34px; text-align: center; font-variant-numeric: tabular-nums; }
+  .tick.a { color: var(--ally); } .tick.e { color: var(--enemy); }
+  .flag { --p: 50%; width: 24px; height: 24px; border-radius: 7px; display: grid; place-items: center; font-weight: 800; font-size: 12px; background: linear-gradient(90deg, var(--enemy) 0 calc(100% - var(--p)), var(--ally) calc(100% - var(--p)) 100%); position: relative; }
+  .flag::after { content: ""; position: absolute; inset: 0; border-radius: 7px; border: 2px solid rgba(255,255,255,.0); }
+  .flag.own { background: var(--ally); } .flag.enemy { background: var(--enemy); } .flag.neutral { background: linear-gradient(90deg, rgba(255,59,48,.6) 0 calc(100% - var(--p)), rgba(61,139,255,.6) calc(100% - var(--p)) 100%); }
+  .flag.contested::after { border-color: #fff; animation: blink .5s infinite alternate; }
+  @keyframes blink { to { opacity: .2; } }
+  .coins { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; height: 34px; padding: 0 10px; display: flex; align-items: center; gap: 4px; font-weight: 800; color: var(--gold); font-variant-numeric: tabular-nums; }
+  #sub2 { position: absolute; top: calc(max(8px, env(safe-area-inset-top)) + 40px); left: 50px; right: 92px; display: flex; flex-direction: column; gap: 3px; align-items: center; font-size: 10px; color: var(--dim); }
+  .morale { width: 100%; max-width: 200px; height: 5px; border-radius: 3px; background: rgba(255,255,255,.12); overflow: hidden; }
+  #moraleFill { height: 100%; width: 70%; background: linear-gradient(90deg, #ffb020, #ffd23d); }
+  #compass { width: 100%; max-width: 200px; height: 14px; font-size: 10px; font-weight: 700; letter-spacing: 0; color: #ddd; overflow: hidden; white-space: nowrap; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='720' height='14'%3E%3Cg fill='%23ddd' font-family='Arial' font-size='10' font-weight='bold' text-anchor='middle'%3E%3Ctext x='0' y='11'%3EС%3C/text%3E%3Ctext x='90' y='11'%3E·%3C/text%3E%3Ctext x='180' y='11'%3EВ%3C/text%3E%3Ctext x='270' y='11'%3E·%3C/text%3E%3Ctext x='360' y='11'%3EЮ%3C/text%3E%3Ctext x='450' y='11'%3E·%3C/text%3E%3Ctext x='540' y='11'%3EЗ%3C/text%3E%3Ctext x='630' y='11'%3E·%3C/text%3E%3Ctext x='720' y='11'%3EС%3C/text%3E%3C/g%3E%3C/svg%3E"); background-repeat: repeat-x; -webkit-mask: linear-gradient(90deg, transparent, #000 25%, #000 75%, transparent); mask: linear-gradient(90deg, transparent, #000 25%, #000 75%, transparent); position: relative; }
+  #compass::after { content: ""; position: absolute; left: 50%; top: 0; width: 2px; height: 4px; background: var(--gold); }
+  #minimap { position: absolute; top: calc(max(8px, env(safe-area-inset-top)) + 42px); right: 8px; width: 74px; height: 150px; border-radius: 10px; border: 1px solid var(--line); }
+  #shopBtn { position: absolute; top: calc(max(8px, env(safe-area-inset-top)) + 198px); right: 8px; }
+
+  #killfeed { position: absolute; top: calc(max(8px, env(safe-area-inset-top)) + 78px); left: 8px; display: flex; flex-direction: column; gap: 3px; max-width: 62%; }
+  .kf { font-size: 11px; background: rgba(0,0,0,.45); border-radius: 6px; padding: 3px 7px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; transition: opacity .8s; }
+  .kf.fade { opacity: 0; } .kw { color: #ddd; font-size: 10px; }
+  #subtitle { position: absolute; top: 31%; left: 14px; right: 14px; text-align: center; font-size: 14px; font-weight: 600; text-shadow: 0 1px 3px #000, 0 0 10px #000; opacity: 0; transform: translateY(-6px); transition: .25s; }
+  #subtitle.show { opacity: 1; transform: none; }
+  #msg { position: absolute; top: 40%; left: 10px; right: 10px; text-align: center; font-size: 20px; font-weight: 800; letter-spacing: .5px; text-shadow: 0 2px 6px #000; opacity: 0; transform: scale(.9); transition: .25s; }
+  #msg.show { opacity: 1; transform: none; }
+  #notice { position: absolute; bottom: 44%; left: 10px; right: 10px; text-align: center; font-size: 13px; font-weight: 600; color: #fff; text-shadow: 0 1px 3px #000; opacity: 0; transition: .2s; }
+  #notice.show { opacity: 1; }
+  #rewards { position: absolute; top: 44%; left: 0; right: 0; display: flex; flex-direction: column; align-items: center; }
+  .reward { color: var(--gold); font-weight: 900; font-size: 18px; text-shadow: 0 2px 4px #000; animation: rise 1.6s forwards; }
+  .reward small { display: block; font-size: 11px; color: #fff; font-weight: 600; text-align: center; }
+  @keyframes rise { from { transform: translateY(18px); opacity: 0; } 15% { opacity: 1; transform: none; } to { transform: translateY(-40px); opacity: 0; } }
+  #chats { position: absolute; left: 8px; bottom: 300px; display: flex; flex-direction: column; gap: 2px; font-size: 12px; text-shadow: 0 1px 2px #000; max-width: 70%; }
+  #reinf { font-size: 10px; color: var(--dim); }
+
+  /* crosshair */
+  #crosshair { --g: 6px; position: absolute; left: 50%; top: 50%; width: 0; height: 0; }
+  #crosshair i { position: absolute; background: rgba(255,255,255,.9); box-shadow: 0 0 2px #000; }
+  #crosshair i:nth-child(1) { width: 2px; height: 8px; left: -1px; top: calc(-1 * var(--g) - 8px); }
+  #crosshair i:nth-child(2) { width: 2px; height: 8px; left: -1px; top: var(--g); }
+  #crosshair i:nth-child(3) { height: 2px; width: 8px; top: -1px; left: calc(-1 * var(--g) - 8px); }
+  #crosshair i:nth-child(4) { height: 2px; width: 8px; top: -1px; left: var(--g); }
+  #crosshair b { position: absolute; width: 2px; height: 2px; left: -1px; top: -1px; background: #fff; }
+  #crosshair.hide, #app:not(.mode-foot) #crosshair { display: none; }
+  #hitmarker { position: absolute; left: 50%; top: 50%; width: 26px; height: 26px; margin: -13px 0 0 -13px; opacity: 0; }
+  #hitmarker::before, #hitmarker::after { content: ""; position: absolute; left: 12px; top: -2px; width: 2px; height: 30px; background: #fff; transform: rotate(45deg); box-shadow: 0 0 3px #000; }
+  #hitmarker::after { transform: rotate(-45deg); }
+  #hitmarker.show { opacity: 1; } #hitmarker.head::before, #hitmarker.head::after { background: var(--gold); }
+  #hitmarker.kill { transform: scale(1.4); } #hitmarker.kill::before, #hitmarker.kill::after { background: #ff2a20; }
+  #hitmarker.armor::before, #hitmarker.armor::after { background: #8fd3ff; }
+  #dmgDirs { position: absolute; left: 50%; top: 50%; }
+  .ddir { position: absolute; left: -60px; top: -60px; width: 120px; height: 120px; animation: fadeo 1.4s forwards; }
+  .ddir::before { content: ""; position: absolute; left: 35px; top: -14px; width: 50px; height: 16px; border-radius: 50% 50% 0 0 / 100% 100% 0 0; background: radial-gradient(ellipse at 50% 100%, rgba(255,30,20,.95), rgba(255,30,20,0) 70%); }
+  @keyframes fadeo { from { opacity: 1; } to { opacity: 0; } }
+  #vignette { position: absolute; inset: 0; opacity: 0; background: radial-gradient(ellipse at center, transparent 40%, rgba(150,0,0,.55) 75%, rgba(90,0,0,.9) 100%); }
+  #suppress { position: absolute; inset: 0; opacity: 0; background: radial-gradient(ellipse at center, transparent 35%, rgba(0,0,0,.85) 100%); }
+  #grenW { position: absolute; left: 0; top: 0; display: none; margin: -16px 0 0 -16px; width: 32px; height: 32px; border-radius: 50%; background: rgba(255,60,30,.85); color: #fff; font-size: 18px; display: none; place-items: center; text-align: center; line-height: 32px; animation: blink .25s infinite alternate; }
+
+  /* vitals */
+  #vitals { position: absolute; left: 10px; bottom: calc(max(10px, env(safe-area-inset-bottom)) + 196px); display: flex; gap: 8px; align-items: flex-end; }
+  #bodyDiag { width: 26px; height: 52px; }
+  #bodyDiag * { fill: rgba(255,255,255,.28); stroke: rgba(0,0,0,.5); stroke-width: .8; transition: fill .3s; }
+  #bodyDiag .flash { animation: partflash .6s; }
+  @keyframes partflash { 0%, 50% { fill: #fff; } }
+  .bars { display: flex; flex-direction: column; gap: 3px; width: 104px; }
+  #hpBar, .armBar { height: 8px; border-radius: 4px; background: rgba(0,0,0,.5); border: 1px solid var(--line); overflow: hidden; }
+  .armBar { height: 5px; }
+  #hpFill { height: 100%; width: 100%; background: var(--ok); transition: width .2s; }
+  #armFill { height: 100%; width: 0; background: #8fd3ff; }
+  #hpText { font-size: 12px; font-weight: 800; text-shadow: 0 1px 2px #000; }
+  #bleed { display: none; font-size: 11px; font-weight: 800; color: #ff4a40; animation: blink .4s infinite alternate; }
+  #bleed.show { display: block; }
+  #weapon { position: absolute; left: 50%; transform: translateX(-50%); bottom: calc(max(10px, env(safe-area-inset-bottom)) + 4px); text-align: center; pointer-events: auto; }
+  #wName { font-size: 11px; color: var(--dim); font-weight: 700; letter-spacing: .5px; }
+  #ammo { font-size: 20px; font-weight: 900; font-variant-numeric: tabular-nums; text-shadow: 0 1px 3px #000; }
+  #ammo.low { color: #ff6a50; }
+  #gren { font-size: 11px; color: #ddd; }
+  #app:not(.mode-foot) #weapon { display: none; }
+  #app.mode-tank #vitals, #app.mode-aa #vitals { display: none; }
+  #app.mode-drone #sub2, #app.mode-drone #killfeed { display: none; }
+
+  /* touch controls */
+  #touch { position: absolute; inset: 0; pointer-events: auto; touch-action: none; }
+  #app:not(.mobile) #touch { pointer-events: none; }
+  #app:not(.mobile) #touch .btn { pointer-events: auto; }
+  #joy { position: absolute; width: 112px; height: 112px; border-radius: 50%; border: 2px solid rgba(255,255,255,.25); background: rgba(255,255,255,.06); opacity: .0; left: 30px; bottom: 60px; transition: opacity .15s; pointer-events: none; }
+  #joy.on { opacity: 1; } #joy.sprint { border-color: var(--gold); }
+  #joyKnob { position: absolute; left: 31px; top: 31px; width: 50px; height: 50px; border-radius: 50%; background: rgba(255,255,255,.35); }
+  #joyHint { position: absolute; left: 24px; bottom: calc(max(10px, env(safe-area-inset-bottom)) + 40px); width: 120px; height: 120px; border-radius: 50%; border: 2px dashed rgba(255,255,255,.12); display: grid; place-items: center; font-size: 10px; color: rgba(255,255,255,.3); text-align: center; pointer-events: none; }
+  #app:not(.mobile) #joyHint { display: none; }
+  .btn { position: absolute; border-radius: 50%; border: 1.5px solid rgba(255,255,255,.28); background: rgba(10,14,12,.45); color: #fff; display: grid; place-items: center; font-size: 10px; font-weight: 800; letter-spacing: .3px; text-align: center; line-height: 1.05; }
+  .btn i { font-style: normal; font-size: 18px; display: block; }
+  .btn.down { background: rgba(255,255,255,.28); transform: scale(.94); }
+  .btn.active { border-color: var(--gold); color: var(--gold); }
+  .B { --b: max(10px, env(safe-area-inset-bottom)); }
+  #bFire { width: 86px; height: 86px; right: 18px; bottom: calc(var(--b) + 110px); background: rgba(160,20,10,.45); border-color: rgba(255,120,100,.6); font-size: 12px; }
+  #bAim { width: 60px; height: 60px; right: 112px; bottom: calc(var(--b) + 150px); }
+  #bReload { width: 52px; height: 52px; right: 28px; bottom: calc(var(--b) + 206px); }
+  #bGren { width: 52px; height: 52px; right: 86px; bottom: calc(var(--b) + 218px); }
+  #bJump { width: 52px; height: 52px; right: 20px; bottom: calc(var(--b) + 46px); }
+  #bCrouch { width: 52px; height: 52px; right: 80px; bottom: calc(var(--b) + 64px); }
+  #bHeal { width: 46px; height: 46px; right: 140px; bottom: calc(var(--b) + 92px); }
+  #bDrone { width: 46px; height: 46px; right: 146px; bottom: calc(var(--b) + 214px); }
+  #bSwitch { width: 46px; height: 46px; right: 140px; bottom: calc(var(--b) + 36px); }
+  #bMG { width: 64px; height: 64px; right: 112px; bottom: calc(var(--b) + 86px); }
+  #bView { width: 48px; height: 48px; right: 30px; bottom: calc(var(--b) + 210px); }
+  #bRepair { width: 48px; height: 48px; right: 90px; bottom: calc(var(--b) + 228px); }
+  #bUp { width: 60px; height: 60px; right: 112px; bottom: calc(var(--b) + 160px); }
+  #bDown { width: 60px; height: 60px; right: 112px; bottom: calc(var(--b) + 84px); }
+  #bMode { width: 50px; height: 50px; right: 30px; bottom: calc(var(--b) + 212px); }
+  #shopBtn { width: 46px; height: 46px; border-radius: 12px; }
+  #actBtn { position: absolute; left: 50%; transform: translateX(-50%); bottom: calc(var(--b) + 76px); border-radius: 22px; padding: 0 16px; height: 42px; min-width: 150px; background: rgba(40,90,40,.7); border-color: rgba(140,255,140,.5); display: none; font-size: 12px; }
+  #actBtn.show { display: grid; }
+  #app.mode-foot .btn:not(.f), #app.mode-tank .btn:not(.tk), #app.mode-aa .btn:not(.aa), #app.mode-drone .btn:not(.dr) { display: none !important; }
+  #app.mode-tank #actBtn, #app.mode-aa #actBtn, #app.mode-drone #actBtn { display: grid; bottom: auto; top: calc(max(8px, env(safe-area-inset-top)) + 200px); left: auto; right: 8px; transform: none; min-width: 0; background: rgba(90,30,20,.7); border-color: rgba(255,140,120,.5); }
+  #app.isdown .btn:not(#pauseBtn) { display: none !important; }
+  #app:not(.tankRepair) #bRepair { display: none !important; }
+
+  /* scope */
+  #scope { position: absolute; inset: 0; display: none; background: radial-gradient(circle at center, transparent 0 39vmin, #000 39.4vmin); }
+  #scope.show { display: block; }
+  #scope::before { content: ""; position: absolute; left: 50%; top: 10%; bottom: 10%; width: 1px; background: rgba(0,0,0,.9); }
+  #scope::after { content: ""; position: absolute; top: 50%; left: 5%; right: 5%; height: 1px; background: rgba(0,0,0,.9); }
+  #scope i { position: absolute; left: 50%; top: 50%; width: 6px; height: 6px; margin: -3px; border-radius: 50%; background: #ff2a20; box-shadow: 0 0 4px #f00; }
+  #scope u { position: absolute; left: calc(50% - 10px); width: 20px; height: 1px; background: #000; }
+
+  /* vehicle HUD */
+  #vehHud { position: absolute; inset: 0; display: none; }
+  #app.mode-tank #vehHud, #app.mode-aa #vehHud { display: block; }
+  #vehHud.hitflash { background: rgba(255,0,0,.15); }
+  .vhPanel { position: absolute; left: 10px; bottom: calc(max(10px, env(safe-area-inset-bottom)) + 196px); width: 170px; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 8px; font-size: 11px; }
+  #vhName { font-weight: 800; font-size: 12px; margin-bottom: 4px; }
+  .vbar { height: 6px; background: rgba(0,0,0,.5); border-radius: 3px; overflow: hidden; margin: 3px 0; }
+  #vhHp { height: 100%; background: var(--ok); } #vhReload { height: 100%; background: var(--gold); }
+  #vhInfo { color: var(--dim); margin-top: 4px; }
+  #tankSight { position: absolute; inset: 0; display: none; }
+  #app.mode-tank #tankSight { display: block; }
+  #tankSight .ret { position: absolute; left: 50%; top: 50%; width: 120px; height: 120px; margin: -60px; border: 2px solid rgba(255,255,255,.0); }
+  #tankSight .ret::before { content: ""; position: absolute; left: 0; right: 0; top: 50%; height: 1px; background: linear-gradient(90deg, rgba(150,255,150,.9) 0 40%, transparent 40% 60%, rgba(150,255,150,.9) 60%); }
+  #tankSight .ret::after { content: ""; position: absolute; top: 50%; bottom: -20px; left: 50%; width: 1px; background: rgba(150,255,150,.9); }
+  #tankSight .chev { position: absolute; left: 50%; top: 50%; width: 0; height: 0; margin: 0 -9px; border: 9px solid transparent; border-bottom-color: rgba(150,255,150,.95); }
+  #tankSight .frame { position: absolute; inset: 0; background: radial-gradient(ellipse at center, transparent 55%, rgba(0,0,0,.55)); }
+  #app.tank3 #tankSight .frame { display: none; }
+  #gunMark { position: absolute; left: 0; top: 0; width: 22px; height: 22px; margin: -11px; border: 2px solid #ffd23d; border-radius: 50%; }
+  #aaSight { position: absolute; inset: 0; display: none; }
+  #app.mode-aa #aaSight { display: block; }
+  #aaSight .ring { position: absolute; left: 50%; top: 50%; width: 140px; height: 140px; margin: -70px; border-radius: 50%; border: 1.5px solid rgba(255,220,120,.85); }
+  #aaSight .ring::before { content: ""; position: absolute; left: 50%; top: 50%; width: 60px; height: 60px; margin: -30px; border-radius: 50%; border: 1px dashed rgba(255,220,120,.7); }
+  #aaSight .ring::after { content: ""; position: absolute; left: 50%; top: 50%; width: 4px; height: 4px; margin: -2px; border-radius: 50%; background: #ffdc78; }
+  #leads { position: absolute; inset: 0; }
+  .lead { position: absolute; left: 0; top: 0; display: none; }
+  .lead::after { content: attr(data-d); position: absolute; left: 14px; top: -6px; font-size: 10px; font-weight: 700; white-space: nowrap; text-shadow: 0 1px 2px #000; }
+  .lead.aa { width: 16px; height: 16px; margin: -8px; border: 2px solid #ff4a30; transform-origin: center; }
+  .lead.aa::before { content: ""; position: absolute; inset: 4px; background: #ff4a30; border-radius: 50%; }
+  .lead.aa::after { color: #ffb0a0; }
+  .lead.dronebox { width: 26px; height: 26px; margin: -13px; border: 1px solid rgba(255,255,255,.7); }
+  .lead.dronebox::after { top: 26px; left: 0; color: #fff; }
+  .lead.droneWarn { width: 18px; height: 18px; margin: -9px; border: 2px solid #ff9a20; border-radius: 50%; animation: blink .4s infinite alternate; }
+  .lead.droneWarn::after { color: #ffb050; content: "✈ " attr(data-d); }
+  .lead.tgt { width: 24px; height: 24px; margin: -12px; border: 2px solid #ff3b30; }
+  .lead.tgt::after { color: #ff8070; }
+  .lead.threat { width: 22px; height: 22px; margin: -11px; border: 2px solid #ffd23d; border-radius: 50%; }
+  .lead.threat::after { color: #ffd23d; }
+  .lead.inf { width: 8px; height: 8px; margin: -4px; background: rgba(255,80,60,.9); border-radius: 50%; }
+
+  /* drone HUD */
+  #droneHud { position: absolute; inset: 0; display: none; font-family: "Courier New", monospace; color: #e8ffe8; text-shadow: 0 0 3px #000, 0 0 1px #000; }
+  #app.mode-drone #droneHud { display: block; }
+  #droneHud .osd { position: absolute; font-size: 13px; font-weight: 700; }
+  #dAlt { left: 12px; top: 40%; } #dSpd { right: 12px; top: 40%; }
+  #dBat { left: 12px; top: calc(max(8px, env(safe-area-inset-top)) + 46px); } #dSig { left: 12px; top: calc(max(8px, env(safe-area-inset-top)) + 64px); }
+  #dDist { left: 12px; top: calc(max(8px, env(safe-area-inset-top)) + 82px); } #dMode { left: 12px; top: calc(max(8px, env(safe-area-inset-top)) + 100px); color: var(--gold); }
+  #dBombs { left: 50%; transform: translateX(-50%); bottom: calc(max(10px, env(safe-area-inset-bottom)) + 16px); }
+  #droneHud .low { color: #ff5040; animation: blink .4s infinite alternate; }
+  #droneHud .cross { position: absolute; left: 50%; top: 50%; width: 36px; height: 36px; margin: -18px; }
+  #droneHud .cross::before { content: ""; position: absolute; left: 0; right: 0; top: 17px; height: 2px; background: linear-gradient(90deg, #e8ffe8 0 35%, transparent 35% 65%, #e8ffe8 65%); }
+  #droneHud .cross::after { content: ""; position: absolute; top: 0; bottom: 0; left: 17px; width: 2px; background: linear-gradient(#e8ffe8 0 35%, transparent 35% 65%, #e8ffe8 65%); }
+  #droneHud .rec { position: absolute; right: 90px; top: calc(max(8px, env(safe-area-inset-top)) + 46px); font-size: 12px; color: #ff4040; }
+  #droneHud .corner { position: absolute; width: 26px; height: 26px; border-color: rgba(232,255,232,.6); border-style: solid; border-width: 0; }
+  #droneHud .c1 { left: 12%; top: 30%; border-left-width: 2px; border-top-width: 2px; } #droneHud .c2 { right: 12%; top: 30%; border-right-width: 2px; border-top-width: 2px; }
+  #droneHud .c3 { left: 12%; bottom: 30%; border-left-width: 2px; border-bottom-width: 2px; } #droneHud .c4 { right: 12%; bottom: 30%; border-right-width: 2px; border-bottom-width: 2px; }
+  #dImpact { position: absolute; left: 0; top: 0; width: 30px; height: 30px; margin: -15px; border: 2px dashed #ff5040; border-radius: 50%; display: none; }
+  #scan { position: absolute; inset: 0; background: repeating-linear-gradient(0deg, rgba(0,0,0,.16) 0 1px, transparent 1px 3px); }
+  #static { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; display: none; image-rendering: pixelated; }
+
+  /* overlays */
+  .ov { position: absolute; inset: 0; display: none; flex-direction: column; align-items: center; justify-content: center; padding: 20px 16px; background: rgba(5,7,6,.86); backdrop-filter: blur(6px); z-index: 10; pointer-events: auto; text-align: center; overflow-y: auto; }
+  .ov.show { display: flex; }
+  .ov h1 { margin: 0 0 4px; font-size: clamp(28px, 9vw, 42px); font-weight: 900; letter-spacing: 2px; background: linear-gradient(180deg, #f3e8c4, #a88a46); -webkit-background-clip: text; background-clip: text; color: transparent; }
+  .ov h2 { margin: 0 0 14px; font-size: 12px; letter-spacing: 3px; color: var(--dim); font-weight: 600; }
+  .bigBtn { pointer-events: auto; border: 0; border-radius: 14px; padding: 14px 28px; font-size: 17px; font-weight: 900; letter-spacing: 1px; color: #1a1406; background: linear-gradient(180deg, #ffd96b, #d9a12a); box-shadow: 0 6px 20px rgba(217,161,42,.35); margin-top: 12px; min-width: 200px; }
+  .bigBtn:disabled { filter: grayscale(1) brightness(.6); }
+  .ghost { pointer-events: auto; border: 1px solid var(--line); border-radius: 12px; padding: 10px 18px; font-size: 14px; font-weight: 700; color: var(--text); background: rgba(255,255,255,.06); margin-top: 10px; }
+  #chars { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; width: 100%; max-width: 400px; }
+  .char { pointer-events: auto; border: 1px solid var(--line); border-radius: 12px; background: rgba(255,255,255,.04); color: var(--text); padding: 9px 8px; text-align: left; display: grid; grid-template-columns: 30px 1fr; grid-template-rows: auto auto auto; column-gap: 6px; }
+  .char i { font-style: normal; font-size: 22px; grid-row: 1 / 3; align-self: center; text-align: center; }
+  .char b { font-size: 14px; } .char span { font-size: 11px; color: var(--gold); font-weight: 700; }
+  .char small { grid-column: 1 / 3; font-size: 10px; color: var(--dim); margin-top: 4px; line-height: 1.25; }
+  .char.on { border-color: var(--gold); background: rgba(255,210,61,.1); box-shadow: 0 0 0 1px var(--gold) inset; }
+  .row { display: flex; gap: 10px; align-items: center; justify-content: center; flex-wrap: wrap; margin-top: 10px; font-size: 12px; color: var(--dim); }
+  .row input { accent-color: var(--gold); }
+  .help { font-size: 11px; color: var(--dim); margin-top: 14px; line-height: 1.5; max-width: 380px; }
+  .help b { color: var(--text); }
+  #menu { background: linear-gradient(180deg, rgba(5,7,6,.72), rgba(5,7,6,.95)), repeating-linear-gradient(115deg, #111511 0 10px, #0d100d 10px 20px); }
+  #loading h2 { animation: blink .6s infinite alternate; }
+
+  #shop { justify-content: flex-start; padding-top: max(20px, env(safe-area-inset-top)); }
+  .shopHead { display: flex; width: 100%; max-width: 420px; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+  .shopHead h3 { margin: 0; font-size: 20px; letter-spacing: 2px; }
+  #shopTabs { display: flex; gap: 6px; width: 100%; max-width: 420px; margin-bottom: 10px; overflow-x: auto; }
+  .tab { pointer-events: auto; flex: 1; border: 1px solid var(--line); background: rgba(255,255,255,.05); color: var(--text); border-radius: 10px; padding: 8px 6px; font-weight: 700; font-size: 12px; white-space: nowrap; }
+  .tab.on { background: var(--gold); color: #1a1406; border-color: var(--gold); }
+  #shopList { width: 100%; max-width: 420px; display: flex; flex-direction: column; gap: 7px; }
+  .item { display: flex; align-items: center; gap: 10px; border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; background: rgba(255,255,255,.04); text-align: left; }
+  .item .in { flex: 1; display: flex; flex-direction: column; gap: 2px; }
+  .item b { font-size: 14px; } .item small { font-size: 11px; color: var(--dim); } .item em { font-size: 10px; color: #8fd3ff; font-style: normal; }
+  .item button { pointer-events: auto; border: 0; border-radius: 10px; padding: 9px 12px; font-weight: 900; background: var(--gold); color: #1a1406; min-width: 82px; font-size: 13px; }
+  .item button.poor { background: #444; color: #999; }
+  .item.owned button { background: #2b5a2b; color: #bfffbf; }
+  #droneMenu { background: rgba(5,7,6,.7); }
+  #droneMenu .bigBtn { min-width: 240px; }
+
+  #downScreen { background: radial-gradient(ellipse at center, rgba(60,0,0,.35), rgba(30,0,0,.85)); backdrop-filter: none; }
+  #downScreen h1 { background: linear-gradient(180deg, #ff9a8a, #b02020); -webkit-background-clip: text; background-clip: text; }
+  #downTime { font-size: 34px; font-weight: 900; color: #ff6a5a; }
+  #deadScreen { background: rgba(20,0,0,.88); }
+  #deadScreen h1 { background: linear-gradient(180deg, #ff9a8a, #a01010); -webkit-background-clip: text; background-clip: text; }
+  #deadBy, #deadWounds { font-size: 13px; color: var(--dim); margin: 4px 0; }
+  #endTitle.win { color: var(--gold); } #endTitle.lose { color: #ff5a4a; }
+  #endTitle { font-size: 44px; font-weight: 900; letter-spacing: 3px; margin: 0; }
+  #endStats { font-size: 14px; line-height: 1.8; margin-top: 12px; }
+  #rotate { display: none; z-index: 30; }
+  @media (orientation: landscape) and (pointer: coarse) and (max-height: 520px) { #rotate { display: flex; } }
+</style>
+</head>
+<body>
+<div id="app" class="mode-foot">
+  <canvas id="c"></canvas>
+
+  <div class="layer" id="hud">
+    <div id="vignette"></div>
+    <div id="suppress"></div>
+    <div id="tankSight"><div class="frame"></div><div class="ret"></div><div class="chev"></div><div id="gunMark"></div></div>
+    <div id="aaSight"><div class="ring"></div></div>
+    <div id="leads"></div>
+    <div id="droneHud">
+      <div id="scan"></div>
+      <div class="corner c1"></div><div class="corner c2"></div><div class="corner c3"></div><div class="corner c4"></div>
+      <div class="cross"></div><div id="dImpact"></div>
+      <div class="osd rec">● REC</div>
+      <div class="osd" id="dAlt"></div><div class="osd" id="dSpd"></div>
+      <div class="osd" id="dBat"></div><div class="osd" id="dSig"></div><div class="osd" id="dDist"></div><div class="osd" id="dMode"></div>
+      <div class="osd" id="dBombs"></div>
+    </div>
+    <canvas id="static"></canvas>
+    <div id="scope"><u style="top:56%"></u><u style="top:60%"></u><u style="top:64%"></u><i></i></div>
+    <div id="crosshair"><i></i><i></i><i></i><i></i><b></b></div>
+    <div id="hitmarker"></div>
+    <div id="dmgDirs"></div>
+    <div id="grenW">💣</div>
+
+    <div id="topbar">
+      <div style="width:34px"></div>
+      <div class="score"><span class="tick a" id="tickA">400</span><span class="flag own" id="flagA">A</span><span class="flag neutral" id="flagB">B</span><span class="flag enemy" id="flagC">C</span><span class="tick e" id="tickE">400</span></div>
+      <div class="coins">🪙 <span id="coins">0</span></div>
+    </div>
+    <div id="sub2"><div id="compass"></div><div class="morale"><div id="moraleFill"></div></div><div><span>Боевой дух</span> • <span id="reinf"></span></div></div>
+    <canvas id="minimap"></canvas>
+    <div id="killfeed"></div>
+    <div id="chats"></div>
+    <div id="subtitle"></div>
+    <div id="msg"></div>
+    <div id="notice"></div>
+    <div id="rewards"></div>
+
+    <div id="vitals">
+      <svg id="bodyDiag" viewBox="0 0 40 80">
+        <circle id="p-head" cx="20" cy="8" r="6.5"/>
+        <rect id="p-torso" x="12.5" y="16" width="15" height="24" rx="3"/>
+        <rect id="p-armL" x="5" y="17" width="6.5" height="23" rx="3"/>
+        <rect id="p-armR" x="28.5" y="17" width="6.5" height="23" rx="3"/>
+        <rect id="p-legL" x="12.5" y="41" width="7" height="37" rx="3"/>
+        <rect id="p-legR" x="20.5" y="41" width="7" height="37" rx="3"/>
+      </svg>
+      <div class="bars">
+        <div id="bleed">🩸 КРОВОТЕЧЕНИЕ</div>
+        <div id="hpText">100</div>
+        <div id="hpBar"><div id="hpFill"></div></div>
+        <div class="armBar"><div id="armFill"></div></div>
+      </div>
+    </div>
+    <div id="weapon"><div id="wName">АК-74М</div><div id="ammo">30 / 180</div><div id="gren"></div></div>
+    <div id="vehHud"><div class="vhPanel"><div id="vhName"></div><div class="vbar"><div id="vhHp"></div></div><div class="vbar"><div id="vhReload"></div></div><div id="vhInfo"></div></div></div>
+  </div>
+
+  <div id="touch">
+    <div id="joyHint">ХОДЬБА<br>⇧ бег</div>
+    <div id="joy"><div id="joyKnob"></div></div>
+    <button class="btn f B" id="pauseBtn" data-act="pause" style="position:absolute;top:max(8px,env(safe-area-inset-top));left:8px;border-radius:10px;width:34px;height:34px">II</button>
+    <button class="btn f B" id="shopBtn" data-act="shop"><i>🛒</i></button>
+    <button class="btn f tk aa dr B" id="bFire" data-act="fire"><span>ОГОНЬ</span></button>
+    <button class="btn f tk aa B" id="bAim" data-act="aim"><span>ПРИЦЕЛ</span></button>
+    <button class="btn f B" id="bReload" data-act="reload"><i>⟳</i>ПЕРЕЗ.</button>
+    <button class="btn f B" id="bGren" data-act="grenade"><i>💣</i>ГРАН.</button>
+    <button class="btn f B" id="bJump" data-act="jump"><i>⤒</i>ПРЫЖОК</button>
+    <button class="btn f B" id="bCrouch" data-act="crouch"><i>⤓</i>ПРИСЕСТЬ</button>
+    <button class="btn f B" id="bHeal" data-act="heal"><i>🩹</i></button>
+    <button class="btn f B" id="bDrone" data-act="drone"><i>🛸</i></button>
+    <button class="btn f B" id="bSwitch" data-act="switch"><i>⇄</i></button>
+    <button class="btn tk B" id="bMG" data-act="mg"><i>⁂</i>ПКТ</button>
+    <button class="btn tk B" id="bView" data-act="view"><i>👁</i>ВИД</button>
+    <button class="btn tk B" id="bRepair" data-act="repair"><i>🔧</i></button>
+    <button class="btn dr B" id="bUp" data-act="up"><i>▲</i>ВВЕРХ</button>
+    <button class="btn dr B" id="bDown" data-act="down"><i>▼</i>ВНИЗ</button>
+    <button class="btn dr B" id="bMode" data-act="droneMode"><i>⚙</i>РЕЖИМ</button>
+    <button class="btn f tk aa dr B" id="actBtn" data-act="act"><span>Действие</span></button>
+  </div>
+
+  <!-- menus -->
+  <div class="ov show" id="menu">
+    <h1>ЛИНИЯ ФРОНТА</h1>
+    <h2>ВЫБЕРИТЕ БОЙЦА</h2>
+    <div id="chars"></div>
+    <div class="row"><button class="ghost" id="quality">Графика</button><label>Чувствительность <input type="range" id="sens" min="0.4" max="2.5" step="0.1" value="1"></label></div>
+    <button class="bigBtn" id="startBtn">В БОЙ</button>
+    <div class="help">
+      <b>Телефон:</b> левая половина — ходьба (тянуть вверх = бег), правая — обзор, кнопка огня тоже ведёт прицел.<br>
+      <b>ПК:</b> WASD, мышь, ЛКМ огонь, ПКМ прицел, R перезарядка, G граната, E сесть/выйти/поднять, F дрон, B склад, H бинт, 1-4 оружие, Shift бег, C присесть, Space прыжок.<br>
+      <b>Танк:</b> W/S газ, A/D поворот, мышь башня, ЛКМ пушка, Space пулемёт, V вид. <b>Дрон:</b> WASD полёт, Space/C высота, V режим, ЛКМ подрыв/сброс.<br>
+      Убивайте врагов — получайте монеты 🪙 и покупайте на складе базы оружие, броню, дроны.
+    </div>
+  </div>
+  <div class="ov" id="loading"><h1>ЛИНИЯ ФРОНТА</h1><h2>РАЗВЁРТЫВАНИЕ…</h2></div>
+  <div class="ov" id="pause">
+    <h1>ПАУЗА</h1>
+    <div class="row"><label>Чувствительность <input type="range" id="sens2" min="0.4" max="2.5" step="0.1" value="1"></label></div>
+    <button class="bigBtn" id="resumeBtn">ПРОДОЛЖИТЬ</button>
+    <button class="ghost" id="restartBtn">Новый бой</button>
+  </div>
+  <div class="ov" id="shop">
+    <div class="shopHead"><h3>⚒ СКЛАД</h3><div class="coins">🪙 <span id="shopCoins">0</span></div></div>
+    <div id="shopTabs"></div>
+    <div id="shopList"></div>
+    <button class="bigBtn" id="shopClose">ЗАКРЫТЬ</button>
+  </div>
+  <div class="ov" id="droneMenu">
+    <h1 style="font-size:28px">БПЛА</h1><h2>ВЫБЕРИТЕ ДРОН</h2>
+    <button class="bigBtn" id="dmFpv">FPV-камикадзе</button>
+    <button class="bigBtn" id="dmBomber">Бомбер</button>
+    <button class="ghost" id="dmClose">Отмена</button>
+    <div class="help">Стабилизация: дрон держит высоту, джойстик — направление, ▲▼ — высота.<br>Спорт (FPV): выше скорость, инерция, наклон горизонта, дрон летит куда смотрит камера.<br>Связь падает с расстоянием и возле РЭБ вражеской базы.</div>
+  </div>
+  <div class="ov" id="downScreen" style="pointer-events:none">
+    <h1>ТЯЖЁЛОЕ РАНЕНИЕ</h1>
+    <h2>ЖДИТЕ МЕДИКА — ВЫ ИСТЕКАЕТЕ КРОВЬЮ</h2>
+    <div id="downTime">40 с</div>
+    <button class="ghost" id="giveUpBtn" style="pointer-events:auto">Сдаться (возрождение) · Enter</button>
+  </div>
+  <div class="ov" id="deadScreen">
+    <h1>ВЫ ПОГИБЛИ</h1>
+    <div id="deadBy"></div><div id="deadWounds"></div>
+    <button class="bigBtn" id="respawnBtn" disabled>В бой через 6…</button>
+  </div>
+  <div class="ov" id="end"><h1 id="endTitle">ПОБЕДА</h1><div id="endStats"></div><button class="bigBtn" id="againBtn">НОВЫЙ БОЙ</button></div>
+  <div class="ov" id="rotate"><h1>↻</h1><h2>ПОВЕРНИТЕ ТЕЛЕФОН ВЕРТИКАЛЬНО</h2></div>
+</div>
+<script type="module" src="js/main.js"></script>
+</body>
+</html>

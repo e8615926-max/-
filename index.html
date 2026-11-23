@@ -157,6 +157,8 @@
     transition: opacity .5s;
   }
   .gate.off { opacity: 0; pointer-events: none; }
+  .playLink { margin-top: 10px; color: var(--silver); font-size: 14px; letter-spacing: .12em; text-decoration: none; border: 1px solid var(--steel); padding: 10px 18px; border-radius: 4px; }
+  .playLink:hover, .playLink:focus-visible { background: var(--silver); color: var(--void); outline: none; }
   .gate button {
     font: 600 15px/1 var(--font-display); letter-spacing: .3em; text-transform: uppercase;
     color: var(--silver); background: transparent; cursor: pointer;
@@ -255,6 +257,7 @@
 <div class="gate" id="gate">
   <button id="startBtn" type="button">Запустить</button>
   <p id="gateHint">Включите звук</p>
+  <a class="playLink" id="playLink" href="war/" onclick="event.stopPropagation()">⚔ Играть: Линия Фронта</a>
 </div>
 
 <script>
