@@ -132,7 +132,7 @@
   body.is-touch .bossbar { top: calc(env(safe-area-inset-top, 0px) + 60px); width: min(420px, 44vw); }
   body.is-touch .bossbar .bb-name { font-size: 16px; }
   body.is-touch .icon-btn { padding: 5px 8px; font-size: 11px; }
-  @media (max-height: 480px) { .tbtns { grid-template-columns: repeat(3, 52px); gap: 6px; } .tbtn { width: 52px; height: 52px; font-size: 10px; } .stick { width: 112px; height: 112px; bottom: calc(env(safe-area-inset-bottom, 0px) + 18px); } .wave-tag { font-size: 20px; } .banner { top: 18%; } }
+  @media (max-height: 480px) { .tbtns { grid-template-columns: repeat(3, 52px); gap: 6px; } .tbtn { width: 52px; height: 52px; font-size: 10px; } .stick { width: 156px; height: 156px; bottom: calc(env(safe-area-inset-bottom, 0px) + 14px); } .wave-tag { font-size: 20px; } .banner { top: 18%; } }
   body.is-touch .actions { display: none; }
 
   /* ---------- Overlays ---------- */
@@ -175,7 +175,17 @@
   .note { font-size: 14px; color: var(--ally); }
 
   .cards { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; width: 100%; }
-  #classCards { grid-template-columns: repeat(auto-fill, minmax(165px, 1fr)); }
+  .heroes { display: grid; grid-template-columns: repeat(auto-fill, minmax(128px, 1fr)); gap: 6px; width: 100%; }
+  .hero { font: inherit; text-align: left; cursor: pointer; background: rgba(24,18,12,.85); color: var(--marble); border: 1px solid rgba(240,196,122,.22); border-radius: 3px; padding: 7px 9px; display: grid; gap: 1px; min-width: 0; }
+  .hero b { font: 400 16px var(--font-display); color: var(--bronze-hi); line-height: 1.1; }
+  .hero span { font-size: 10.5px; color: var(--marble-dim); letter-spacing: .04em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .hero:hover, .hero:focus-visible { border-color: var(--bronze-hi); outline: none; }
+  .hero[aria-pressed="true"] { border-color: var(--bronze-hi); background: linear-gradient(180deg, rgba(110,70,30,.9), rgba(50,34,20,.95)); box-shadow: 0 0 0 1px var(--bronze-hi); }
+  .hero-detail { width: 100%; text-align: left; background: rgba(0,0,0,.4); border: 1px solid rgba(240,196,122,.3); border-radius: 3px; padding: 12px 14px; display: grid; gap: 4px; }
+  .hero-detail h3 { margin: 0; font: 400 26px var(--font-display); color: var(--bronze-hi); }
+  .hero-detail .k { font-size: 11px; letter-spacing: .2em; text-transform: uppercase; color: var(--bronze); }
+  .hero-detail p { margin: 0; color: var(--marble-dim); line-height: 1.45; font-size: 14px; }
+  .hero-detail .st { font-size: 13px; color: var(--marble); }
   .card {
     text-align: left; display: grid; gap: 6px; align-content: start; cursor: pointer;
     background: linear-gradient(180deg, rgba(48,36,24,.92), rgba(24,18,12,.95)); color: var(--marble);
@@ -222,8 +232,8 @@
   /* ---------- Touch controls ---------- */
   .touch { position: fixed; inset: 0; pointer-events: none; touch-action: none; }
   .stick, .tbtn { touch-action: none; }
-  .stick { position: absolute; left: max(24px, env(safe-area-inset-left, 0px)); bottom: calc(env(safe-area-inset-bottom, 0px) + 28px); width: 128px; height: 128px; border-radius: 50%; border: 1px solid rgba(240,196,122,.35); background: rgba(0,0,0,.25); pointer-events: auto; }
-  .stick i { position: absolute; left: 50%; top: 50%; width: 52px; height: 52px; margin: -26px 0 0 -26px; border-radius: 50%; background: rgba(240,196,122,.45); }
+  .stick { position: absolute; left: max(20px, env(safe-area-inset-left, 0px)); bottom: calc(env(safe-area-inset-bottom, 0px) + 22px); width: 176px; height: 176px; border-radius: 50%; border: 1px solid rgba(240,196,122,.35); background: rgba(0,0,0,.25); pointer-events: auto; }
+  .stick i { position: absolute; left: 50%; top: 50%; width: 74px; height: 74px; margin: -37px 0 0 -37px; border-radius: 50%; background: rgba(240,196,122,.45); }
   .tbtns { position: absolute; right: max(14px, env(safe-area-inset-right, 0px)); bottom: calc(env(safe-area-inset-bottom, 0px) + 20px); display: grid; grid-template-columns: repeat(3, 58px); gap: 8px; pointer-events: auto; }
   .tbtn { width: 58px; height: 58px; border-radius: 50%; border: 1px solid rgba(240,196,122,.45); background: rgba(0,0,0,.4); color: var(--marble); font: 700 10.5px var(--font-body); letter-spacing: .02em; padding: 0; line-height: 1.15; }
   .tbtn.big { background: rgba(163,40,27,.6); }
@@ -266,6 +276,7 @@
   <div class="top-btns">
     <button class="icon-btn" id="muteBtn" type="button">Звук: вкл</button>
     <button class="icon-btn music-btn" type="button">Музыка: вкл</button>
+    <button class="icon-btn" id="viewBtn" type="button">Вид</button>
     <button class="icon-btn" id="pauseBtn" type="button">Пауза</button>
   </div>
 </div>
@@ -289,9 +300,10 @@
   <div class="tablet wide">
     <div class="eyebrow">Ludus Magnus · Рим</div>
     <h1 class="title">Песок <em>Арены</em></h1>
-    <p class="lede">Выбери школу боя, собери отряд из гладиаторов и зверей, перевязывай раны и побеждай бой за боем. Толпа любит смелых — и бросает им дары.</p>
-    <div class="section-h"><span>Школа боя</span></div>
-    <div class="cards" id="classCards"></div>
+    <p class="lede">Выбери одного из двадцати трёх героев, собери отряд из воинов и зверей, перевязывай раны и одолей семь мифических боссов. Толпа любит смелых — и бросает им дары.</p>
+    <div class="section-h"><span>Выбери героя</span><b id="heroCount"></b></div>
+    <div class="hero-detail" id="heroDetail"></div>
+    <div class="heroes" id="classCards"></div>
     <div class="opts">
       <div class="opt"><span class="opt-l">Режим</span><div class="seg" id="modeSeg"><button type="button" data-v="campaign">Кампания</button><button type="button" data-v="bosses">Арена богов · 7 боссов</button></div></div>
       <div class="opt"><span class="opt-l">Камера</span><div class="seg" id="viewSeg"><button type="button" data-v="third">Третье лицо</button><button type="button" data-v="fp">Первое лицо</button></div></div>
@@ -838,8 +850,9 @@ function part(geo, mat, parent, x = 0, y = 0, z = 0) {
 const BOX = (w, h, d) => new THREE.BoxGeometry(w, h, d);
 const CYL = (a, b, h, n = 8) => new THREE.CylinderGeometry(a, b, h, n);
 const SKINS = [0xd6a27a, 0xb67c55, 0x8d5a3a, 0xe8bd96];
-const THRUST = ['spear', 'trident', 'lance'];
-const BLUNT = ['club', 'tree', 'mace'];
+const THRUST = ['spear', 'trident', 'lance', 'rapier'];
+const BLUNT = ['club', 'tree', 'mace', 'hammer', 'staff'];
+const TWOH = ['labrys', 'tree', 'greatsword', 'halberd', 'hammer', 'exaxe', 'staff'];
 
 function buildWeapon(kind, metal, wood, glowMat) {
   const g = new THREE.Group(), ud = g.userData;
@@ -893,6 +906,45 @@ function buildWeapon(kind, metal, wood, glowMat) {
     for (let i = 0; i < 4; i++) { const b = part(CYL(.05, .07, .7, 5), wood, g, (i % 2 ? .2 : -.2), .1, 1.6 + i * .25); b.rotation.set(X, 0, (i % 2 ? -1 : 1) * .7); }
     part(new THREE.DodecahedronGeometry(.5, 0), M(0x3f5a2a), g, 0, .1, 2.6);
     ud.reach = 2.6; ud.blunt = true; ud.base.position.z = 1; ud.tip.position.z = 2.6;
+  } else if (kind === 'greatsword') {
+    part(BOX(.05, .05, .4), wood, g, 0, 0, .05); part(BOX(.36, .06, .07), metal, g, 0, 0, .27);
+    part(BOX(.1, .025, 1.2), glowMat, g, 0, 0, .9); part(new THREE.ConeGeometry(.05, .16, 4), glowMat, g, 0, 0, 1.58).rotation.x = X;
+    part(new THREE.SphereGeometry(.05, 6, 4), metal, g, 0, 0, -.18);
+    ud.reach = 2.7; ud.base.position.z = .35; ud.tip.position.z = 1.62;
+  } else if (kind === 'darksword') {
+    const dm = M(0x1a1420, { metalness: .9, roughness: .25, emissive: 0x2a0030 });
+    part(BOX(.05, .05, .35), wood, g, 0, 0, .05); part(BOX(.34, .07, .08), dm, g, 0, 0, .25);
+    part(BOX(.1, .03, 1.15), dm, g, 0, 0, .86); part(BOX(.02, .035, 1.0), glowMat, g, 0, 0, .86);
+    ud.reach = 2.6; ud.base.position.z = .35; ud.tip.position.z = 1.45;
+  } else if (kind === 'halberd') {
+    part(CYL(.03, .03, 2.6, 6), wood, g, 0, 0, .7).rotation.x = X;
+    part(BOX(.04, .42, .3), glowMat, g, 0, .18, 1.75); part(BOX(.04, .16, .14), metal, g, 0, -.13, 1.75);
+    part(new THREE.ConeGeometry(.04, .35, 4), glowMat, g, 0, 0, 2.15).rotation.x = X;
+    ud.reach = 3.0; ud.base.position.z = 1.3; ud.tip.position.set(0, .3, 2.1);
+  } else if (kind === 'hammer') {
+    part(CYL(.04, .04, 1.7, 6), wood, g, 0, 0, .55).rotation.x = X;
+    part(BOX(.34, .34, .5), glowMat, g, 0, 0, 1.35); part(BOX(.38, .06, .54), metal, g, 0, 0, 1.35);
+    ud.reach = 2.6; ud.blunt = true; ud.base.position.z = .8; ud.tip.position.z = 1.55;
+  } else if (kind === 'exaxe') {
+    part(CYL(.035, .035, 1.6, 6), wood, g, 0, 0, .5).rotation.x = X;
+    const bl = part(BOX(.05, .62, .5), glowMat, g, 0, .25, 1.15); part(BOX(.06, .1, .52), metal, g, 0, -.05, 1.15);
+    ud.reach = 2.6; ud.base.position.z = .7; ud.tip.position.set(0, .55, 1.2);
+  } else if (kind === 'rapier') {
+    part(BOX(.04, .04, .18), wood, g); part(new THREE.TorusGeometry(.07, .012, 4, 10), metal, g, 0, 0, .1);
+    part(BOX(.025, .025, 1.0), glowMat, g, 0, 0, .65);
+    ud.reach = 2.3; ud.base.position.z = .2; ud.tip.position.z = 1.15;
+  } else if (kind === 'staff') {
+    part(CYL(.035, .035, 2.2, 6), wood, g, 0, 0, .35).rotation.x = X;
+    for (const z of [-.7, 1.4]) part(CYL(.045, .045, .14, 6), metal, g, 0, 0, z).rotation.x = X;
+    ud.reach = 2.5; ud.blunt = true; ud.base.position.z = .6; ud.tip.position.z = 1.45;
+  } else if (kind === 'banner') {
+    part(CYL(.03, .03, 2.8, 6), wood, g, 0, 0, .7).rotation.x = X;
+    const fl = part(BOX(.02, .7, .55), M(0x2e7d4f, { side: THREE.DoubleSide }), g, 0, -.4, 1.75); part(new THREE.SphereGeometry(.07, 6, 4), M(0xd4a84a, { metalness: .8 }), g, 0, 0, 2.15);
+    ud.reach = 1.8; ud.noTrail = true; ud.blunt = true;
+  } else if (kind === 'crossbow') {
+    part(BOX(.06, .08, .7), wood, g, 0, 0, .2); const lim = part(BOX(.7, .04, .05), metal, g, 0, .02, .48);
+    part(BOX(.68, .006, .006), M(0xeeeeee), g, 0, .03, .4);
+    ud.reach = 1.4; ud.noTrail = true;
   } else if (kind === 'bow') {
     const arcGeo = new THREE.TorusGeometry(.5, .022, 4, 14, Math.PI);
     arcGeo.applyMatrix4(new THREE.Matrix4().makeBasis(new V3(0, 0, 1), new V3(0, -1, 0), new V3(1, 0, 0)));
@@ -913,6 +965,10 @@ function buildShield(kind, paint, metal) {
     part(CYL(.48, .48, .06, 18), metal, g).rotation.x = Math.PI / 2;
     part(CYL(.36, .36, .07, 18), paint, g).rotation.x = Math.PI / 2;
     for (let i = 0; i < 3; i++) { const l = part(BOX(.06, .3, .02), metal, g, 0, 0, .045); l.rotation.z = i / 3 * Math.PI; }
+  } else if (kind === 'heater') {
+    part(BOX(.5, .5, .05), paint, g, 0, .12, 0);
+    const tip = part(new THREE.CylinderGeometry(.35, .02, .45, 4), paint, g, 0, -.32, 0); tip.rotation.y = Math.PI / 4; tip.scale.set(1, 1, .14);
+    part(BOX(.54, .04, .07), metal, g, 0, .37, 0); part(BOX(.05, .7, .065), M(0xd4a84a, { metalness: .7 }), g, 0, .0, .005); part(BOX(.36, .05, .065), M(0xd4a84a, { metalness: .7 }), g, 0, .12, .005);
   } else if (kind === 'scutum') {
     part(BOX(.62, .98, .06), paint, g);
     part(BOX(.66, .05, .08), metal, g, 0, .47, 0); part(BOX(.66, .05, .08), metal, g, 0, -.47, 0);
@@ -943,6 +999,13 @@ function makeHumanoid(cfg) {
   part(BOX(.46, .5, .27), cfg.chest === 'armor' ? metal : cfg.chest === 'fur' ? cloth : skin, torso, 0, .3, 0);
   if (cfg.chest === 'muscle') { for (const s of [-1, 1]) part(BOX(.19, .13, .05), skin, torso, s * .1, .44, .14); for (let i = 0; i < 3; i++) for (const s of [-1, 1]) part(BOX(.08, .07, .04), skin, torso, s * .05, .3 - i * .08, .135); }
   if (cfg.chest === 'strap') { const st = part(BOX(.08, .6, .3), leather, torso, 0, .3, 0); st.rotation.z = .7; }
+  if (cfg.chest === 'plate' || cfg.chest === 'chain' || cfg.chest === 'robe' || cfg.chest === 'tabard') {
+    const pm = cfg.chest === 'chain' ? M(0x8a8c90, { metalness: .6, roughness: .5 }) : cfg.chest === 'robe' ? cloth : metal;
+    part(BOX(.5, .53, .31), pm, torso, 0, .3, 0);
+    if (cfg.chest === 'plate') { for (const sd of [-1, 1]) part(BOX(.2, .14, .26), metal, torso, sd * .3, .5, 0); part(BOX(.1, .3, .03), crestM, torso, 0, .32, .16); }
+    if (cfg.chest === 'tabard') { part(BOX(.36, .62, .03), cloth, torso, 0, .2, .17); part(BOX(.1, .1, .02), M(0xe0b860, { metalness: .8 }), torso, 0, .36, .19); for (const sd of [-1, 1]) part(BOX(.2, .14, .26), metal, torso, sd * .3, .5, 0); }
+    if (cfg.chest === 'robe') { part(BOX(.12, .6, .32), M(cfg.crest || 0x6a4a2a), torso, 0, .3, 0).rotation.z = .6; skirt.scale.set(1.15, 1.6, 1.15); skirt.position.y = -.22; }
+  }
   if (cfg.chest === 'armor') { part(BOX(.36, .2, .04), crestM, torso, 0, .38, .15); for (const y of [.18, .26]) part(BOX(.47, .03, .29), metal, torso, 0, y, 0); }
   if (cfg.pelt) { const pm = M(0xb8843e); part(BOX(.5, .58, .08), pm, torso, 0, .33, -.17); for (const s of [-1, 1]) part(BOX(.1, .34, .08), pm, torso, s * .17, .46, .16).rotation.z = s * .35; }
   if (cfg.bow) { const q = part(BOX(.14, .5, .14), leather, torso, .1, .32, -.2); q.rotation.z = -.35; for (let i = 0; i < 3; i++) part(BOX(.03, .1, .03), M(0xe8e0d0), q, (i - 1) * .04, .28, 0); }
@@ -989,6 +1052,26 @@ function makeHumanoid(cfg) {
     part(BOX(.26, .05, .06), M(0x2a2a1a), head, 0, .33, .12);
     for (const s of [-1, 1]) part(BOX(.04, .1, .06), M(cfg.skin || 0x8a9a78), head, s * .14, .22, 0);
     head.scale.setScalar(1.15);
+  } else if (H === 'greathelm' || H === 'knight' || H === 'royal' || H === 'dark') {
+    const hm = H === 'dark' ? M(0x1c1a22, { metalness: .85, roughness: .3 }) : metal;
+    part(BOX(.31, .34, .31), hm, head, 0, .23, 0);
+    part(BOX(.22, .03, .02), H === 'dark' ? M(0xff2a10, { emissive: 0xaa1000 }) : dark, head, 0, .25, .16);
+    if (H !== 'dark') for (let i = -2; i <= 2; i++) part(BOX(.015, .07, .02), dark, head, i * .04, .16, .16);
+    if (H === 'knight') { part(BOX(.32, .08, .06), hm, head, 0, .29, .14); part(BOX(.05, .18, .3), crestM, head, 0, .47, -.02); }
+    if (H === 'royal') { for (let i = 0; i < 3; i++) part(BOX(.06, .32, .06), crestM, head, (i - 1) * .05, .55, -.05).rotation.z = (i - 1) * .3; part(new THREE.TorusGeometry(.16, .025, 4, 12), M(0xe0b860, { metalness: .9 }), head, 0, .37, 0).rotation.x = Math.PI / 2; }
+    if (H === 'dark') for (const sd of [-1, 1]) { const h = part(new THREE.ConeGeometry(.04, .3, 5), hm, head, sd * .17, .45, 0); h.rotation.z = -sd * .5; }
+    if (H === 'greathelm') part(BOX(.32, .05, .32), M(0xe0b860, { metalness: .9 }), head, 0, .4, 0);
+  } else if (H === 'horned') {
+    part(BOX(.3, .2, .3), metal, head, 0, .32, 0); part(BOX(.04, .14, .03), metal, head, 0, .22, .16);
+    for (const sd of [-1, 1]) { const h = part(new THREE.ConeGeometry(.05, .38, 6), M(0xe8dcc0), head, sd * .22, .46, 0); h.rotation.z = -sd * .9; }
+  } else if (H === 'hood') {
+    const hm = M(cfg.crest || 0x111111);
+    part(BOX(.32, .36, .32), hm, head, 0, .24, -.01); part(new THREE.ConeGeometry(.17, .3, 4), hm, head, 0, .52, -.04).rotation.y = Math.PI / 4;
+    for (const sd of [-1, 1]) part(BOX(.06, .03, .02), M(0xffd0a0, { emissive: 0x332010 }), head, sd * .06, .26, .165);
+  } else if (H === 'monk') {
+    part(BOX(.26, .05, .27), crestM, head, 0, .27, 0);
+  } else if (H === 'kettle') {
+    part(BOX(.28, .14, .28), metal, head, 0, .34, 0); part(CYL(.3, .3, .03, 12), metal, head, 0, .27, 0);
   } else if (H === 'giant') {
     part(BOX(.28, .12, .28), M(0x3a2a1a), head, 0, .37, -.01); part(BOX(.3, .22, .06), M(0x3a2a1a), head, 0, .28, -.15);
     part(BOX(.27, .04, .27), M(0xe8dcc0), head, 0, .31, 0);
@@ -1022,7 +1105,7 @@ function makeHumanoid(cfg) {
   if (cfg.shield) { shield = buildShield(cfg.shield, M(cfg.paint || 0x8c1f14), metal); shield.position.set(.08, -.12, .14); L.el.add(shield); }
   if (cfg.net) netBundle = part(BOX(.2, .16, .16), M(0x9a8a5a), L.hand, 0, -.08, 0);
   root.scale.setScalar(cfg.scale || 1);
-  const m = { root, body, hips, torso, head, R, L, LL, RL, skirt, weapon, weapon2, shield, netBundle, glow, kind: 'human', reach: weapon ? weapon.userData.reach : 1.6, twoHanded: ['labrys', 'tree'].includes(cfg.weapon) || (cfg.weapon === 'club' && (cfg.scale || 1) > 2) };
+  const m = { root, body, hips, torso, head, R, L, LL, RL, skirt, weapon, weapon2, shield, netBundle, glow, kind: 'human', reach: weapon ? weapon.userData.reach : 1.6, twoHanded: TWOH.includes(cfg.weapon) || (cfg.weapon === 'club' && (cfg.scale || 1) > 2) };
   if (cfg.cape) addCape(m, cfg.cape);
   return m;
 }
@@ -1207,20 +1290,55 @@ ARCH.allyEques = Object.assign({}, ARCH.eques, { hp: 140, gold: 0 });
 const NAMES = ['Крикс', 'Спикул', 'Вер', 'Приск', 'Флавий', 'Тетраит', 'Карпофор', 'Марк', 'Агрон', 'Ганник', 'Тиберий', 'Луций', 'Эномай', 'Каст', 'Децим', 'Феликс', 'Варрон', 'Сабин'];
 const DOG_NAMES = ['Цербер', 'Ферокс', 'Луп', 'Фортис', 'Аргус', 'Гром'];
 
+const P = { skin: 0xc8905f, cloth: 0x8c1f14, metal: 0xc79a4a, crest: 0xb3261a };
+const hero = (o, look) => Object.assign({ st: 105, atkSpeed: 1, blockMul: .5, blockCost: 1.2, parry: .22 }, o, { look: Object.assign({}, P, look) });
 const CLASSES = {
-  murmillo:    { name: 'Мурмиллон', k: 'Щит и гладиус', d: 'Большой щит держит любой удар. Навык — удар щитом, оглушает врага.', stats: 'Здоровье 115 · Блок 100% · Медленный', hp: 115, st: 100, speed: 5.0, light: 14, heavy: 30, atkSpeed: 1, blockMul: 0, blockCost: 1.5, parry: .22, skill: 'bash', skillName: 'Удар щитом', skillCd: 6, look: { skin: 0xc8905f, cloth: 0x8c1f14, metal: 0xc79a4a, crest: 0xb3261a, weapon: 'sword', shield: 'scutum', paint: 0x8c1f14, helmet: 'full', chest: 'strap', manica: true, greaves: true } },
-  retiarius:   { name: 'Ретиарий', k: 'Трезубец и сеть', d: 'Самый длинный удар и быстрые ноги. Навык — бросок сети, враг беспомощен 3 секунды.', stats: 'Здоровье 95 · Блок 55% · Быстрый', hp: 95, st: 115, speed: 5.8, light: 12, heavy: 28, atkSpeed: 1, blockMul: .45, blockCost: 1.2, parry: .24, skill: 'net', skillName: 'Бросок сети', skillCd: 8, look: { skin: 0xc8905f, cloth: 0x8c1f14, metal: 0xc79a4a, crest: 0xb3261a, weapon: 'trident', helmet: 'band', chest: 'skin', manica: true, pads: true, net: true } },
-  dimachaerus: { name: 'Димахер', k: 'Два меча', d: 'Быстрые серии, удары чаще вызывают кровотечение. Навык — вихрь клинков сквозь строй врагов.', stats: 'Здоровье 105 · Блок 50% · Кровопускатель', hp: 105, st: 120, speed: 5.4, light: 10, heavy: 24, atkSpeed: 1.3, blockMul: .5, blockCost: 1.1, parry: .3, bleedBonus: .2, skill: 'whirl', skillName: 'Вихрь клинков', skillCd: 7, look: { skin: 0xc8905f, cloth: 0x8c1f14, metal: 0xc79a4a, crest: 0xb3261a, weapon: 'sword', weapon2: 'sword', helmet: 'full', chest: 'strap', greaves: true } },
-  hoplomachus: { name: 'Гопломах', k: 'Копьё и малый щит', d: 'Длинное копьё держит врага на расстоянии. Навык — выпад копьём сквозь строй.', stats: 'Здоровье 110 · Блок 75% · Дальний удар', hp: 110, st: 110, speed: 5.3, light: 13, heavy: 29, atkSpeed: 1.05, blockMul: .25, blockCost: 1.3, parry: .24, skill: 'lunge', skillName: 'Выпад копьём', skillCd: 6, look: { skin: 0xc8905f, cloth: 0x8c1f14, metal: 0xc79a4a, crest: 0xb3261a, weapon: 'spear', shield: 'parmula', paint: 0x8c1f14, helmet: 'achilles', chest: 'strap', greaves: true, pteruges: true } },
-  barbarus: { name: 'Германец', k: 'Двуручная секира', d: 'Медленные, но страшные удары рубят всех вокруг. Навык — удар оземь, оглушает всех рядом.', stats: 'Здоровье 130 · Блок 50% · Сокрушитель', hp: 130, st: 105, speed: 5.0, light: 18, heavy: 40, atkSpeed: .82, blockMul: .5, blockCost: 1.2, parry: .22, cleave: true, skill: 'quake', skillName: 'Удар оземь', skillCd: 8, look: { skin: 0xe0b890, cloth: 0x4a3a28, metal: 0x8a8a8a, crest: 0x6a5a3a, weapon: 'labrys', helmet: 'giant', beard: 0xb0703a, chest: 'fur', pelt: true } },
+  murmillo: hero({ name: 'Гладиатор', k: 'Щит и гладиус', d: 'Классический боец арены. Большой щит держит любой удар. Навык — удар щитом, оглушает.', stats: 'Здоровье 115 · Блок 100% · Надёжный', hp: 115, st: 100, speed: 5.0, light: 14, heavy: 30, blockMul: 0, blockCost: 1.5, skill: 'bash', skillName: 'Удар щитом', skillCd: 6 }, { weapon: 'sword', shield: 'scutum', paint: 0x8c1f14, helmet: 'full', chest: 'strap', manica: true, greaves: true }),
+  swordsman: hero({ name: 'Мечник', k: 'Меч и баклер', d: 'Быстрые точные удары. Навык — шквал из шести ударов подряд.', stats: 'Здоровье 105 · Блок 60% · Быстрый', hp: 105, speed: 5.5, light: 13, heavy: 27, atkSpeed: 1.15, blockMul: .4, skill: 'flurry', skillName: 'Шквал ударов', skillCd: 6 }, { weapon: 'sword', shield: 'parmula', paint: 0x8c1f14, helmet: 'kettle', chest: 'chain', greaves: true }),
+  berserker: hero({ name: 'Берсерк', k: 'Два топора', d: 'Чем злее, тем сильнее. Навык — ярость берсерка: удары быстрее, сильнее и лечат.', stats: 'Здоровье 120 · Блок 40% · Яростный', hp: 120, speed: 5.4, light: 14, heavy: 30, atkSpeed: 1.15, blockMul: .6, bleedBonus: .1, skill: 'berserk', skillName: 'Ярость берсерка', skillCd: 14 }, { weapon: 'axe', weapon2: 'axe', helmet: 'horned', chest: 'fur', cloth: 0x4a3a28, beard: 0xa0602a, pelt: true, skin: 0xe0b890 }),
+  paladin: hero({ name: 'Паладин', k: 'Булава и щит', d: 'Святой воин в латах. Навык — священный свет: лечит тебя и отряд, оглушает врагов.', stats: 'Здоровье 130 · Блок 85% · Лекарь', hp: 130, speed: 4.8, light: 15, heavy: 32, blockMul: .15, blockCost: 1.3, skill: 'holy', skillName: 'Священный свет', skillCd: 12 }, { weapon: 'mace', shield: 'heater', paint: 0xf0ead8, helmet: 'greathelm', chest: 'tabard', cloth: 0xf0ead8, metal: 0xcfd3d8, crest: 0xd4a84a, greaves: true }),
+  spearman: hero({ name: 'Копейщик', k: 'Копьё и щит', d: 'Держит врага на расстоянии. Навык — выпад копьём сквозь строй.', stats: 'Здоровье 110 · Блок 70% · Дальний удар', hp: 110, speed: 5.2, light: 13, heavy: 28, blockMul: .3, skill: 'lunge', skillName: 'Выпад копьём', skillCd: 6 }, { weapon: 'spear', shield: 'round', paint: 0x2a4a7a, helmet: 'kettle', chest: 'chain' }),
+  halberdier: hero({ name: 'Алебардщик', k: 'Алебарда', d: 'Длинная алебарда рубит всех вокруг. Навык — круговой взмах на 360°.', stats: 'Здоровье 120 · Блок 50% · Широкий удар', hp: 120, speed: 4.9, light: 16, heavy: 34, atkSpeed: .9, cleave: true, skill: 'sweep360', skillName: 'Круговой взмах', skillCd: 7 }, { weapon: 'halberd', helmet: 'knight', chest: 'plate', metal: 0xb8bcc4, greaves: true }),
+  greatsword: hero({ name: 'Мастер двуручника', k: 'Двуручный меч', d: 'Огромный клинок рассекает толпу. Навык — вихрь клинка с рывком вперёд.', stats: 'Здоровье 120 · Блок 55% · Рассекающий', hp: 120, speed: 5.0, light: 17, heavy: 36, atkSpeed: .88, cleave: true, skill: 'whirl', skillName: 'Вихрь клинка', skillCd: 7 }, { weapon: 'greatsword', helmet: 'knight', chest: 'plate', metal: 0xb8bcc4, greaves: true }),
+  duelist: hero({ name: 'Дуэлянт', k: 'Рапира и кинжал', d: 'Мастер парирования. Навык — стойка рипоста: каждый удар врага отражается в него.', stats: 'Здоровье 95 · Парирование · Очень быстрый', hp: 95, st: 120, speed: 6.0, light: 11, heavy: 24, atkSpeed: 1.35, blockMul: .5, parry: .35, skill: 'riposte', skillName: 'Стойка рипоста', skillCd: 8 }, { weapon: 'rapier', weapon2: 'sica', helmet: 'band', chest: 'tabard', cloth: 0x3a2a5a, crest: 0x6a3a8a }),
+  executioner: hero({ name: 'Палач', k: 'Топор палача', d: 'Тяжёлые удары и казни. Навык — приговор: следующий удар наносит втрое больше и добивает раненых.', stats: 'Здоровье 125 · Блок 45% · Казнь', hp: 125, speed: 4.8, light: 18, heavy: 40, atkSpeed: .8, cleave: true, skill: 'execute', skillName: 'Приговор', skillCd: 8 }, { weapon: 'exaxe', helmet: 'hood', crest: 0x111111, chest: 'skin', cloth: 0x1a1a1a, skin: 0xd0a080 }),
+  darkKnight: hero({ name: 'Тёмный рыцарь', k: 'Тёмный клинок и щит', d: 'Питается болью врагов. Навык — тёмная волна: ранит всех рядом и лечит тебя.', stats: 'Здоровье 125 · Блок 80% · Вампиризм', hp: 125, speed: 5.0, light: 15, heavy: 32, blockMul: .2, skill: 'drain', skillName: 'Тёмная волна', skillCd: 9 }, { weapon: 'darksword', shield: 'heater', paint: 0x1a1420, helmet: 'dark', chest: 'plate', metal: 0x2a2630, crest: 0x6a1010, cloth: 0x1a1420, greaves: true, cape: 0x3a0a14 }),
+  barbarus: hero({ name: 'Варвар', k: 'Двуручная секира', d: 'Страшные удары рубят всех вокруг. Навык — удар оземь, оглушает всех рядом.', stats: 'Здоровье 130 · Блок 50% · Сокрушитель', hp: 130, speed: 5.0, light: 18, heavy: 40, atkSpeed: .82, cleave: true, skill: 'quake', skillName: 'Удар оземь', skillCd: 8 }, { skin: 0xe0b890, cloth: 0x4a3a28, metal: 0x8a8a8a, crest: 0x6a5a3a, weapon: 'labrys', helmet: 'giant', beard: 0xb0703a, chest: 'fur', pelt: true }),
+  shieldBearer: hero({ name: 'Щитоносец', k: 'Ростовой щит', d: 'Живая стена. Навык — стена щитов: 3 секунды неуязвим спереди и отталкивает врагов.', stats: 'Здоровье 140 · Блок 100% · Танк', hp: 140, speed: 4.6, light: 12, heavy: 26, blockMul: 0, blockCost: 1.0, skill: 'wall', skillName: 'Стена щитов', skillCd: 9 }, { weapon: 'sword', shield: 'scutum', paint: 0x6a4a1a, helmet: 'kettle', chest: 'chain', greaves: true, manica: true }),
+  retiarius: hero({ name: 'Ретиарий', k: 'Трезубец и сеть', d: 'Длинный удар и быстрые ноги. Навык — бросок сети, враг беспомощен 3 секунды.', stats: 'Здоровье 95 · Блок 55% · Быстрый', hp: 95, st: 115, speed: 5.8, light: 12, heavy: 28, blockMul: .45, parry: .24, skill: 'net', skillName: 'Бросок сети', skillCd: 8 }, { weapon: 'trident', helmet: 'band', chest: 'skin', manica: true, pads: true, net: true }),
+  dimachaerus: hero({ name: 'Димахер', k: 'Два меча', d: 'Быстрые серии, удары чаще вызывают кровотечение. Навык — вихрь клинков сквозь строй.', stats: 'Здоровье 105 · Блок 50% · Кровопускатель', hp: 105, st: 120, speed: 5.4, light: 10, heavy: 24, atkSpeed: 1.3, parry: .3, bleedBonus: .2, skill: 'whirl', skillName: 'Вихрь клинков', skillCd: 7 }, { weapon: 'sword', weapon2: 'sword', helmet: 'full', chest: 'strap', greaves: true }),
+  hoplomachus: hero({ name: 'Гопломах', k: 'Копьё и малый щит', d: 'Длинное копьё и греческий шлем. Навык — выпад копьём сквозь строй.', stats: 'Здоровье 110 · Блок 75% · Дальний удар', hp: 110, speed: 5.3, light: 13, heavy: 29, atkSpeed: 1.05, blockMul: .25, blockCost: 1.3, parry: .24, skill: 'lunge', skillName: 'Выпад копьём', skillCd: 6 }, { weapon: 'spear', shield: 'parmula', paint: 0x8c1f14, helmet: 'achilles', chest: 'strap', greaves: true, pteruges: true }),
+  veteranKnight: hero({ name: 'Рыцарь-ветеран', k: 'Длинный меч и щит', d: 'Опыт сотни битв. Навык — таран щитом: сбивает с ног всех на пути.', stats: 'Здоровье 130 · Блок 85% · Таран', hp: 130, speed: 4.9, light: 15, heavy: 31, blockMul: .15, skill: 'charge', skillName: 'Таран щитом', skillCd: 7 }, { weapon: 'sword', shield: 'heater', paint: 0x2a3a7a, helmet: 'knight', chest: 'tabard', cloth: 0x2a3a7a, metal: 0xb8bcc4, greaves: true, beard: 0x9a9a9a }),
+  warriorMonk: hero({ name: 'Боевой монах', k: 'Боевой посох', d: 'Лёгкий и стремительный, рывок почти ничего не стоит. Навык — шквал ударов посохом.', stats: 'Здоровье 100 · Ловкий · Шквал', hp: 100, st: 130, speed: 6.0, light: 12, heavy: 26, atkSpeed: 1.25, blockMul: .5, parry: .3, cheapDodge: true, skill: 'flurry', skillName: 'Шквал посоха', skillCd: 5 }, { weapon: 'staff', helmet: 'monk', chest: 'robe', cloth: 0xc87a2a, crest: 0x8a3a1a, skin: 0xd8a878 }),
+  royalGuard: hero({ name: 'Королевский страж', k: 'Меч и гербовый щит', d: 'Лучший телохранитель империи. Навык — стойка рипоста: отражает удары обратно.', stats: 'Здоровье 125 · Блок 85% · Рипост', hp: 125, speed: 5.1, light: 14, heavy: 30, blockMul: .15, skill: 'riposte', skillName: 'Стойка рипоста', skillCd: 8 }, { weapon: 'sword', shield: 'heater', paint: 0x6a1a5a, helmet: 'royal', chest: 'tabard', cloth: 0x6a1a5a, metal: 0xd4a84a, crest: 0xf0ead8, greaves: true, cape: 0x6a1a5a }),
+  blackKnight: hero({ name: 'Чёрный рыцарь', k: 'Чёрный двуручник', d: 'Безмолвный убийца в чёрных латах. Навык — таран: врывается в строй и сбивает врагов.', stats: 'Здоровье 135 · Блок 55% · Таран', hp: 135, speed: 4.9, light: 17, heavy: 37, atkSpeed: .88, cleave: true, skill: 'charge', skillName: 'Чёрный таран', skillCd: 7 }, { weapon: 'darksword', helmet: 'dark', chest: 'plate', metal: 0x1c1a22, crest: 0x1c1a22, cloth: 0x101014, greaves: true, cape: 0x101014 }),
+  royalExecutioner: hero({ name: 'Королевский палач', k: 'Золотой топор', d: 'Палач самого императора. Навык — приговор: тройной удар, добивает раненых.', stats: 'Здоровье 130 · Блок 45% · Казнь', hp: 130, speed: 4.8, light: 19, heavy: 42, atkSpeed: .8, cleave: true, skill: 'execute', skillName: 'Императорский приговор', skillCd: 7 }, { weapon: 'exaxe', helmet: 'hood', crest: 0x6a0a0a, chest: 'tabard', cloth: 0x6a0a0a, metal: 0xd4a84a, cape: 0x6a0a0a }),
+  giantHammer: hero({ name: 'Воин с молотом', k: 'Гигантский молот', d: 'Каждый удар — землетрясение. Навык — удар оземь, оглушает всех вокруг.', stats: 'Здоровье 145 · Блок 50% · Медленный', hp: 145, speed: 4.6, light: 20, heavy: 44, atkSpeed: .75, cleave: true, skill: 'quake', skillName: 'Сокрушающий удар', skillCd: 7 }, { weapon: 'hammer', helmet: 'horned', chest: 'plate', metal: 0x8a8a8a, beard: 0x5a3a1a, greaves: true }),
+  mercCaptain: hero({ name: 'Капитан наёмников', k: 'Меч и боевой клич', d: 'Командир за деньги. Навык — боевой клич: зовёт двух наёмников и усиливает отряд.', stats: 'Здоровье 115 · Блок 60% · Командир', hp: 115, speed: 5.2, light: 14, heavy: 29, blockMul: .4, skill: 'cry', skillName: 'Боевой клич', skillCd: 16 }, { weapon: 'sword', shield: 'round', paint: 0x6a5a2a, helmet: 'kettle', chest: 'tabard', cloth: 0x6a5a2a, beard: 0x3a2a1a, cape: 0x4a3a1a }),
+  arenaChampion: hero({ name: 'Чемпион арены', k: 'Топор и щит', d: 'Любимец толпы. Навык — слава чемпиона: толпа ревёт, лечит и бросает дары.', stats: 'Здоровье 125 · Блок 60% · Любимец толпы', hp: 125, speed: 5.2, light: 16, heavy: 34, blockMul: .4, skill: 'showoff', skillName: 'Слава чемпиона', skillCd: 12 }, { weapon: 'axe', shield: 'round', paint: 0x1a1a1a, helmet: 'champion', chest: 'armor', cloth: 0x1a1a1a, crest: 0xc8a052, metal: 0xc8a052, pads: true, greaves: true }),
 };
+const ENEMY_PAL = [[0x2a3a6a, 0x4a6aaa], [0x3a5a2a, 0x7a9a3a], [0x5a2a5a, 0x9a4a9a], [0x2a2a2a, 0x7a7a7a], [0x6a4a1a, 0xaa8a3a]];
+for (const [k, c] of Object.entries(CLASSES)) {
+  if (['murmillo', 'retiarius', 'dimachaerus', 'hoplomachus'].includes(k)) continue;
+  const pal = ENEMY_PAL[Object.keys(CLASSES).indexOf(k) % ENEMY_PAL.length];
+  const look = Object.assign({}, c.look); delete look.skin;
+  if (look.cloth === P.cloth) look.cloth = pal[0]; if (look.crest === P.crest) look.crest = pal[1]; if (look.paint === 0x8c1f14) look.paint = pal[0];
+  ARCH['h_' + k] = { kind: 'human', name: c.name, hp: Math.round(c.hp * .65), dmg: c.light * .78, speed: c.speed * .58, windup: .62 / c.atkSpeed, strike: .16, recover: .5, cool: [1.0, 2.0], gold: 20, guard: c.look.shield ? (c.blockMul <= .2 ? .5 : .3) : 0, combo: c.atkSpeed > 1.1 ? .5 : 0, look, heroSkill: c.skill };
+}
+Object.assign(ARCH, {
+  merc: { kind: 'human', name: 'Наёмник', hp: 70, dmg: 11, speed: 3.0, windup: .6, strike: .16, recover: .5, cool: [1, 1.8], guard: .3, look: { weapon: 'sword', shield: 'round', helmet: 'kettle', chest: 'chain', cloth: 0x6a5a2a, paint: 0x6a5a2a } },
+  allyMedic: { kind: 'human', name: 'Лекарь', hp: 75, dmg: 6, speed: 3.4, windup: .6, strike: .16, recover: .5, cool: [1.4, 2.2], role: 'medic', look: { weapon: 'staff', helmet: 'monk', chest: 'robe', cloth: 0xe8e0cc, crest: 0x2e7d4f } },
+  allyBanner: { kind: 'human', name: 'Знаменосец', hp: 95, dmg: 8, speed: 3.3, windup: .6, strike: .16, recover: .5, cool: [1.4, 2.2], role: 'banner', look: { weapon: 'banner', helmet: 'knight', chest: 'tabard', cloth: 0x2e7d4f, metal: 0xb8bcc4 } },
+  allyCrossbow: { kind: 'human', name: 'Арбалетчик', hp: 70, dmg: 18, speed: 3.0, windup: 1.3, strike: .1, recover: .6, cool: [2, 3], role: 'archer', look: { weapon: 'crossbow', helmet: 'kettle', chest: 'chain', cloth: 0x2e5d3a } },
+  allyGuardian: { kind: 'human', name: 'Страж', hp: 170, dmg: 10, speed: 2.9, windup: .65, strike: .16, recover: .55, cool: [1.2, 2], guard: .6, look: { weapon: 'sword', shield: 'scutum', helmet: 'greathelm', chest: 'plate', metal: 0xb8bcc4, greaves: true } },
+});
 
 /* =================== Game state =================== */
 const keys = new Set();
 const input = { moveX: 0, moveZ: 0, light: false, heavy: false, dodge: false, block: false, special: false, skill: false, throw: false, bandage: false };
 const G = {
   phase: 'menu', wave: 0, kills: 0, glory: 0, time: 0, phaseT: 0, paused: false,
-  hitstop: 0, slowmo: 0, shake: 0, camYaw: 0, camPitch: 0.32, camDist: 6.5, fpPitch: .08,
+  buffs: { berserk: 0, riposte: 0, execute: 0, wall: 0, cry: 0 }, hitstop: 0, slowmo: 0, shake: 0, camYaw: 0, camPitch: 0.32, camDist: 6.5, fpPitch: .08,
   units: [], projectiles: [], pickups: [], spawnQueue: [], lock: null,
   record: parseInt(store.get('arena-record') || '0', 10) || 0,
   up: {}, gold: 0, pila: 2, bandages: 2, armor: 0, allyMode: 'attack', mod: null, trapsOn: false,
@@ -1313,7 +1431,7 @@ function kneelPose(pose) { Object.assign(pose, { bodyY: -.42, hipLx: -1.4, knLx:
 const particles = [];
 {
   const geo = new THREE.BoxGeometry(.07, .07, .07);
-  const mats = { spark: new THREE.MeshBasicMaterial({ color: 0xffd27a }), blood: new THREE.MeshBasicMaterial({ color: 0x8e1a10 }), dust: new THREE.MeshLambertMaterial({ color: 0xc9a36d, transparent: true, opacity: .8 }), gold: new THREE.MeshBasicMaterial({ color: 0xffc860 }), star: new THREE.MeshBasicMaterial({ color: 0xfff6c0 }), heal: new THREE.MeshBasicMaterial({ color: 0x9be29b }) };
+  const mats = { dark: new THREE.MeshBasicMaterial({ color: 0x9a3aff }), spark: new THREE.MeshBasicMaterial({ color: 0xffd27a }), blood: new THREE.MeshBasicMaterial({ color: 0x8e1a10 }), dust: new THREE.MeshLambertMaterial({ color: 0xc9a36d, transparent: true, opacity: .8 }), gold: new THREE.MeshBasicMaterial({ color: 0xffc860 }), star: new THREE.MeshBasicMaterial({ color: 0xfff6c0 }), heal: new THREE.MeshBasicMaterial({ color: 0x9be29b }) };
   for (let i = 0; i < 300; i++) { const m = new THREE.Mesh(geo, mats.spark); m.visible = false; scene.add(m); particles.push({ m, v: new V3(), life: 0, max: 1, g: 9, mats }); }
 }
 let pIdx = 0;
@@ -1505,14 +1623,14 @@ Object.assign(sfx, {
   crowdHa: () => { for (let i = 0; i < 9; i++) voice(pick(['a', 'e']), rand(110, 260), rand(90, 170), rand(.3, .45), .03, null, rand(0, .12)); },
   claps: () => { for (let i = 0; i < 14; i++) nz(.04, rand(1800, 3200), 1.2, rand(.03, .07), 'bandpass', null, rand(0, .07)); },
   swing: (wk, heavy) => {
-    const blunt = ['club', 'tree', 'mace', 'labrys', 'axe'].includes(wk), thrust = ['spear', 'trident', 'lance'].includes(wk);
+    const blunt = ['club', 'tree', 'mace', 'labrys', 'axe', 'hammer', 'staff', 'exaxe', 'greatsword', 'halberd'].includes(wk), thrust = ['spear', 'trident', 'lance'].includes(wk);
     if (thrust) nz(.12, 1600, 1.6, .18, 'bandpass', 3400);
     else if (blunt) nz(heavy ? .4 : .3, 180, 1.2, heavy ? .4 : .3, 'bandpass', 900);
     else nz(heavy ? .26 : .16, heavy ? 380 : 600, 1.5, heavy ? .3 : .22, 'bandpass', heavy ? 1700 : 2600);
   },
   impact: (wk, big, pos) => {
     const v = distVol(pos);
-    if (['club', 'tree', 'mace'].includes(wk)) { tone(85, .3, 'sine', .7 * v, 40); nz(.22, 380, .7, .45 * v, 'lowpass'); nz(.04, 3200, 1, .2 * v, 'highpass'); }
+    if (['club', 'tree', 'mace', 'hammer', 'staff'].includes(wk)) { tone(85, .3, 'sine', .7 * v, 40); nz(.22, 380, .7, .45 * v, 'lowpass'); nz(.04, 3200, 1, .2 * v, 'highpass'); }
     else if (wk === 'bite' || wk === 'claw') { nz(.12, 1100, 1.3, .3 * v, 'bandpass', 500); tone(150, .14, 'sawtooth', .05 * v, 90); }
     else { tone(big ? 150 : 190, .14, 'sine', .45 * v, 60); nz(.07, 2600, 1.4, .25 * v, 'bandpass'); nz(.12, 700, .8, .3 * v, 'lowpass'); }
   },
@@ -1689,6 +1807,8 @@ function hit(t, dmg, src, o = {}) {
   const hp = t.pos.clone().setY(t.height * .6);
   const playerInvolved = t.isPlayer || (srcUnit && srcUnit.isPlayer);
   let noStagger = !!o.noStagger;
+  if (t.isPlayer && G.buffs.wall > 0 && front && kind !== 'stomp') { sfx.clang(); burst(hp.clone().addScaledVector(dirFromTo(t.pos, sp), .5), 'spark', 14, 6); floatText(hp, 'стена', 'block'); if (srcUnit && srcUnit.vel) srcUnit.vel.addScaledVector(dirFromTo(t.pos, srcUnit.pos), 7 / (srcUnit.mass || 1)); return false; }
+  if (t.isPlayer && G.buffs.riposte > 0 && srcUnit && srcUnit.alive && srcUnit.hp !== undefined && !['arrow', 'net', 'stomp', 'charge'].includes(kind)) { sfx.bell(); floatText(hp.clone().setY(2.6), 'Рипост!', 'crit'); G.slowmo = .25; hit(srcUnit, 25 * G.up.dmg, t, { kind: 'heavy', ignoreGuard: true }); stun(srcUnit, 1); return false; }
 
   if (t.isPlayer && t.blocking && front && !o.unblockable && t.state === 'free') {
     const C = t.cls;
@@ -1722,6 +1842,7 @@ function hit(t, dmg, src, o = {}) {
   if (t.state === 'kneel' && !t.mercy) { dmg = Math.max(dmg * 2, t.hp + 1); exec = bySide === 'ally'; }
   if (t.state === 'dazed') dmg *= 1.6;
   if (t.state === 'netted') dmg *= 1.3;
+  if (bySide === 'ally' && srcUnit && !srcUnit.isPlayer) dmg *= (G.buffs.cry > 0 ? 1.3 : 1) * bannerMul(srcUnit);
   dmg = Math.max(1, Math.round(dmg));
   t.hp -= dmg; t.w.lastSrc = srcUnit; t.lastHitT = G.time; t.flinch = 1; t.flinchN = (t.flinchN || 0) + 1;
   if (srcUnit && srcUnit.isPlayer) G.damageDealt += dmg;
@@ -1737,7 +1858,7 @@ function hit(t, dmg, src, o = {}) {
   if (playerInvolved) { G.hitstop = crit ? .09 : .05; G.shake = Math.max(G.shake, crit ? .35 : .15); }
   rollWounds(t, kind, o);
   if (t.isPlayer) { G.hurtFlash = .6; G.glory = Math.max(0, G.glory - 5); }
-  if (srcUnit && srcUnit.isPlayer) { gainGlory(6); if (G.up.lifesteal) player.hp = Math.min(player.maxHp, player.hp + G.up.lifesteal); }
+  if (srcUnit && srcUnit.isPlayer) { gainGlory(6); if (G.up.lifesteal || G.buffs.berserk > 0) player.hp = Math.min(player.maxHp, player.hp + G.up.lifesteal + (G.buffs.berserk > 0 ? 3 : 0)); }
   else if (bySide === 'ally') gainGlory(1.5);
   if (t.hp <= 0) {
     if (canMercy(t)) { t.hp = 1; startMercy(t); return true; }
@@ -1959,6 +2080,7 @@ function pickTarget(u) {
     let s = flatDist(u.pos, h.pos);
     if (h.isPlayer) s -= 1.5;
     if (h.state === 'kneel') s += 8;
+    if (h.key === 'allyGuardian') s -= 4;
     if (s < bs) { bs = s; best = h; }
   }
   return best;
@@ -1973,6 +2095,9 @@ function updateUnit(u, dt) {
   tickWounds(u, dt);
   if (!u.alive) return;
   for (const k in u.cd) u.cd[k] -= dt;
+  if (u.tempT !== undefined) { u.tempT -= dt; if (u.tempT <= 0) { burst(u.pos.clone().setY(1), 'dust', 15, 2, 1); u.alive = false; u.removed = true; scene.remove(m.root); if (u.tag) u.tag.remove(); if (u.trail) u.trail.dispose(); return; } }
+  if (a.heroSkill === 'berserk' && !u.raged && u.hp < u.maxHp * .5) { u.raged = true; u.dmg *= 1.35; u.speedMul = 1.3; sfx.bossRoar(u.pos); floatText(u.pos.clone().setY(u.height + .4), 'Ярость!', 'crit'); }
+  if (a.heroSkill === 'holy' && !u.healed && u.hp < u.maxHp * .4) { u.healed = true; u.hp += u.maxHp * .35; burst(u.pos.clone().setY(1), 'gold', 25, 4, 2); sfx.bell(); floatText(u.pos.clone().setY(u.height + .4), 'Священный свет', 'block'); }
   if (a.regen && G.time - (u.lastHitT || 0) > 3 && u.hp < u.maxHp && u.state !== 'kneel') { u.hp = Math.min(u.maxHp, u.hp + 14 * dt); if (Math.random() < .15) burst(u.pos.clone().setY(rand(.5, u.height)), 'heal', 1, 1, 1); }
   if (u.state === 'rise') {
     const k = clamp((u.t - .5) / 1.6, 0, 1);
@@ -1987,7 +2112,7 @@ function updateUnit(u, dt) {
   const toT = new V3(), dist = tgt ? flatDist(u.pos, tgt.pos) : 99;
   if (tgt) toT.set(tgt.pos.x - u.pos.x, 0, tgt.pos.z - u.pos.z).normalize();
   const faceT = tgt ? Math.atan2(toT.x, toT.z) : u.facing;
-  const legMul = 1 - .22 * u.w.leg;
+  const legMul = (1 - .22 * u.w.leg) * (u.speedMul || 1);
   let move = 0; const md = new V3();
   const role = a.role || 'melee';
 
@@ -2016,6 +2141,20 @@ function updateUnit(u, dt) {
       const maxTok = tgt.isPlayer ? (G.wave >= 6 ? 2 : 1) : 2;
       const canAtk = u.cool <= 0 && (a.boss || attackersOn(tgt, u) < maxTok) && !(tgt.isPlayer && !player.alive);
       if (a.abil && tryAbility(u, dist)) break;
+      if (role === 'medic' || role === 'banner') {
+        u.healT = (u.healT === undefined ? 3 : u.healT) - dt;
+        if (role === 'medic' && u.healT <= 0) {
+          const cands = [player, ...aliveAllies()].filter(x => x.alive && x !== u && flatDist(x.pos, u.pos) < 11);
+          const pt = cands.sort((x, y) => x.hp / x.maxHp - y.hp / y.maxHp)[0];
+          if (pt && pt.hp < pt.maxHp) { pt.hp = Math.min(pt.maxHp, pt.hp + 18); if (pt.w.bleed) { pt.w.bleed--; if (!pt.w.bleed) bandageMarks(pt); } burst(pt.pos.clone().setY(1.2), 'heal', 14, 1.5, 1.5); floatText(pt.pos.clone().setY(pt.height + .3), '+18', 'ally'); sfx.bandage(); u.healT = 6; } else u.healT = 1;
+        }
+        const ang = player.facing + Math.PI + (role === 'medic' ? .5 : -.5);
+        const goal = new V3(player.pos.x + Math.sin(ang) * 3, 0, player.pos.z + Math.cos(ang) * 3);
+        const gd = flatDist(goal, u.pos);
+        if (dist < 2.8) { if (canAtk) startWindup(u, 'melee'); }
+        else if (gd > .7) { move = a.speed * Math.min(1.2, gd / 2); md.subVectors(goal, u.pos).setY(0).normalize(); u.facing += clamp(angDiff(u.facing, Math.atan2(md.x, md.z)), -8 * dt, 8 * dt); }
+        break;
+      }
       if (mounted) {
         move = mountedMove(u, dt, toT, dist, md);
         if (role === 'cavalry' && canAtk && dist > 6.5 && dist < 26) startWindup(u, 'ride');
@@ -2273,6 +2412,7 @@ function animateHuman(u, dt) {
       const k = st === 'windup' ? clamp(u.t / u.windDur, 0, 1) : st === 'strike' ? 1 : 1 - clamp(u.t / a.recover, 0, 1);
       pose.shLx = lerp(pose.shLx, -1.55, Math.min(1, k * 2)); pose.elLx = lerp(pose.elLx, 0, k); pose.shLz = 0;
       pose.shRx = lerp(pose.shRx, -1.5, Math.min(1, k * 2)); pose.elRx = lerp(pose.elRx, -1.6, k); pose.torY = -.35 * k;
+      if (look.weapon === 'crossbow') { pose.shRx = -1.5; pose.elRx = -.1; pose.shLx = -1.4; pose.elLx = -.3; pose.shLz = -.3; pose.torY = 0; }
     } else if (u.action === 'net') applyCurve(pose, CURVE.throwL, p);
     else if (look.weapon2 && u.comboIdx % 2 === 1) applyCurve(pose, CURVE.lightL, p);
     else if (THRUST.includes(look.weapon)) applyCurve(pose, u.comboLeft ? CURVE.thrust2 : CURVE.thrust, p);
@@ -2407,7 +2547,7 @@ function startAttack(kind) {
   else if (THRUST.includes(C.look.weapon)) curve = player.combo % 2 === 1 ? 'thrust2' : 'thrust';
   else curve = player.combo % 2 === 1 ? 'light2' : 'light';
   if (kind === 'heavy' && THRUST.includes(C.look.weapon)) curve = 'thrustH';
-  const spd = kind === 'light' ? C.atkSpeed : 1;
+  const spd = (kind === 'light' ? C.atkSpeed : 1) * (G.buffs.berserk > 0 ? 1.4 : 1);
   player.atk = { kind, dur: (kind === 'heavy' ? .82 : kind === 'special' ? .95 : .46) / spd, curve, hitAt: kind === 'heavy' ? .6 : .48 };
   if (kind === 'special') { G.glory = 0; sfx.special(); sfx.roar(1.5); crowd.excite = 1; player.iframes = 1; floatText(player.pos.clone().setY(2.6), 'Ярость толпы!', 'crit'); }
   else faceTarget(nearestEnemy(kind === 'heavy' ? 6 : 5));
@@ -2423,11 +2563,42 @@ function playerStrikeCheck(kind) {
     if (d < range + e.radius && Math.abs(angDiff(player.facing, an)) < cone) {
       player.hitSet.add(e); any = true;
       const base = kind === 'heavy' ? C.heavy * G.up.heavyMul : C.light * (1 + Math.min(player.combo, 3) * .12);
-      const dmg = base * G.up.dmg * (1 - .18 * player.w.arm) * rand(.9, 1.1);
-      hit(e, dmg, player, { kind, bleed: C.bleedBonus ? (kind === 'heavy' ? .5 : .15 + C.bleedBonus) : 0 });
+      const dmg = base * G.up.dmg * (1 - .18 * player.w.arm) * rand(.9, 1.1) * (G.buffs.berserk > 0 ? 1.4 : 1) * (G.buffs.execute > 0 ? 3 : 1) * bannerMul(player);
+      hit(e, dmg, player, { kind, bleed: C.bleedBonus ? (kind === 'heavy' ? .5 : .15 + C.bleedBonus) : 0, ignoreGuard: G.buffs.execute > 0 });
+      if (G.buffs.execute > 0 && e.alive && e.hp < e.maxHp * .3 && !canMercy(e)) { burst(e.pos.clone().setY(1.2), 'blood', 25, 6, 2); die(e, player, true); }
     }
   }
+  if (any && G.buffs.execute > 0) G.buffs.execute = 0;
   return any;
+}
+function bannerMul(u) {
+  for (const a of G.units) if (a.alive && a.key === 'allyBanner' && a.team === u.team && flatDist(a.pos, u.pos) < 9) return 1.2;
+  return 1;
+}
+function applyBuffSkill(s) {
+  const p = player, B = G.buffs, top = p.pos.clone().setY(2.7);
+  if (s === 'berserk') { B.berserk = 7; sfx.bossRoar(p.pos); burst(p.pos.clone().setY(1.2), 'blood', 20, 4, 2); floatText(top, 'Ярость!', 'crit'); }
+  else if (s === 'riposte') { B.riposte = 2.4; sfx.clang(); floatText(top, 'Стойка рипоста', 'block'); }
+  else if (s === 'execute') { B.execute = 5; sfx.shout(p.pos, true); floatText(top, 'Приговор', 'crit'); }
+  else if (s === 'wall') { B.wall = 3.2; sfx.thud(); floatText(top, 'Стена щитов', 'block'); for (const e of aliveEnemies()) if (flatDist(e.pos, p.pos) < 3.2) e.vel.addScaledVector(dirFromTo(p.pos, e.pos), 8 / e.mass); }
+  else if (s === 'holy') {
+    p.hp = Math.min(p.maxHp, p.hp + 30); if (p.w.bleed) { p.w.bleed--; }
+    for (const a of aliveAllies()) if (flatDist(a.pos, p.pos) < 9) { a.hp = Math.min(a.maxHp, a.hp + 30); burst(a.pos.clone().setY(1.2), 'heal', 8, 1.5, 1); }
+    for (const e of aliveEnemies()) if (flatDist(e.pos, p.pos) < 4.2) { hit(e, 12 * G.up.dmg, p, { kind: 'bash', ignoreGuard: true }); stun(e, 1.3); }
+    burst(p.pos.clone().setY(1), 'gold', 40, 6, 3); sfx.bell(); floatText(top, 'Священный свет', 'crit');
+  } else if (s === 'drain') {
+    let tot = 0;
+    for (const e of aliveEnemies()) if (flatDist(e.pos, p.pos) < 4.6) { if (hit(e, 20 * G.up.dmg, p, { kind: 'special', ignoreGuard: true })) tot += 20 * G.up.dmg; burst(e.pos.clone().setY(1.2), 'dark', 10, 3, 1); }
+    p.hp = Math.min(p.maxHp, p.hp + tot * .5 + 5); burst(p.pos.clone().setY(1), 'dark', 30, 5, 2); sfx.bossRoar(p.pos); floatText(top, `+${Math.round(tot * .5 + 5)} здоровья`, 'ally');
+  } else if (s === 'cry') {
+    B.cry = 10; sfx.shout(p.pos, true); sfx.roar(1.2);
+    for (const e of aliveEnemies()) if (flatDist(e.pos, p.pos) < 7) stun(e, .8);
+    for (let i = 0; i < 2; i++) { const u = spawnAlly('merc'); u.tempT = 30; }
+    floatText(top, 'Ко мне, ребята!', 'crit');
+  } else if (s === 'showoff') {
+    gainGlory(40); p.hp = Math.min(p.maxHp, p.hp + 20); crowdThrow(); crowdThrow(); sfx.roar(2); crowd.excite = 1; sfx.crowdHa();
+    floatText(top, 'Слава чемпиона!', 'crit'); burst(p.pos.clone().setY(1.2), 'gold', 30, 5, 3);
+  }
 }
 function useSkill() {
   const C = player.cls;
@@ -2482,6 +2653,9 @@ const _fwd = new V3(), _right = new V3(), _mv = new V3();
 function updatePlayer(dt) {
   const p = player, m = p.model, C = p.cls;
   p.t += dt; p.iframes = Math.max(0, p.iframes - dt); p.skillCd = Math.max(0, p.skillCd - dt);
+  for (const k in G.buffs) G.buffs[k] = Math.max(0, G.buffs[k] - dt);
+  if (G.buffs.berserk > 0 && Math.random() < .2) burst(p.pos.clone().setY(rand(.5, 1.8)), 'blood', 1, 1, .5);
+  if (G.buffs.execute > 0 && Math.random() < .2) burst(p.pos.clone().setY(1.3), 'dark', 1, 1, .5);
   p.stDelay -= dt;
   if (p.stDelay <= 0) p.st = Math.min(p.maxSt, p.st + (p.blocking ? 10 : 34 * G.up.regen) * dt);
   _fwd.set(-Math.sin(G.camYaw), 0, -Math.cos(G.camYaw));
@@ -2503,7 +2677,7 @@ function updatePlayer(dt) {
     if ((input.special || input.execute) && exT) startExecution(exT);
     else if (input.special && G.glory >= 100) startAttack('special');
     else if (input.special) toast('Слава ещё не полна — бей врагов, толпа заметит', 1.2);
-    else if (input.dodge && useStamina(22)) {
+    else if (input.dodge && useStamina(C.cheapDodge ? 10 : 22)) {
       p.state = 'dodge'; p.t = 0; p.iframes = .38; sfx.dodge();
       p.dodgeDir.copy(mvLen > .1 ? _mv : new V3(-Math.sin(p.facing), 0, -Math.cos(p.facing)));
       p.facing = Math.atan2(p.dodgeDir.x, p.dodgeDir.z);
@@ -2526,7 +2700,7 @@ function updatePlayer(dt) {
   if (p.state === 'free') {
     p.blocking = input.block && p.st > 1 && fighting;
     if (p.blocking && !wasBlocking) p.blockStart = G.time;
-    speed = (p.blocking ? 2.3 : C.speed) * G.up.speed * mvLen * legMul;
+    speed = (p.blocking ? 2.3 : C.speed) * G.up.speed * mvLen * legMul * (G.buffs.wall > 0 ? .5 : 1);
     const lockT = G.lock && G.lock.alive ? G.lock : null;
     if (mvLen > .1) p.pos.addScaledVector(_mv, speed * dt);
     let tgtFace = null;
@@ -2592,6 +2766,28 @@ function updatePlayer(dt) {
         for (const e of G.units) { if (!e.alive || e.team !== 'enemy') continue; if (flatDist(e.pos, p.pos) < 4.2 + e.radius * .5) { hit(e, 16 * G.up.dmg, p, { kind: 'stomp', ignoreGuard: true }); stun(e, 1.6); } }
       }
       if (p.t > .8) { p.state = 'free'; p.t = 0; }
+    } else if (['berserk', 'holy', 'riposte', 'execute', 'wall', 'cry', 'showoff', 'drain'].includes(s)) {
+      if (!p.skillDone && p.t > .2) { p.skillDone = true; applyBuffSkill(s); }
+      if (p.t > .5) { p.state = 'free'; p.t = 0; }
+    } else if (s === 'flurry') {
+      p.flT = (p.flT || 0) - dt;
+      if (p.t > .08 && p.t < .85 && p.flT <= 0) {
+        p.flT = .12; sfx.swing(C.look.weapon, false);
+        for (const e of G.units) { if (!e.alive || e.team !== 'enemy') continue; const d = flatDist(e.pos, p.pos), an = Math.abs(angDiff(p.facing, Math.atan2(e.pos.x - p.pos.x, e.pos.z - p.pos.z))); if (d < player.model.reach + .4 + e.radius && an < 1.1) hit(e, 8 * G.up.dmg * bannerMul(p), p, { kind: 'light', noStagger: Math.random() < .5, bleed: .12 }); }
+        p.pos.addScaledVector(fw, .25);
+      }
+      if (p.t > .9) { p.state = 'free'; p.t = 0; }
+    } else if (s === 'sweep360') {
+      if (p.t > .1 && p.t < .6) p.facing += dt * TAU * 2;
+      if (!p.skillDone && p.t > .3) { p.skillDone = true; sfx.swing('halberd', true); for (const e of G.units) { if (!e.alive || e.team !== 'enemy') continue; if (flatDist(e.pos, p.pos) < player.model.reach + 1.2 + e.radius) hit(e, C.heavy * .8 * G.up.dmg, p, { kind: 'heavy', kb: 9 }); } burst(p.pos.clone().setY(.2), 'dust', 25, 5, .5); }
+      if (p.t > .65) { p.state = 'free'; p.t = 0; }
+    } else if (s === 'charge') {
+      if (p.t > .08 && p.t < .55) {
+        p.pos.addScaledVector(fw, 15 * dt); p.iframes = .1;
+        for (const e of G.units) { if (!e.alive || e.team !== 'enemy' || p.hitSet.has(e)) continue; if (flatDist(e.pos, p.pos) < 1.6 + e.radius) { p.hitSet.add(e); hit(e, 22 * G.up.dmg, p, { kind: 'bash', ignoreGuard: true, kb: 10 }); stun(e, 1.1); } }
+        if (Math.random() < .6) burst(p.pos.clone().setY(.1), 'dust', 2, 3, .3);
+      }
+      if (p.t > .7) { p.state = 'free'; p.t = 0; }
     } else if (s === 'whirl') {
       p.pos.addScaledVector(fw, 11 * Math.max(0, 1 - p.t / .5) * dt);
       for (const e of G.units) {
@@ -2664,6 +2860,10 @@ function updatePlayer(dt) {
   if (p.state === 'skill') {
     if (p.skill === 'bash') { pose.shLx = -1.5; pose.elLx = 1.4; pose.torY = .5; pose.torX = .3; pose.bodyY = -.15; }
     else if (p.skill === 'net') applyCurve(pose, CURVE.throwL, clamp(p.t / .55, 0, 1));
+    else if (['berserk', 'holy', 'riposte', 'execute', 'wall', 'cry', 'showoff', 'drain'].includes(p.skill)) { pose.shRx = -2.8; pose.elRx = -.2; pose.headX = -.35; pose.torX = -.15; if (p.skill === 'wall' || p.skill === 'riposte') { pose.shRx = -1.4; pose.shLx = -1.3; pose.elLx = 1.15; pose.headX = 0; } }
+    else if (p.skill === 'flurry') { applyCurve(pose, Math.floor(p.t * 8) % 2 ? CURVE.light2 : CURVE.light, (p.t * 8) % 1); }
+    else if (p.skill === 'sweep360') { pose.shRz = -1.5; pose.shRx = -.4; pose.elRx = 0; pose.shLz = 1.2; pose.bodyY = -.15; }
+    else if (p.skill === 'charge') { pose.shLx = -1.5; pose.elLx = 1.4; pose.torX = .4; pose.bodyY = -.18; pose.bodyX = .15; }
     else if (p.skill === 'lunge') { applyCurve(pose, CURVE.thrustH, clamp(.45 + p.t * .5, 0, 1)); pose.bodyX = .25; pose.bodyY = -.2; }
     else if (p.skill === 'quake') { const k = clamp(p.t / .42, 0, 1); pose.shRx = pose.shLx = p.t < .42 ? -2.9 * k : .2; pose.elRx = pose.elLx = -.3; pose.torX = p.t < .42 ? -.3 * k : .6; pose.bodyY = p.t < .42 ? 0 : -.3; }
     else { pose.shRz = -1.4; pose.shLz = 1.4; pose.shRx = -.4; pose.shLx = -.4; pose.elRx = 0; pose.elLx = 0; pose.torY = Math.sin(p.t * 40) * .6; pose.bodyY = -.18; }
@@ -2757,7 +2957,7 @@ function buildViewModel() {
   if (look.shield) { const sh = buildShield(look.shield, M(look.paint || 0x8c1f14), metal); sh.scale.setScalar(look.shield === 'scutum' ? .48 : .85); sh.position.set(-.02, .02, -.14); sh.rotation.y = .55; L.hand.add(sh); }
   if (look.net) part(BOX(.2, .15, .15), M(0x9a8a5a), L.hand);
   root.traverse(o => { if (o.isMesh) { o.castShadow = false; o.receiveShadow = false; } });
-  Object.assign(VM, { root, R, L, cur: {}, twoHanded: ['labrys', 'tree'].includes(look.weapon), thrust: THRUST.includes(look.weapon), hasShield: !!look.shield });
+  Object.assign(VM, { root, R, L, cur: {}, twoHanded: TWOH.includes(look.weapon), thrust: THRUST.includes(look.weapon), hasShield: !!look.shield });
 }
 function updateViewModel(dt) {
   if (!VM.root) return;
@@ -2795,8 +2995,9 @@ function updateViewModel(dt) {
   if (VM.twoHanded) { T.lx = T.x - .3; T.ly = T.y - .03; T.lz = T.z - .06; T.lrx = T.rx; T.lry = T.ry; T.lrz = T.rz; }
   const c = VM.cur, a = 1 - Math.exp(-24 * dt);
   for (const k in T) c[k] = c[k] === undefined ? T[k] : lerp(c[k], T[k], a);
-  VM.R.g.position.set(c.x, c.y, c.z); VM.R.g.rotation.set(c.rx, c.ry, c.rz);
-  VM.L.g.position.set(c.lx, c.ly, c.lz); VM.L.g.rotation.set(c.lrx, c.lry, c.lrz);
+  const vs = isTouch ? 1.12 : 1; VM.root.position.set(0, isTouch ? -.05 : 0, isTouch ? -.08 : 0); VM.root.scale.setScalar(isTouch ? .82 : 1);
+  VM.R.g.position.set(c.x * vs, c.y, c.z); VM.R.g.rotation.set(c.rx, c.ry, c.rz);
+  VM.L.g.position.set(c.lx * vs, c.ly, c.lz); VM.L.g.rotation.set(c.lrx, c.lry, c.lrz);
   vmHemi.intensity = todCur.hi + .25; vmDir.intensity = todCur.si * .45 + .25 + todCur.torch * .12;
 }
 window.__vmReady = true; buildViewModel();
@@ -2813,7 +3014,9 @@ function updateCamera(dt) {
   if (G.phase === 'menu') {
     const t = G.time * .07;
     camera.position.set(Math.cos(t) * 17, 7.5 + Math.sin(t * 1.3) * 1.5, Math.sin(t) * 17);
-    camera.lookAt(0, 5, 0); return;
+    camera.lookAt(0, 5, 0);
+    if (player.model) { player.model.root.visible = true; player.model.root.position.set(0, 0, 0); player.model.root.rotation.y = G.time * .4; }
+    return;
   }
   if (keys.has('KeyQ')) G.camYaw += dt * 2.2;
   if (keys.has('KeyE')) G.camYaw -= dt * 2.2;
@@ -2897,6 +3100,8 @@ function updateHud(dt) {
   if (w.leg) chips.push(`<span class="chip leg">Рана ноги${w.leg > 1 ? ' ×2' : ''}</span>`);
   if (w.arm) chips.push(`<span class="chip arm">Рана руки${w.arm > 1 ? ' ×2' : ''}</span>`);
   if (player.state === 'netted') chips.push('<span class="chip net">В сети</span>');
+  const BN = { berserk: 'Ярость', riposte: 'Рипост', execute: 'Приговор', wall: 'Стена щитов', cry: 'Боевой клич' };
+  for (const k in G.buffs) if (G.buffs[k] > 0) chips.push(`<span class="chip net">${BN[k]} ${Math.ceil(G.buffs[k])}</span>`);
   if (G.armor) chips.push(`<span class="chip arm">Доспех ${ROMAN(G.armor)}</span>`);
   const cs = chips.join(''); if (cs !== lastChips) { hud.chips.innerHTML = cs; lastChips = cs; }
   const allies = aliveAllies();
@@ -2960,14 +3165,14 @@ const MODS = {
 };
 const WAVE_NAMES = { tiro: ['новобранец', 'новобранца'], rebel: ['восставший', 'восставших'], retiarius: ['ретиарий', 'ретиария'], murmillo: ['мурмиллон', 'мурмиллона'], sagittarius: ['лучник', 'лучника'], dimachaerus: ['димахер', 'димахера'], champion: ['чемпион арены', 'чемпиона'], wolf: ['волк', 'волка'], lion: ['лев', 'льва'], tiger: ['тигр', 'тигра'], bear: ['медведь', 'медведя'], elephant: ['боевой слон', 'слона'], eques: ['эквит', 'эквита'], hippotoxotes: ['конный лучник', 'конных лучника'], spartacus: ['Спартак', ''], achilles: ['Ахиллес', ''], minotaur: ['Минотавр', ''], centaur: ['кентавр Несс', ''], hercules: ['Геракл', ''], cyclops: ['циклоп Полифем', ''], giant: ['гигант Антей', ''] };
 const MYTH = ['spartacus', 'achilles', 'minotaur', 'centaur', 'hercules', 'cyclops', 'giant'];
-const CAMPAIGN = [null, ['tiro'], ['tiro', 'wolf', 'wolf'], ['murmillo', 'sagittarius'], ['eques', 'tiro'], ['spartacus'], ['lion', 'tiger'], ['murmillo', 'retiarius', 'sagittarius'], ['achilles'], ['bear', 'wolf', 'wolf'], ['hippotoxotes', 'eques', 'dimachaerus'], ['minotaur'], ['champion', 'tiro'], ['elephant', 'tiro', 'tiro'], ['centaur', 'wolf', 'wolf'], ['eques', 'eques', 'sagittarius', 'murmillo'], ['hercules'], ['tiger', 'bear', 'retiarius', 'hippotoxotes'], ['cyclops'], ['champion', 'eques', 'eques', 'dimachaerus'], ['giant']];
+const CAMPAIGN = [null, ['tiro'], ['tiro', 'wolf', 'wolf'], ['h_swordsman', 'h_spearman'], ['eques', 'h_shieldBearer'], ['spartacus'], ['lion', 'h_berserker'], ['h_halberdier', 'h_duelist', 'sagittarius'], ['achilles'], ['bear', 'h_warriorMonk', 'h_mercCaptain'], ['hippotoxotes', 'eques', 'h_veteranKnight'], ['minotaur'], ['champion', 'h_executioner'], ['elephant', 'h_paladin'], ['centaur', 'wolf', 'wolf'], ['h_darkKnight', 'h_royalGuard', 'h_greatsword'], ['hercules'], ['h_blackKnight', 'h_giantHammer', 'hippotoxotes'], ['cyclops'], ['h_royalExecutioner', 'h_arenaChampion', 'eques'], ['giant']];
 function waveList(n) {
   if (G.mode === 'bosses') {
     if (n <= MYTH.length) return { list: [MYTH[n - 1]], mult: 1 };
     return { list: [pick(MYTH), pick(MYTH)], mult: Math.pow(1.12, n - MYTH.length) };
   }
   if (n < CAMPAIGN.length) return { list: CAMPAIGN[n], mult: 1 };
-  const pool = ['tiro', 'retiarius', 'murmillo', 'sagittarius', 'dimachaerus', 'wolf', 'lion', 'tiger', 'bear', 'eques', 'hippotoxotes'];
+  const pool = ['retiarius', 'murmillo', 'sagittarius', 'dimachaerus', 'wolf', 'lion', 'tiger', 'bear', 'eques', 'hippotoxotes'].concat(Object.keys(ARCH).filter(k => k.startsWith('h_')));
   const count = Math.min(3 + Math.floor((n - 21) / 2), 6);
   const list = [];
   if (n % 3 === 0) list.push(pick(MYTH.concat(['champion', 'elephant'])));
@@ -2976,7 +3181,7 @@ function waveList(n) {
 }
 function describeWave(list) {
   const c = {}; for (const t of list) c[t] = (c[t] || 0) + 1;
-  return Object.entries(c).map(([t, k]) => k === 1 || !WAVE_NAMES[t][1] ? WAVE_NAMES[t][0] : `${k} ${WAVE_NAMES[t][1]}`).join(' · ');
+  return Object.entries(c).map(([t, k]) => { const w = WAVE_NAMES[t] || [ARCH[t].name.toLowerCase(), '']; return k === 1 ? w[0] : w[1] ? `${k} ${w[1]}` : `${w[0]} ×${k}`; }).join(' · ');
 }
 function queueSpawn(key, delay, gateIdx, mult, lift) { G.spawnQueue.push({ key, at: G.phaseT + delay, gateIdx, mult, lift }); }
 function doSpawn(s) {
@@ -3043,7 +3248,7 @@ function resolveMercy(spare) {
   }
 }
 function spawnAlly(key) {
-  const label = key === 'allyArcher' ? `${pick(NAMES)} · лучник` : key === 'allyEques' ? `${pick(NAMES)} · эквит` : key === 'dog' ? `Пёс ${pick(DOG_NAMES)}` : key === 'wolf' ? `Волк ${pick(DOG_NAMES)}` : key === 'bear' ? 'Медведь Урс' : `${pick(NAMES)} · брат`;
+  const label = key === 'allyMedic' ? `${pick(NAMES)} · лекарь` : key === 'allyBanner' ? `${pick(NAMES)} · знаменосец` : key === 'allyCrossbow' ? `${pick(NAMES)} · арбалетчик` : key === 'allyGuardian' ? `${pick(NAMES)} · страж` : key === 'merc' ? `${pick(NAMES)} · наёмник` : key === 'allyArcher' ? `${pick(NAMES)} · лучник` : key === 'allyEques' ? `${pick(NAMES)} · эквит` : key === 'dog' ? `Пёс ${pick(DOG_NAMES)}` : key === 'wolf' ? `Волк ${pick(DOG_NAMES)}` : key === 'bear' ? 'Медведь Урс' : `${pick(NAMES)} · брат`;
   const an = Math.PI + rand(-1, 1);
   const u = createUnit(key, 'ally', { pos: new V3(player.pos.x + Math.sin(an) * 2.5, 0, player.pos.z + Math.cos(an) * 2.5), label });
   if (key === 'bear') { u.hp = u.maxHp = 220; u.dmg = 20; }
@@ -3060,7 +3265,7 @@ const UPGRADES = [
   { id: 'ls', k: 'Кровь', t: 'Жажда крови', d: 'Каждое попадание лечит на 3 здоровья.', f: () => { G.up.lifesteal += 3; } },
   { id: 'gl', k: 'Толпа', t: 'Любимец толпы', d: 'Слава копится на 40% быстрее — больше даров.', f: () => { G.up.gloryMul *= 1.4; } },
   { id: 'hv', k: 'Рука', t: 'Тяжёлая рука', d: 'Мощный удар сильнее на 35% и дальше отбрасывает.', f: () => { G.up.heavyMul *= 1.35; } },
-  { id: 'dog', k: 'Бестиарий', t: 'Молосский пёс', d: 'Верный боевой пёс встанет в отряд.', can: () => aliveAllies().length < 4, f: () => spawnAlly('dog') },
+  { id: 'dog', k: 'Бестиарий', t: 'Молосский пёс', d: 'Верный боевой пёс встанет в отряд.', can: () => aliveAllies().length < 5, f: () => spawnAlly('dog') },
   { id: 'med', k: 'Медикус', t: 'Сумка медикуса', d: '+3 бинта и лечение ран ноги и руки.', f: () => { G.bandages += 3; player.w.leg = 0; player.w.arm = 0; cureMarks(player, ['leg', 'arm']); } },
   { id: 'pila', k: 'Арсенал', t: 'Связка пилумов', d: '+3 пилума для метания.', f: () => { G.pila = Math.min(8, G.pila + 3); } },
   { id: 'arm', k: 'Кузня', t: 'Доспех ланисты', d: '+1 уровень доспеха: −10% урона, броня видна на тебе.', can: () => G.armor < 3, f: () => { G.armor++; buildPlayerModel(); } },
@@ -3072,12 +3277,16 @@ const SHOP = [
   { id: 'cure', t: 'Медикус', d: 'Лечит раны ноги и руки: снова быстрый шаг и полная сила удара.', price: () => 30, can: () => player.w.leg || player.w.arm, buy: () => { player.w.leg = 0; player.w.arm = 0; cureMarks(player, ['leg', 'arm']); } },
   { id: 'pila', t: 'Пилумы ×2', d: 'Метательные копья пробивают щиты.', price: () => 20, can: () => G.pila < 8, buy: () => { G.pila = Math.min(8, G.pila + 2); } },
   { id: 'armor', t: 'Доспех', d: 'Каждый уровень снижает входящий урон на 10% (до трёх).', price: () => 50 + 40 * G.armor, can: () => G.armor < 3, buy: () => { G.armor++; buildPlayerModel(); } },
-  { id: 'dog', t: 'Молосский пёс', d: 'Быстрый союзник, укусы вызывают кровотечение.', price: () => 45, can: () => aliveAllies().length < 4, buy: () => spawnAlly('dog') },
-  { id: 'wolf', t: 'Ручной волк', d: 'Прыгает на врагов издалека, валит лучников.', price: () => 70, can: () => aliveAllies().length < 4, buy: () => spawnAlly('wolf') },
-  { id: 'glad', t: 'Брат по школе', d: 'Мурмиллон из твоего лудуса с большим щитом.', price: () => 110, can: () => aliveAllies().length < 4, buy: () => spawnAlly('allyGlad') },
-  { id: 'archer', t: 'Лучник школы', d: 'Стреляет издалека, пока ты держишь строй.', price: () => 80, can: () => aliveAllies().length < 4, buy: () => spawnAlly('allyArcher') },
-  { id: 'eques', t: 'Всадник-эквит', d: 'Конник с копьём таранит врагов на скаку.', price: () => 140, can: () => aliveAllies().length < 4, buy: () => spawnAlly('allyEques') },
-  { id: 'bear', t: 'Медведь из Дакии', d: 'Медленный, но страшный союзник. Лапа ломает строй.', price: () => 170, can: () => aliveAllies().length < 4, buy: () => spawnAlly('bear') },
+  { id: 'dog', t: 'Молосский пёс', d: 'Быстрый союзник, укусы вызывают кровотечение.', price: () => 45, can: () => aliveAllies().length < 5, buy: () => spawnAlly('dog') },
+  { id: 'wolf', t: 'Ручной волк', d: 'Прыгает на врагов издалека, валит лучников.', price: () => 70, can: () => aliveAllies().length < 5, buy: () => spawnAlly('wolf') },
+  { id: 'glad', t: 'Брат по школе', d: 'Мурмиллон из твоего лудуса с большим щитом.', price: () => 110, can: () => aliveAllies().length < 5, buy: () => spawnAlly('allyGlad') },
+  { id: 'archer', t: 'Лучник школы', d: 'Стреляет издалека, пока ты держишь строй.', price: () => 80, can: () => aliveAllies().length < 5, buy: () => spawnAlly('allyArcher') },
+  { id: 'eques', t: 'Всадник-эквит', d: 'Конник с копьём таранит врагов на скаку.', price: () => 140, can: () => aliveAllies().length < 5, buy: () => spawnAlly('allyEques') },
+  { id: 'medic', t: 'Лекарь', d: 'Держится рядом и раз в 6 секунд лечит самого раненого, останавливает кровь.', price: () => 90, can: () => aliveAllies().length < 5, buy: () => spawnAlly('allyMedic') },
+  { id: 'banner', t: 'Знаменосец', d: 'Знамя рядом с ним даёт тебе и отряду +20% к урону.', price: () => 100, can: () => aliveAllies().length < 5, buy: () => spawnAlly('allyBanner') },
+  { id: 'xbow', t: 'Арбалетчик', d: 'Медленные, но мощные болты пробивают доспехи.', price: () => 90, can: () => aliveAllies().length < 5, buy: () => spawnAlly('allyCrossbow') },
+  { id: 'guard', t: 'Страж', d: 'Латник с ростовым щитом. Враги бросаются на него, а не на тебя.', price: () => 120, can: () => aliveAllies().length < 5, buy: () => spawnAlly('allyGuardian') },
+  { id: 'bear', t: 'Медведь из Дакии', d: 'Медленный, но страшный союзник. Лапа ломает строй.', price: () => 170, can: () => aliveAllies().length < 5, buy: () => spawnAlly('bear') },
 ];
 let giftChoices = [], giftChosen = false;
 function openIntermission() {
@@ -3154,7 +3363,7 @@ function clearWorld() {
 function resetGame() {
   clearWorld();
   Object.assign(G, { wave: 0, kills: 0, glory: 0, damageDealt: 0, gold: 0, pila: 2, bandages: 2, armor: 0, mod: null, trapsOn: false, giftMeter: 0, lock: null, spawnQueue: [], mercyUnit: null, mercyTimer: 0, allyMode: 'attack', hitstop: 0, slowmo: 0 });
-  G.up = freshUp();
+  G.up = freshUp(); G.buffs = { berserk: 0, riposte: 0, execute: 0, wall: 0, cry: 0 };
   if (G.mode === 'bosses') Object.assign(G, { gold: 180, bandages: 4, pila: 4, armor: 1 });
   buildPlayerModel();
   const C = player.cls;
@@ -3199,22 +3408,30 @@ refreshRecord();
 function renderClassCards() {
   const wrap = $('classCards'); wrap.innerHTML = '';
   Object.entries(CLASSES).forEach(([id, c]) => {
-    const b = document.createElement('button'); b.type = 'button'; b.className = 'card'; b.id = 'class-' + id;
+    const b = document.createElement('button'); b.type = 'button'; b.className = 'hero'; b.id = 'class-' + id;
     b.setAttribute('aria-pressed', String(G.cls === id));
-    b.innerHTML = '<span class="k"></span><h3></h3><p></p><span class="stats-line"></span>';
-    b.querySelector('.k').textContent = c.k; b.querySelector('h3').textContent = c.name; b.querySelector('p').textContent = c.d; b.querySelector('.stats-line').textContent = c.stats;
+    b.innerHTML = '<b></b><span></span>';
+    b.querySelector('b').textContent = c.name; b.querySelector('span').textContent = c.k;
     b.addEventListener('click', () => { G.cls = id; store.set('arena-class', id); buildPlayerModel(); renderClassCards(); });
     wrap.appendChild(b);
   });
+  const c = CLASSES[G.cls];
+  $('heroDetail').innerHTML = '<span class="k"></span><h3></h3><p></p><span class="st"></span>';
+  const d = $('heroDetail');
+  d.querySelector('.k').textContent = c.k; d.querySelector('h3').textContent = c.name; d.querySelector('p').textContent = c.d;
+  d.querySelector('.st').textContent = `${c.stats} · Навык: ${c.skillName}`;
+  $('heroCount').textContent = `${Object.keys(CLASSES).length} героев`;
 }
 renderClassCards();
 function syncSegs() {
   document.querySelectorAll('#modeSeg button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.v === G.mode)));
   document.querySelectorAll('#viewSeg button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.v === G.view)));
   $('viewBtn2').textContent = G.view === 'fp' ? 'Вид: от первого лица' : 'Вид: от третьего лица';
+  $('viewBtn').textContent = G.view === 'fp' ? 'Вид: 1-е лицо' : 'Вид: 3-е лицо';
 }
 document.querySelectorAll('#modeSeg button').forEach(b => b.addEventListener('click', () => { G.mode = b.dataset.v; store.set('arena-mode', G.mode); syncSegs(); }));
 document.querySelectorAll('#viewSeg button').forEach(b => b.addEventListener('click', () => { G.view = b.dataset.v; store.set('arena-view', G.view); syncSegs(); }));
+$('viewBtn').addEventListener('click', () => { $('viewBtn2').click(); toast(G.view === 'fp' ? 'Вид от первого лица' : 'Вид от третьего лица', 1); });
 $('viewBtn2').addEventListener('click', () => { G.view = G.view === 'fp' ? 'third' : 'fp'; store.set('arena-view', G.view); syncSegs(); });
 syncSegs();
 
@@ -3284,7 +3501,7 @@ const touchState = { stickActive: false, stickId: null, cx: 0, cy: 0, camId: nul
   });
   function moveStick(e) {
     if (e.pointerId !== touchState.stickId) return;
-    let dx = e.clientX - touchState.cx, dy = e.clientY - touchState.cy; const l = Math.hypot(dx, dy), max = 50;
+    let dx = e.clientX - touchState.cx, dy = e.clientY - touchState.cy; const l = Math.hypot(dx, dy), max = stick.offsetWidth * .38;
     if (l > max) { dx *= max / l; dy *= max / l; }
     knob.style.transform = `translate(${dx}px, ${dy}px)`;
     input.moveX = dx / max; input.moveZ = dy / max;
@@ -3379,7 +3596,7 @@ function frame(now) {
 }
 requestAnimationFrame(frame);
 
-window.__arena = { G, player, sun, todCur, setTod, startGame, input, spawnAlly, createUnit, crowdThrow, openIntermission,
+window.__arena = { CLASSES, ARCH, buildPlayerModel, G, player, sun, todCur, setTod, startGame, input, spawnAlly, createUnit, crowdThrow, openIntermission,
   jumpToWave(n) { G.wave = n - 1; for (const u of G.units) if (u.team === 'enemy') { u.alive = false; u.removed = true; scene.remove(u.model.root); u.tag && u.tag.remove(); } G.units = G.units.filter(u => !u.removed); startWave(); } };
 })();
 </script>
