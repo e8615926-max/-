@@ -29,18 +29,19 @@ function makeNoise(seconds, pink) {
 }
 
 function makeImpulse(seconds, decay) {
-  const len = ac.sampleRate * seconds;
-  const b = ac.createBuffer(2, len, ac.sampleRate);
+  const sr = ac.sampleRate, len = Math.floor(sr * seconds);
+  const b = ac.createBuffer(2, len, sr);
+  const refl = [[0.011, 0.5], [0.023, 0.35], [0.041, 0.3], [0.067, 0.25], [0.093, 0.4], [0.141, 0.22], [0.237, 0.3], [0.31, 0.15]];
   for (let c = 0; c < 2; c++) {
     const d = b.getChannelData(c);
+    let lp = 0;
     for (let i = 0; i < len; i++) {
       const t = i / len;
-      // early slap echoes (outdoor buildings) + diffuse tail
-      let v = (Math.random() * 2 - 1) * Math.pow(1 - t, decay);
-      if (i > ac.sampleRate * 0.09 && i < ac.sampleRate * 0.1) v *= 3;
-      if (i > ac.sampleRate * 0.23 && i < ac.sampleRate * 0.24) v *= 2;
-      d[i] = v;
+      const a = 0.15 + 0.8 * t; // stronger smoothing over time = air absorption
+      lp = lp + (1 - a) * ((Math.random() * 2 - 1) - lp);
+      d[i] = lp * Math.pow(1 - t, decay) * (i < sr * 0.02 ? i / (sr * 0.02) : 1);
     }
+    for (const [tt, g] of refl) { const i0 = Math.floor((tt + (c ? 0.004 : 0)) * sr); for (let k = 0; k < 60; k++) if (i0 + k < len) d[i0 + k] += (Math.random() * 2 - 1) * g * (1 - k / 60); }
   }
   return b;
 }
@@ -58,13 +59,14 @@ export function initAudio() {
   master.connect(audio.muffleFilter); audio.muffleFilter.connect(comp); comp.connect(ac.destination);
   sfxBus = ac.createGain(); sfxBus.connect(master);
   ambBus = ac.createGain(); ambBus.gain.value = 0.85; ambBus.connect(master);
-  reverb = ac.createConvolver(); reverb.buffer = makeImpulse(2.6, 3.2);
+  reverb = ac.createConvolver(); reverb.buffer = makeImpulse(3.2, 2.6);
   reverbSend = ac.createGain(); reverbSend.gain.value = 0.55;
   reverbSend.connect(reverb); reverb.connect(master);
   noiseBuf = makeNoise(2, false);
   pinkBuf = makeNoise(4, true);
   audio.ready = true;
   startAmbience();
+  buildBank();
   pickVoice();
   if (window.speechSynthesis) speechSynthesis.onvoiceschanged = pickVoice;
 }
@@ -105,7 +107,7 @@ function out(pos, wet = 0.2, ref = 6) {
   const g = ac.createGain();
   if (pos) {
     const p = ac.createPanner();
-    p.panningModel = 'equalpower'; p.distanceModel = 'inverse';
+    p.panningModel = G.settings.quality === 'high' ? 'HRTF' : 'equalpower'; p.distanceModel = 'inverse';
     p.refDistance = ref; p.rolloffFactor = 1.1; p.maxDistance = 1000;
     if (p.positionX) { p.positionX.value = pos.x; p.positionY.value = pos.y; p.positionZ.value = pos.z; }
     else p.setPosition(pos.x, pos.y, pos.z);
@@ -150,7 +152,7 @@ const GUN = {
   aa: { lp: 4000, bp: 700, dec: 0.2, thump: 50, vol: 0.95, tail: 0.55 },
 };
 
-export function shot(kind, pos, isPlayer) {
+function shotLive(kind, pos, isPlayer) {
   if (!ac) return;
   const d = isPlayer ? 0 : distTo(pos);
   if (d > 420) return;
@@ -205,7 +207,7 @@ export function shellCasing() {
   const g = ac.createGain(); env(g, t, 0.001, 0.05, 0.08); osc('sine', rand(3500, 5200), t, 0.1, g); g.connect(o);
 }
 
-export function whiz(pos) {
+function whizLive(pos) {
   if (!ac || !voice(0.3)) return; const t = ac.currentTime; const o = out(pos, 0.1, 3);
   const g = ac.createGain(); env(g, t, 0.005, 0.7, 0.12);
   const bp = filt('bandpass', 3000, 2); bp.frequency.exponentialRampToValueAtTime(900, t + 0.15); bp.connect(g); g.connect(o);
@@ -213,7 +215,7 @@ export function whiz(pos) {
   const g2 = ac.createGain(); env(g2, t, 0.001, 0.5, 0.03); const hp = filt('highpass', 4000); hp.connect(g2); g2.connect(o); noise(t, 0.05, hp);
 }
 
-export function impact(pos, mat) {
+function impactLive(pos, mat) {
   if (!ac) return; const d = distTo(pos); if (d > 60 || !voice(0.3)) return;
   const t = ac.currentTime; const o = out(pos, 0.1, 3);
   if (mat === 'metal') {
@@ -249,7 +251,7 @@ export function denied() {
 }
 
 // ---------------- Explosions ----------------
-export function explosion(pos, size = 1) {
+function explosionLive(pos, size = 1) {
   if (!ac) return; const d = distTo(pos); if (d > 700) return;
   const t = ac.currentTime + d / 343 * 0.25; // slight delay with distance
   const o = out(pos, 0.9, 14 * size);
@@ -297,7 +299,7 @@ export function bounce(pos, metal) {
 }
 
 // ---------------- Footsteps / body ----------------
-export function footstep(pos, isPlayer, sprint, surface = 'mud') {
+function footstepLive(pos, isPlayer, sprint, surface = 'mud') {
   if (!ac) return; const d = isPlayer ? 0 : distTo(pos); if (d > 30) return;
   if (!isPlayer && !voice(0.2)) return;
   const t = ac.currentTime; const o = out(isPlayer ? null : pos, 0.03, 2);
@@ -531,4 +533,193 @@ export function setPausedAudio(p) {
   if (!ac) return;
   if (p) ac.suspend(); else ac.resume();
   if (p && window.speechSynthesis) speechSynthesis.cancel();
+}
+
+// =====================================================================
+// Pre-rendered sound bank (OfflineAudioContext): rich layered sounds
+// rendered once at startup, then played as cheap buffers with
+// distance filtering, propagation delay and reverb.
+// =====================================================================
+const bank = {}; let bankReady = false;
+
+function drive(oc, k) { const w = oc.createWaveShaper(); const n = 1024, c = new Float32Array(n); for (let i = 0; i < n; i++) { const x = i / (n - 1) * 2 - 1; c[i] = Math.tanh(k * x) / Math.tanh(k); } w.curve = c; return w; }
+function oN(oc, dest, t0 = 0, dur = 3, rate = 1, buf = noiseBuf) { const s = oc.createBufferSource(); s.buffer = buf; s.loop = true; s.playbackRate.value = rate; s.start(t0, Math.random() * 1.5); s.stop(t0 + dur); s.connect(dest); return s; }
+function oF(oc, type, f, q = 0.7) { const b = oc.createBiquadFilter(); b.type = type; b.frequency.value = f; b.Q.value = q; return b; }
+function oE(oc, t, a, peak, d, hold = 0) { const g = oc.createGain(); g.gain.setValueAtTime(0, 0); g.gain.setValueAtTime(0.00001, t); g.gain.linearRampToValueAtTime(peak, t + a); if (hold) g.gain.setValueAtTime(peak, t + a + hold); g.gain.exponentialRampToValueAtTime(0.00001, t + a + hold + d); return g; }
+function chain(...n) { for (let i = 0; i < n.length - 1; i++) n[i].connect(n[i + 1]); return n[n.length - 1]; }
+async function render(dur, fn) {
+  const oc = new OfflineAudioContext(2, Math.ceil(ac.sampleRate * dur), ac.sampleRate);
+  fn(oc, oc.destination);
+  const buf = await oc.startRendering();
+  let peak = 0; for (let c = 0; c < buf.numberOfChannels; c++) { const d = buf.getChannelData(c); for (let i = 0; i < d.length; i++) { const a = Math.abs(d[i]); if (a > peak) peak = a; } }
+  if (peak > 0) for (let c = 0; c < buf.numberOfChannels; c++) { const d = buf.getChannelData(c); const k = 0.95 / peak; for (let i = 0; i < d.length; i++) d[i] *= k; }
+  return buf;
+}
+
+// gun parameters: crack (supersonic snap), body band, boom pitch, decay, tail length, drive
+const GUNP = {
+  pistol: { crack: 0.7, body: 1700, boom: 140, dec: 0.09, tail: 0.5, drv: 3, lowV: 0.6 },
+  rifle: { crack: 1.0, body: 1250, boom: 95, dec: 0.13, tail: 0.9, drv: 5, lowV: 0.9 },
+  smg: { crack: 0.75, body: 1500, boom: 120, dec: 0.08, tail: 0.6, drv: 4, lowV: 0.7 },
+  shotgun: { crack: 0.6, body: 800, boom: 70, dec: 0.2, tail: 1.1, drv: 6, lowV: 1.2 },
+  sniper: { crack: 1.2, body: 950, boom: 65, dec: 0.22, tail: 1.6, drv: 6, lowV: 1.3 },
+  mg: { crack: 1.0, body: 1050, boom: 80, dec: 0.15, tail: 1.0, drv: 6, lowV: 1.0 },
+  autocannon: { crack: 0.9, body: 600, boom: 50, dec: 0.25, tail: 1.4, drv: 7, lowV: 1.5 },
+  aa: { crack: 0.9, body: 700, boom: 55, dec: 0.2, tail: 1.3, drv: 7, lowV: 1.4 },
+};
+function renderGun(P) {
+  return render(P.tail + 0.4, (oc, out) => {
+    const v = 0.85 + Math.random() * 0.3;
+    // 1) supersonic crack / muzzle snap
+    oN(oc, chain(oF(oc, 'highpass', 2200 * v), oE(oc, 0, 0.0006, P.crack, 0.018), out), 0, 0.1);
+    // 2) blast body (distorted band noise)
+    oN(oc, chain(oF(oc, 'bandpass', P.body * v, 0.6), drive(oc, P.drv), oE(oc, 0, 0.001, 0.9, P.dec), out), 0, P.dec + 0.1);
+    // 3) chest-punch boom (falling sine, saturated)
+    const o = oc.createOscillator(); o.frequency.setValueAtTime(P.boom * 2.2, 0); o.frequency.exponentialRampToValueAtTime(P.boom * 0.45, 0.14);
+    chain(o, drive(oc, 2.5), oE(oc, 0, 0.002, P.lowV, 0.2), out); o.start(0); o.stop(0.4);
+    // 4) low air push
+    oN(oc, chain(oF(oc, 'lowpass', 320), oE(oc, 0, 0.003, 0.8 * P.lowV, 0.12), out), 0, 0.3, 0.6);
+    // 5) environmental roar / slapback tail (stereo spread)
+    const sp = oc.createChannelMerger(2);
+    const tl = oE(oc, 0.01, 0.04, 0.16, P.tail); oN(oc, chain(oF(oc, 'lowpass', 1400), tl), 0, P.tail + 0.2, 0.7); tl.connect(sp, 0, 0);
+    const tr = oE(oc, 0.025, 0.04, 0.14, P.tail * 0.9); oN(oc, chain(oF(oc, 'lowpass', 1100), tr), 0, P.tail + 0.2, 0.7); tr.connect(sp, 0, 1);
+    sp.connect(out);
+    // slap echoes off buildings
+    for (const [d, g] of [[0.11, 0.18], [0.27, 0.1], [0.45, 0.06]]) oN(oc, chain(oF(oc, 'bandpass', 900, 0.8), oE(oc, d, 0.003, g * P.lowV, 0.08), out), d, 0.15);
+  });
+}
+function renderCrack() { // distant supersonic crack (heard before the muzzle report)
+  return render(0.12, (oc, out) => { oN(oc, chain(oF(oc, 'highpass', 2500), oE(oc, 0, 0.0004, 1, 0.012), out), 0, 0.05); oN(oc, chain(oF(oc, 'bandpass', 4500, 2), oE(oc, 0.003, 0.0005, 0.5, 0.02), out), 0, 0.05); });
+}
+function renderExplosion(big) {
+  const dur = big ? 4.5 : 3.2;
+  return render(dur, (oc, out) => {
+    // initial shock crack
+    oN(oc, chain(oF(oc, 'highpass', 900), oE(oc, 0, 0.001, 1, 0.05), out), 0, 0.15);
+    // fireball roar (saturated lowpassed noise)
+    const lp = oF(oc, 'lowpass', 2600); lp.frequency.setValueAtTime(2600, 0); lp.frequency.exponentialRampToValueAtTime(140, 1.6);
+    oN(oc, chain(lp, drive(oc, 4), oE(oc, 0, 0.004, 1, big ? 2.0 : 1.4), out), 0, 2.5, 0.7);
+    // sub-bass punch
+    const o = oc.createOscillator(); o.frequency.setValueAtTime(110, 0); o.frequency.exponentialRampToValueAtTime(24, 1.0);
+    chain(o, drive(oc, 3), oE(oc, 0, 0.003, 1.2, big ? 1.6 : 1.1), out); o.start(0); o.stop(2);
+    // rolling rumble (brown-ish noise), stereo decorrelated
+    const m = oc.createChannelMerger(2);
+    for (const ch of [0, 1]) { const g = oE(oc, 0.08 + ch * 0.05, 0.3, 0.45, dur - 0.8); oN(oc, chain(oF(oc, 'lowpass', 110 + ch * 25, 1), g), 0, dur, 0.5, pinkBuf); g.connect(m, 0, ch); }
+    m.connect(out);
+    // debris & dirt falling back
+    for (let i = 0; i < 26; i++) { const t = 0.25 + Math.random() * (big ? 2.2 : 1.5); oN(oc, chain(oF(oc, 'bandpass', 1500 + Math.random() * 4000, 2), oE(oc, t, 0.001, 0.12 * (1 - t / 2.6), 0.03 + Math.random() * 0.05), out), t, 0.12); }
+    oN(oc, chain(oF(oc, 'highpass', 3000), oE(oc, 0.3, 0.2, 0.08, 1.4), out), 0, 2.2);
+  });
+}
+function renderStep() {
+  return render(0.35, (oc, out) => {
+    const v = 0.8 + Math.random() * 0.4;
+    oN(oc, chain(oF(oc, 'lowpass', 260 * v, 1), oE(oc, 0, 0.004, 1, 0.06), out), 0, 0.15, 0.7); // heel
+    const bp = oF(oc, 'bandpass', 1400, 5); bp.frequency.setValueAtTime(1500 * v, 0.02); bp.frequency.exponentialRampToValueAtTime(380, 0.17);
+    oN(oc, chain(bp, oE(oc, 0.02, 0.015, 0.5, 0.13), out), 0, 0.3); // wet squelch
+    const bp2 = oF(oc, 'bandpass', 700, 6); bp2.frequency.setValueAtTime(500, 0.12); bp2.frequency.exponentialRampToValueAtTime(900, 0.25);
+    oN(oc, chain(bp2, oE(oc, 0.12, 0.02, 0.18, 0.1), out), 0, 0.3); // suction as boot lifts
+    oN(oc, chain(oF(oc, 'highpass', 5000), oE(oc, 0.04, 0.001, 0.06, 0.03), out), 0, 0.1); // gear rattle
+  });
+}
+function renderImpact(mat) {
+  return render(mat === 'metal' ? 0.7 : 0.3, (oc, out) => {
+    if (mat === 'metal') {
+      const base = 1300 + Math.random() * 900;
+      for (const [r, g, d] of [[1, 0.5, 0.4], [2.76, 0.3, 0.25], [5.4, 0.2, 0.15], [7.9, 0.1, 0.08]]) { const o = oc.createOscillator(); o.frequency.value = base * r; chain(o, oE(oc, 0, 0.001, g, d), out); o.start(0); o.stop(0.6); }
+      oN(oc, chain(oF(oc, 'highpass', 3000), oE(oc, 0, 0.001, 0.6, 0.02), out), 0, 0.05);
+    } else if (mat === 'flesh') {
+      oN(oc, chain(oF(oc, 'lowpass', 600), drive(oc, 3), oE(oc, 0, 0.002, 1, 0.08), out), 0, 0.2, 0.6);
+      oN(oc, chain(oF(oc, 'bandpass', 1800, 3), oE(oc, 0.01, 0.003, 0.3, 0.06), out), 0, 0.2);
+    } else {
+      const f = mat === 'wood' ? 700 : mat === 'concrete' ? 2200 : 1100;
+      oN(oc, chain(oF(oc, 'bandpass', f, 1.2), oE(oc, 0, 0.001, 1, 0.05), out), 0, 0.15);
+      oN(oc, chain(oF(oc, 'lowpass', 400), oE(oc, 0, 0.002, 0.6, 0.06), out), 0, 0.15);
+      oN(oc, chain(oF(oc, 'highpass', 4000), oE(oc, 0.03, 0.05, 0.12, 0.15), out), 0, 0.25); // dirt/grit sprinkle
+    }
+  });
+}
+function renderWhiz() {
+  return render(0.4, (oc, out) => {
+    const bp = oF(oc, 'bandpass', 4000, 3); bp.frequency.setValueAtTime(4200, 0); bp.frequency.exponentialRampToValueAtTime(700, 0.25);
+    oN(oc, chain(bp, oE(oc, 0, 0.04, 1, 0.2), out), 0, 0.35, 1.5);
+    oN(oc, chain(oF(oc, 'highpass', 3500), oE(oc, 0.04, 0.0005, 0.8, 0.015), out), 0, 0.1);
+  });
+}
+
+async function buildBank() {
+  try {
+    for (const k in GUNP) bank['gun_' + k] = [await renderGun(GUNP[k]), await renderGun(GUNP[k]), await renderGun(GUNP[k])];
+    bank.crack = [await renderCrack(), await renderCrack()];
+    bank.expBig = [await renderExplosion(true), await renderExplosion(true)];
+    bank.exp = [await renderExplosion(false), await renderExplosion(false)];
+    bank.step = []; for (let i = 0; i < 8; i++) bank.step.push(await renderStep());
+    for (const m of ['dirt', 'metal', 'flesh', 'wood', 'concrete']) bank['imp_' + m] = [await renderImpact(m), await renderImpact(m), await renderImpact(m)];
+    bank.whiz = [await renderWhiz(), await renderWhiz()];
+    bankReady = true; audio.bankReady = true;
+  } catch (e) { console.warn('sound bank failed, using live synthesis', e); }
+}
+
+// play a bank buffer in 3D with distance lowpass, propagation delay and reverb
+function playBuf(list, pos, { vol = 1, rate = 1, delay = 0, lp = 20000, wet = 0.25, ref = 8 } = {}) {
+  const buf = list[Math.floor(Math.random() * list.length)];
+  const src = ac.createBufferSource(); src.buffer = buf; src.playbackRate.value = rate * (0.96 + Math.random() * 0.08);
+  const g = ac.createGain(); g.gain.value = vol;
+  let node = src;
+  if (lp < 19000) { const f = filt('lowpass', lp, 0.5); node.connect(f); node = f; }
+  node.connect(g);
+  g.connect(out(pos, wet, ref));
+  src.start(ac.currentTime + delay);
+  return src;
+}
+function farLP(d) { return d < 25 ? 20000 : Math.max(500, 16000 * Math.exp(-(d - 25) / 90)); }
+
+export function shot(kind, pos, isPlayer) {
+  if (!ac) return;
+  if (!bankReady) return shotLive(kind, pos, isPlayer);
+  const d = isPlayer ? 0 : distTo(pos);
+  if (d > 600 || !voice(0.8)) return;
+  const list = bank['gun_' + kind] || bank.gun_rifle;
+  const delay = Math.min(1.4, d / 343);
+  if (!isPlayer && d > 35 && kind !== 'pistol' && kind !== 'smg') { // supersonic crack arrives first
+    playBuf(bank.crack, pos, { vol: 0.5, delay: 0, lp: 9000, wet: 0.1, ref: 10 });
+  }
+  playBuf(list, isPlayer ? null : pos, { vol: isPlayer ? 0.9 : 1.6, delay: isPlayer ? 0 : delay, lp: farLP(d), wet: isPlayer ? 0.35 : 0.3 + Math.min(0.9, d / 150), ref: 9 });
+  if (isPlayer) { // mechanical action
+    const t = ac.currentTime + 0.035; const o2 = out(null, 0); const g4 = ac.createGain(); env(g4, t, 0.001, 0.1, 0.03);
+    const hp = filt('bandpass', 3200, 2); hp.connect(g4); g4.connect(o2); noise(t, 0.05, hp);
+  }
+}
+
+export function explosion(pos, size = 1) {
+  if (!ac) return;
+  if (!bankReady) return explosionLive(pos, size);
+  const d = distTo(pos); if (d > 900) return;
+  const big = size > 1.3;
+  playBuf(big ? bank.expBig : bank.exp, pos, { vol: Math.min(2.2, 0.7 + size * 0.7), rate: clamp(1.25 - size * 0.18, 0.75, 1.4), delay: Math.min(2.5, d / 343), lp: farLP(d * 0.8), wet: 0.6 + Math.min(1, d / 200), ref: 14 * Math.max(0.6, size) });
+  if (d < 14) setTimeout(() => tinnitus(1 - d / 14), 30);
+}
+
+export function footstep(pos, isPlayer, sprint, surface = 'mud') {
+  if (!ac) return;
+  if (!bankReady) return footstepLive(pos, isPlayer, sprint, surface);
+  const d = isPlayer ? 0 : distTo(pos); if (d > 32) return;
+  if (!isPlayer && !voice(0.2)) return;
+  playBuf(bank.step, isPlayer ? null : pos, { vol: (isPlayer ? 0.38 : 0.7) * (sprint ? 1.3 : 1), rate: sprint ? 1.1 : 1, wet: 0.04, ref: 2 });
+}
+
+export function impact(pos, mat) {
+  if (!ac) return;
+  if (!bankReady) return impactLive(pos, mat);
+  const d = distTo(pos); if (d > 70 || !voice(0.3)) return;
+  const list = bank['imp_' + mat] || bank.imp_dirt;
+  playBuf(list, pos, { vol: mat === 'flesh' ? 1 : 0.7, wet: 0.12, ref: 3 });
+  if (mat === 'metal' && Math.random() < 0.35) ricochet(pos);
+}
+
+export function whiz(pos) {
+  if (!ac) return;
+  if (!bankReady) return whizLive(pos);
+  if (!voice(0.3)) return;
+  playBuf(bank.whiz, pos, { vol: 0.9, wet: 0.08, ref: 3 });
 }

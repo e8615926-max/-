@@ -462,7 +462,7 @@ function updateViewModel(dt) {
   const sp = Math.hypot(P.vel.x, P.vel.z);
   const bobX = Math.sin(vmState.bob) * 0.012 * Math.min(1, sp / 4) * (1 - ads * 0.85), bobY = Math.abs(Math.cos(vmState.bob)) * 0.012 * Math.min(1, sp / 4) * (1 - ads * 0.85);
   const sightY = vmCur.userData.sightY;
-  const VS = 0.7; vmCur.scale.setScalar(VS);
+  const VS = G.vmScale || 0.7; vmCur.scale.setScalar(VS);
   const hip = [0.12, -0.15, -0.42], adsP = [0, -sightY * VS, -0.3];
   const scoped = !!w.scope && ads > 0.85;
   let x = hip[0] + (adsP[0] - hip[0]) * ads, y = hip[1] + (adsP[1] - hip[1]) * ads, z = hip[2] + (adsP[2] - hip[2]) * ads;

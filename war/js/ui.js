@@ -37,7 +37,7 @@ export function initInput(h) {
       touchLayer.setPointerCapture(e.pointerId);
       return;
     }
-    if (x < r.width * 0.48 && y > r.height * 0.42 && joy.id === null) {
+    if (x < r.width * 0.42 && y > r.height * 0.3 && joy.id === null) {
       joy.id = e.pointerId; joy.ox = x; joy.oy = y;
       joyBase.style.left = (x - R) + 'px'; joyBase.style.top = (y - R) + 'px'; joyBase.classList.add('on');
       joyKnob.style.transform = 'translate(0px,0px)';

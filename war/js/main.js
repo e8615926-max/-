@@ -3,7 +3,7 @@ import * as THREE from '../lib/three.module.min.js';
 import { G, ALLY, ENEMY, clamp, rand, pick } from './state.js';
 import { buildWorld, updateWorld, BASES, heightAt } from './world.js';
 import { initEffects, updateEffects, setParticleScale, healFx } from './effects.js';
-import { initAudio, setPausedAudio, speak, radioBeep, coin, denied } from './audio.js';
+import { initAudio, setPausedAudio, speak, radioBeep, coin, denied, audio } from './audio.js';
 import { updateUnits, spawnSquad, spawnBaseMedics, commanderShout } from './units.js';
 import { updateVehicles, spawnTeamTank, spawnAA, bombImpact, leadPoint } from './vehicles.js';
 import { updateProjectiles, updateGrenades, award, killUnit } from './combat.js';
@@ -23,6 +23,11 @@ let tickT = 0, flagT = 0;
 
 function start(char) {
   initAudio();
+  if (G.settings.mobile) { // go fullscreen and lock to landscape where supported
+    const el = document.documentElement;
+    const req = el.requestFullscreen || el.webkitRequestFullscreen;
+    try { const pr = req && req.call(el, { navigationUI: 'hide' }); if (pr && pr.then) pr.then(() => screen.orientation?.lock?.('landscape').catch(() => {})).catch(() => {}); } catch (e) {}
+  }
   $('menu').classList.remove('show');
   $('loading').classList.add('show');
   setTimeout(() => setup(char), 60);
@@ -224,9 +229,10 @@ function resize() {
   if (!G.renderer) return;
   G.renderer.setSize(w, h, false);
   const asp = w / h;
-  G.baseFov = asp < 1 ? 86 : 72;
+  G.baseFov = asp < 1 ? 86 : 70;
+  G.vmScale = asp < 1 ? 0.7 : 0.55;
   G.camera.aspect = asp; G.camera.fov = G.baseFov; G.camera.updateProjectionMatrix();
-  G.vmCamera.aspect = asp; G.vmCamera.fov = asp < 1 ? 92 : 62; G.vmCamera.updateProjectionMatrix();
+  G.vmCamera.aspect = asp; G.vmCamera.fov = asp < 1 ? 92 : 68; G.vmCamera.updateProjectionMatrix();
   setParticleScale(G.renderer.domElement.height, G.camera.fov);
   const mm = $('minimap'); mm.width = mm.clientWidth * 2; mm.height = mm.clientHeight * 2;
 }
@@ -291,4 +297,4 @@ $('respawnBtn').addEventListener('click', respawn);
 $('giveUpBtn').addEventListener('click', () => { const P = G.player; if (P && P.state === 'down') killUnit(P, P.lastAttacker, 'bleed', false); });
 document.addEventListener('visibilitychange', () => { if (document.hidden && G.running && !G.paused) pause(true); });
 requestAnimationFrame(frame);
-window.G = G; G.input = input; // debug handle
+window.G = G; G.input = input; G.audio = audio; // debug handle
