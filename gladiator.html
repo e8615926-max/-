@@ -30,9 +30,9 @@
     background: var(--ink); color: var(--marble);
     font-family: var(--font-body); font-size: 15px;
     overflow: hidden; user-select: none; -webkit-user-select: none;
-    -webkit-tap-highlight-color: transparent; touch-action: none;
+    -webkit-tap-highlight-color: transparent;
   }
-  canvas#scene { position: fixed; inset: 0; width: 100%; height: 100%; display: block; }
+  canvas#scene { position: fixed; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; }
 
   /* ---------- HUD ---------- */
   .hud { position: fixed; inset: 0; pointer-events: none; }
@@ -125,17 +125,22 @@
   .top-btns { position: absolute; bottom: calc(env(safe-area-inset-bottom, 0px) + 16px); right: max(16px, env(safe-area-inset-right, 0px)); display: flex; gap: 8px; pointer-events: auto; }
   .icon-btn { font: 600 12px var(--font-body); letter-spacing: .1em; text-transform: uppercase; color: var(--marble-dim); background: rgba(0,0,0,.45); border: 1px solid rgba(240,196,122,.3); border-radius: 3px; padding: 7px 10px; cursor: pointer; }
   .icon-btn:hover, .icon-btn:focus-visible { color: var(--bronze-hi); border-color: var(--bronze-hi); outline: none; }
-  body.touch .top-btns { top: calc(env(safe-area-inset-top, 0px) + 92px); bottom: auto; }
-  body.touch .actions { display: none; }
+  body.is-touch .top-btns { top: calc(env(safe-area-inset-top, 0px) + 92px); bottom: auto; }
+  body.is-touch .actions { display: none; }
 
   /* ---------- Overlays ---------- */
   .overlay {
-    position: fixed; inset: 0; display: grid; place-items: center; overflow-y: auto; touch-action: pan-y;
+    position: fixed; inset: 0; display: flex; flex-direction: column; overflow-y: auto; overflow-x: hidden; touch-action: pan-y; -webkit-overflow-scrolling: touch; overscroll-behavior: contain; z-index: 20;
     background: radial-gradient(ellipse at 50% 40%, rgba(18,13,9,.62), rgba(18,13,9,.92));
     padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
     padding-block: 24px;
   }
-  .tablet { max-width: 680px; width: 100%; text-align: center; display: grid; gap: 16px; justify-items: center; }
+  .tablet { max-width: 680px; width: 100%; margin: auto; text-align: center; display: grid; gap: 16px; justify-items: center; }
+  .sticky-cta { position: sticky; bottom: calc(env(safe-area-inset-bottom, 0px) + 12px); z-index: 2; }
+  body.is-touch .kbd-only { display: none; }
+  .touch-help { display: none; font-size: 13px; color: var(--marble-dim); line-height: 1.5; max-width: 46ch; }
+  body.is-touch .touch-help { display: block; }
+  @media (max-width: 620px) { .title { font-size: clamp(44px, 14vw, 64px); } .lede { font-size: 15px; } .card { padding: 12px; } .card h3 { font-size: 20px; } }
   .tablet.wide { max-width: 900px; }
   .eyebrow { font-size: 12px; letter-spacing: .32em; text-transform: uppercase; color: var(--bronze); }
   .title { font-family: var(--font-display); font-weight: 400; font-size: clamp(54px, 12vw, 116px); line-height: .9; margin: 0; letter-spacing: .04em; color: var(--marble); text-shadow: 0 4px 30px rgba(0,0,0,.7); text-wrap: balance; }
@@ -194,7 +199,8 @@
   .stats span { font-size: 11px; letter-spacing: .2em; text-transform: uppercase; color: var(--marble-dim); }
 
   /* ---------- Touch controls ---------- */
-  .touch { position: fixed; inset: 0; pointer-events: none; }
+  .touch { position: fixed; inset: 0; pointer-events: none; touch-action: none; }
+  .stick, .tbtn { touch-action: none; }
   .stick { position: absolute; left: max(24px, env(safe-area-inset-left, 0px)); bottom: calc(env(safe-area-inset-bottom, 0px) + 28px); width: 128px; height: 128px; border-radius: 50%; border: 1px solid rgba(240,196,122,.35); background: rgba(0,0,0,.25); pointer-events: auto; }
   .stick i { position: absolute; left: 50%; top: 50%; width: 52px; height: 52px; margin: -26px 0 0 -26px; border-radius: 50%; background: rgba(240,196,122,.45); }
   .tbtns { position: absolute; right: max(14px, env(safe-area-inset-right, 0px)); bottom: calc(env(safe-area-inset-bottom, 0px) + 20px); display: grid; grid-template-columns: repeat(3, 58px); gap: 8px; pointer-events: auto; }
@@ -262,7 +268,8 @@
     <p class="lede">Выбери школу боя, собери отряд из гладиаторов и зверей, перевязывай раны и побеждай бой за боем. Толпа любит смелых — и бросает им дары.</p>
     <div class="section-h"><span>Школа боя</span></div>
     <div class="cards" id="classCards"></div>
-    <details class="controls-wrap">
+    <p class="touch-help">Джойстик слева — движение, свайп по арене — камера, кнопки справа — удары, блок, рывок, навык, пилум, бинт и захват цели.</p>
+    <details class="controls-wrap kbd-only">
       <summary>Управление ▾</summary>
       <dl class="controls">
         <dt><kbd>W A S D</kbd></dt><dd>движение относительно камеры</dd>
@@ -280,7 +287,7 @@
         <dt><kbd>P</kbd> / <kbd>M</kbd></dt><dd>пауза / звук</dd>
       </dl>
     </details>
-    <button class="cta" id="startBtn" type="button">Выйти на арену</button>
+    <button class="cta sticky-cta" id="startBtn" type="button">Выйти на арену</button>
     <div class="record" id="recordTxt"></div>
   </div>
 </div>
@@ -296,7 +303,7 @@
     <div class="shop" id="shop"></div>
     <div class="section-h"><span>Твой отряд</span></div>
     <div class="squad-list" id="squadList"></div>
-    <button class="cta" id="nextBtn" type="button" disabled>Выбери дар</button>
+    <button class="cta sticky-cta" id="nextBtn" type="button" disabled>Выбери дар</button>
   </div>
 </div>
 
@@ -350,7 +357,7 @@ const angDiff = (a, b) => { let d = (b - a) % TAU; if (d > Math.PI) d -= TAU; if
 const ROMAN = n => { const m = [[1000,'M'],[900,'CM'],[500,'D'],[400,'CD'],[100,'C'],[90,'XC'],[50,'L'],[40,'XL'],[10,'X'],[9,'IX'],[5,'V'],[4,'IV'],[1,'I']]; let s=''; for (const [v,r] of m) while (n >= v) { s += r; n -= v; } return s; };
 const store = { get(k){ try { return localStorage.getItem(k); } catch(e){ return null; } }, set(k,v){ try { localStorage.setItem(k,v); } catch(e){} } };
 const isTouch = window.matchMedia('(pointer: coarse)').matches || ('ontouchstart' in window && navigator.maxTouchPoints > 0);
-if (isTouch) document.body.classList.add('touch');
+if (isTouch) document.body.classList.add('is-touch');
 const flatDist = (a, b) => Math.hypot(a.x - b.x, a.z - b.z);
 function dirFromTo(a, b) { const d = new V3(b.x - a.x, 0, b.z - a.z); const l = d.length() || 1; return d.multiplyScalar(1 / l); }
 
