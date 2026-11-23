@@ -260,7 +260,7 @@
     <div class="label"><span>Слава</span><span id="killTxt">Побед: 0</span></div>
     <div class="bar gl thin"><i id="glBar"></i></div>
     <div class="gold" id="goldTxt">0 ден.</div>
-    <div class="hint">Толпа требует крови — F</div>
+    <div class="hint" id="gloryHint">Толпа требует крови — F</div>
   </div>
   <div class="banner" id="banner"><h2 id="bannerH">Бой I</h2><p id="bannerP"></p><p class="mod" id="bannerM"></p></div>
   <div class="bossbar" id="bossBar" hidden><div class="bb-name" id="bbName"></div><div class="bar"><i id="bbFill"></i></div></div>
@@ -399,7 +399,7 @@ const angDiff = (a, b) => { let d = (b - a) % TAU; if (d > Math.PI) d -= TAU; if
 const ROMAN = n => { const m = [[1000,'M'],[900,'CM'],[500,'D'],[400,'CD'],[100,'C'],[90,'XC'],[50,'L'],[40,'XL'],[10,'X'],[9,'IX'],[5,'V'],[4,'IV'],[1,'I']]; let s=''; for (const [v,r] of m) while (n >= v) { s += r; n -= v; } return s; };
 const store = { get(k){ try { return localStorage.getItem(k); } catch(e){ return null; } }, set(k,v){ try { localStorage.setItem(k,v); } catch(e){} } };
 const isTouch = window.matchMedia('(pointer: coarse)').matches || ('ontouchstart' in window && navigator.maxTouchPoints > 0);
-if (isTouch) document.body.classList.add('is-touch');
+if (isTouch) { document.body.classList.add('is-touch'); addEventListener('DOMContentLoaded', () => {}); }
 const flatDist = (a, b) => Math.hypot(a.x - b.x, a.z - b.z);
 function dirFromTo(a, b) { const d = new V3(b.x - a.x, 0, b.z - a.z); const l = d.length() || 1; return d.multiplyScalar(1 / l); }
 
@@ -3027,7 +3027,7 @@ function updateCamera(dt) {
   } else if (isTouch && touchState.stickActive && Math.abs(input.moveX) > .3 && player.state === 'free' && G.view !== 'fp') G.camYaw += -input.moveX * dt * .6;
   if (G.view === 'fp' && player.alive) {
     const eye = 1.72 + (player.pose.bodyY || 0) + Math.sin(player.walk * 2) * .035 * player.moveAmt;
-    camera.position.set(player.pos.x + Math.sin(player.facing) * .14, eye, player.pos.z + Math.cos(player.facing) * .14);
+    camera.position.set(player.pos.x - Math.sin(player.facing) * .12, eye, player.pos.z - Math.cos(player.facing) * .12);
     if (G.shake > 0) { camera.position.x += rand(-1, 1) * G.shake * .12; camera.position.y += rand(-1, 1) * G.shake * .12; G.shake = Math.max(0, G.shake - dt * 1.8); }
     camera.rotation.set(-G.fpPitch, G.camYaw, (player.state === 'dodge' ? .08 : 0));
     camTarget.copy(player.pos).setY(1.5);
@@ -3123,7 +3123,7 @@ function updateTags() {
     if (!u.alive) { u.tag.style.display = 'none'; continue; }
     _tp.copy(u.pos); _tp.y = u.height;
     const s = toScreen(_tp), d = u.pos.distanceTo(camera.position);
-    u.tag.style.display = s.vis && d < 40 ? '' : 'none';
+    u.tag.style.display = s.vis && d < 40 && s.y > (isTouch ? 120 : 100) ? '' : 'none';
     u.tag.style.left = s.x + 'px'; u.tag.style.top = s.y + 'px';
     u.tagBar.style.transform = `scaleX(${clamp(u.hp / u.maxHp, 0, 1)})`;
     u.tag.classList.toggle('warn', u.state === 'windup' && u.team === 'enemy');
@@ -3399,6 +3399,7 @@ $('resumeBtn').addEventListener('click', () => setPaused(false));
 function refreshMute() { $('muteBtn').textContent = A.muted ? 'Звук: выкл' : 'Звук: вкл'; if (A.master) A.master.gain.value = A.muted ? 0 : .55; }
 $('muteBtn').addEventListener('click', () => { A.muted = !A.muted; store.set('arena-muted', A.muted ? '1' : '0'); refreshMute(); });
 refreshMute();
+if (isTouch) $('gloryHint').textContent = 'Толпа требует крови — кнопка «Ярость»';
 document.querySelectorAll('.music-btn').forEach(b => b.addEventListener('click', () => { initAudio(); setMusic(!Music.on); }));
 setMusic(Music.on);
 $('muteBtn2').addEventListener('click', () => $('muteBtn').click());
