@@ -363,6 +363,98 @@ const SPECIALS = [
     spcRect(f, 16, 9 + h, 8, 5, '#0a0a0a'); spcSet(f, 17, 10 + h, '#ffffff'); spcSet(f, 21, 10 + h, '#ffffff');      // большие глаза
     spcLine(f, 12, 3 + h, 10, 0 + h, '#3ac03a'); spcLine(f, 18, 3 + h, 20, 0 + h, '#3ac03a'); const o = k % 2 ? '#ff7af0' : '#ffd23a'; spcSet(f, 10, 0 + h, o); spcSet(f, 20, 0 + h, o);   // антенны
     return f; }) },
+  // ---------- ещё 12 особых скинов ----------
+  { ru: 'НИНДЗЯ', en: 'NINJA', a: 'NINJA_KZ', au: { t: 'glow', c: '#ff3a3a' }, fps: 5, make: base => base.map((f0, k) => {
+    const h = spcHd(f0), BK = '#1a1a24', DK = '#2e2e3e';
+    const f = spcRecolor(f0, { ol: '#0a0a10', fur: DK, feet: BK, cream: DK, ear: BK, nose: DK, cheek: DK, scarf: '#d81a1a', scarfD: '#8a0a0a' });
+    spcRect(f, 14, 10 + h, 11, 5, '#e8c8a0'); spcRect(f, 17, 11 + h, 2, 2, '#1a1010'); spcRect(f, 21, 11 + h, 2, 2, '#1a1010');   // прорезь для глаз
+    spcRect(f, 11, 8 + h, 14, 2, '#d81a1a'); const tl = [0, 1, 2, 1][k]; spcLine(f, 11, 9 + h, 6, 7 + h + tl, '#d81a1a'); spcLine(f, 11, 10 + h, 5, 10 + h + tl, '#8a0a0a');   // повязка с хвостами
+    spcLine(f, 8, 28, 20, 16, '#c8d0e0'); spcRect(f, 18, 17, 3, 2, '#5a3a1a');   // меч за спиной
+    return f; }) },
+  { ru: 'ПОЖАРНЫЙ', en: 'FIREFIGHTER', a: 'GAMER_PRO', au: { t: 'fire', c: '#ff8a1e' }, fps: 4, make: base => base.map((f0, k) => {
+    const h = spcHd(f0);
+    const f = spcRecolor(f0, { scarf: '#ffd23a', scarfD: '#c8a020' });
+    spcFillBody(f, 18, 26, (x, y, c) => c === '#4a2410' ? c : (y === 22 ? '#e8ff3a' : '#c81a1a'));
+    spcRect(f, 9, 3 + h, 15, 4, '#d81a1a'); spcRect(f, 7, 7 + h, 19, 2, '#a00a0a'); spcRect(f, 15, 3 + h, 3, 3, '#ffd23a');   // каска с гербом
+    if (k % 2 === 0) { spcLine(f, 24, 22, 29, 19, '#3a3a4a'); for (let i = 0; i < 4; i++) spcSet(f, 29 + (i & 1), 17 - i, '#7ad8ff'); }   // брандспойт и струя
+    return f; }) },
+  { ru: 'ПОВАР', en: 'CHEF', a: 'BANANA_BRO', au: { t: 'spark', c: '#ffffff' }, fps: 4, make: base => base.map((f0, k) => {
+    const h = spcHd(f0);
+    const f = spcRecolor(f0, { scarf: '#ff3a3a', scarfD: '#ffffff' });
+    spcFillBody(f, 18, 26, (x, y, c) => c === '#4a2410' ? c : ((x + y) % 5 === 0 ? '#c8c8d0' : '#ffffff'));
+    spcRect(f, 10, 2 + h, 12, 3, '#ffffff'); spcRect(f, 9, 2 + h, 2, 3, '#ffffff'); spcRect(f, 21, 2 + h, 2, 3, '#ffffff'); spcRect(f, 11, 5 + h, 10, 2, '#e0e0e8');   // колпак
+    spcRect(f, 18, 15 + h, 6, 1, '#3a2010'); spcSet(f, 17, 14 + h, '#3a2010'); spcSet(f, 24, 14 + h, '#3a2010');   // усы
+    const fy = 18 - [0, 3, 5, 3][k]; spcRect(f, 24, 22, 6, 2, '#2a2a34'); spcRect(f, 25, fy, 3, 2, '#ffd23a');   // сковородка и блин в воздухе
+    return f; }) },
+  { ru: 'КОВБОЙ', en: 'COWBOY', a: 'SKY_WOLF', au: { t: 'none', c: '#ffffff' }, fps: 4, make: base => base.map((f0, k) => {
+    const h = spcHd(f0);
+    const f = spcRecolor(f0, { scarf: '#c81a1a', scarfD: '#ffffff' });
+    spcFillBody(f, 18, 26, (x, y, c) => c === '#4a2410' ? c : (x < 14 || x > 22 ? '#8a5a2a' : '#3a6ad8'));   // жилет
+    spcRect(f, 6, 7 + h, 21, 2, '#6a3a1a'); spcRect(f, 10, 2 + h, 13, 5, '#8a5a2a'); spcRect(f, 10, 6 + h, 13, 1, '#3a2010'); spcRect(f, 6, 6 + h, 2, 1, '#6a3a1a'); spcRect(f, 25, 6 + h, 2, 1, '#6a3a1a');   // шляпа
+    spcSet(f, 18, 21, '#ffd23a'); spcSet(f, 19, 21, '#ffd23a'); spcSet(f, 18, 20, '#ffd23a'); spcSet(f, 19, 22, '#ffd23a');   // звезда шерифа
+    if (k === 2) { for (let i = 0; i < 8; i++) spcSet(f, 24 + i, 18 + Math.round(Math.sin(i) * 2), '#c8a060'); }   // лассо
+    return f; }) },
+  { ru: 'МУМИЯ', en: 'MUMMY', a: 'ZOMBIE_MAX', au: { t: 'glow', c: '#d8f07a' }, fps: 4, make: base => base.map((f0, k) => {
+    const h = spcHd(f0), B1 = '#e8dcc0', B2 = '#c8b890';
+    const f = spcRecolor(f0, { ol: '#6a5a3a', fur: (x, y) => (y + Math.floor(x / 3)) % 3 === 0 ? B2 : B1, feet: B2, cream: B1, ear: B2, nose: B2, cheek: B1, scarf: B1, scarfD: B2, eye: '#1a1010' });
+    for (let y = 0; y < G; y++) for (let x = 0; x < G; x++) { const i = y * G + x; if (f[i] && (x * 7 + y * 3) % 11 === 0 && f[i] !== '#6a5a3a') f[i] = B2; }
+    spcRect(f, 17, 12 + h, 2, 1, '#d8f07a'); spcRect(f, 21, 12 + h, 2, 1, '#d8f07a');   // светящиеся глаза
+    const t = [0, 1, 2, 1][k]; spcLine(f, 10, 24, 6, 26 + t, B1); spcLine(f, 10, 25, 7, 28 + t, B2);   // болтается бинт
+    return f; }) },
+  { ru: 'СНЕГОВИК', en: 'SNOWMAN', a: 'ICE_QUEEN', au: { t: 'snow', c: '#ffffff' }, fps: 4, make: base => base.map((f0, k) => {
+    const h = spcHd(f0);
+    const f = spcRecolor(f0, { ol: '#7a9ab8', fur: '#ffffff', feet: '#d8e8f8', cream: '#e8f4ff', ear: '#d8e8f8', nose: '#ff8a1e', cheek: '#ffc8d8', scarf: '#3a8ad8', scarfD: '#1a5aa0' });
+    spcRect(f, 24, 14 + h, 4, 1, '#ff8a1e'); spcSet(f, 28, 14 + h, '#ff8a1e');   // морковка
+    spcRect(f, 11, 1 + h, 11, 5, '#1a1a24'); spcRect(f, 9, 6 + h, 15, 2, '#1a1a24'); spcRect(f, 11, 4 + h, 11, 1, '#c81a1a');   // цилиндр
+    for (const y of [20, 23, 26]) spcRect(f, 19, y, 2, 2, '#1a1a24');   // пуговицы-угольки
+    spcLine(f, 9, 21, 4, 17 - (k & 1), '#6a3a1a'); spcLine(f, 6, 18 - (k & 1), 4, 16 - (k & 1), '#6a3a1a');   // рука-веточка
+    return f; }) },
+  { ru: 'СКЕЛЕТ', en: 'SKELETON', a: 'MRBLACK_2008', au: { t: 'glow', c: '#7affd8' }, fps: 4, make: base => base.map((f0, k) => {
+    const h = spcHd(f0), BN = '#f0f0e8', BK = '#14141c';
+    const f = spcMap(f0, (c, x, y) => y >= 18 && y <= 27 ? (c === '#4a2410' || c === '#1a1010' ? BK : BK) : (c === '#4a2410' ? BK : c === '#1a1010' ? BK : BN));
+    for (let y = 19; y <= 25; y += 2) spcRect(f, 13, y, 10, 1, BN); spcRect(f, 17, 18, 2, 9, BN);   // рёбра и позвоночник
+    spcRect(f, 16, 10 + h, 4, 4, BK); spcRect(f, 21, 10 + h, 3, 4, BK); spcSet(f, 17, 11 + h, k % 2 ? '#7affd8' : BK); spcSet(f, 22, 11 + h, k % 2 ? '#7affd8' : BK);   // глазницы
+    for (let x = 18; x < 25; x += 2) spcSet(f, x, 16 + h, BK);   // зубы
+    return f; }) },
+  { ru: 'АНГЕЛ', en: 'ANGEL', a: 'STARGIRL', au: { t: 'glow', c: '#fff6a0' }, fps: 4, make: base => base.map((f0, k) => {
+    const h = spcHd(f0);
+    const f = spcRecolor(f0, { fur: '#fff0d8', feet: '#f0d8b0', cream: '#ffffff', scarf: '#ffffff', scarfD: '#e8e8f8' });
+    spcFillBody(f, 18, 27, (x, y, c) => c === '#4a2410' ? c : '#ffffff');
+    const fl = [0, 2, 3, 2][k]; for (let j = 0; j < 4; j++) spcRect(f, 3 + j, 15 - fl + j * 2, 8 - j, 2, j % 2 ? '#e8ecff' : '#ffffff');   // крыло машет
+    for (let x = 12; x < 22; x++) { spcSet(f, x, 2 + h, '#ffd23a'); } spcSet(f, 11, 3 + h, '#ffd23a'); spcSet(f, 22, 3 + h, '#ffd23a');   // нимб
+    return f; }) },
+  { ru: 'ДЕМОН', en: 'DEMON', a: 'TOXIC_FOX', au: { t: 'fire', c: '#ff3a1a' }, fps: 4, make: base => base.map((f0, k) => {
+    const h = spcHd(f0);
+    const f = spcRecolor(f0, { ol: '#2a0408', fur: '#c81a1a', feet: '#5a0a0a', cream: '#ff6a5a', eye: '#ffd23a', ear: '#8a0a0a', nose: '#5a0a0a', cheek: '#ff6a5a', scarf: '#1a1010', scarfD: '#3a0a0a' });
+    spcLine(f, 13, 5 + h, 11, 1 + h, '#1a1010'); spcLine(f, 14, 5 + h, 12, 1 + h, '#3a3a3a'); spcLine(f, 20, 5 + h, 22, 1 + h, '#1a1010'); spcLine(f, 21, 5 + h, 23, 1 + h, '#3a3a3a');   // рога
+    const t = [0, 1, 2, 1][k]; spcLine(f, 9, 26, 4, 22 - t, '#8a0a0a'); spcRect(f, 3, 20 - t, 3, 2, '#8a0a0a');   // хвост со стрелкой
+    return f; }) },
+  { ru: 'РОК-ЗВЕЗДА', en: 'ROCK STAR', a: 'ARTEMKA', au: { t: 'spark', c: '#ff3aff' }, fps: 6, make: base => base.map((f0, k) => {
+    const h = spcHd(f0);
+    const f = spcRecolor(f0, { scarf: '#1a1a24', scarfD: '#3a3a4a' });
+    spcFillBody(f, 18, 26, (x, y, c) => c === '#4a2410' ? c : '#1a1a24');
+    for (let x = 9; x < 22; x += 2) spcLine(f, x, 7 + h, x - 2 + (k & 1), 1 + h, x % 4 ? '#ff3aff' : '#c01ad8');   // ирокез
+    spcRect(f, 16, 11 + h, 8, 2, '#1a1a24');   // тёмные очки
+    spcRect(f, 20, 21, 9, 3, '#ff3a3a'); spcRect(f, 26, 20, 4, 5, '#ff3a3a'); spcLine(f, 12, 22, 20, 22, '#c8a060'); spcRect(f, 9, 21, 3, 3, '#1a1a24');   // гитара
+    if (k === 1 || k === 3) { spcSet(f, 29, 16, '#ffd23a'); spcSet(f, 27, 15, '#ffd23a'); }   // ноты
+    return f; }) },
+  { ru: 'ДЕТЕКТИВ', en: 'DETECTIVE', a: 'LUNA_ART', au: { t: 'none', c: '#ffffff' }, fps: 4, make: base => base.map((f0, k) => {
+    const h = spcHd(f0);
+    const f = spcRecolor(f0, { scarf: '#6a4a2a', scarfD: '#4a3010' });
+    spcFillBody(f, 18, 27, (x, y, c) => c === '#4a2410' ? c : ((x + y) % 4 ? '#a08050' : '#8a6a40'));   // плащ
+    spcRect(f, 9, 4 + h, 15, 3, '#8a6a40'); spcRect(f, 7, 7 + h, 19, 2, '#6a4a2a'); spcRect(f, 9, 6 + h, 15, 1, '#3a2010');   // шляпа
+    const gx = 24 + [0, 1, 0, -1][k]; spcRect(f, gx, 13, 5, 5, '#3a2010'); spcRect(f, gx + 1, 14, 3, 3, '#c8f0ff'); spcLine(f, gx + 2, 18, gx, 21, '#3a2010');   // лупа
+    return f; }) },
+  { ru: 'КИБОРГ', en: 'CYBORG', a: 'PIXELKING', au: { t: 'spark', c: '#ff3a3a' }, fps: 5, make: base => base.map((f0, k) => {
+    const h = spcHd(f0);
+    const f = spcRecolor(f0, { scarf: '#6a6a7a', scarfD: '#3a3a4a' });
+    spcRect(f, 19, 8 + h, 8, 9, '#3a3a4a'); spcRect(f, 20, 9 + h, 6, 7, '#a0a8b8'); spcRect(f, 20, 9 + h, 6, 1, '#d8e0ec');   // стальная пластина на пол-лица
+    for (const [x, y] of [[20, 15], [25, 15], [25, 9]]) spcSet(f, x, y + h, '#6a7080');
+    spcRect(f, 21, 11 + h, 3, 3, '#1a1010'); spcRect(f, 22, 12 + h, 1, 1, k % 2 ? '#ff3a3a' : '#ff9a9a'); spcSet(f, 21, 11 + h, '#ff3a3a');   // красный глаз
+    if (k === 2) for (let x = 24; x < G; x++) spcSet(f, x, 12 + h, '#ff3a3a');   // лазер
+    spcFillBody(f, 18, 26, (x, y, c) => c === '#4a2410' ? c : x > 17 ? ((x + y) % 3 ? '#a0a8b8' : '#6a7080') : c);   // механическая половина тела
+    spcRect(f, 18, 22, 1, 1, '#3af0ff'); spcRect(f, 20, 24, 1, 1, '#3af0ff');
+    return f; }) },
 ];
 function botSkins() {
   const out = [], base = tplFrames(), now = Date.now();
@@ -371,23 +463,26 @@ function botSkins() {
     const frames = base.map(fr => { const g = fr.map(c => c && !keep.has(c) ? hueShift(c, idea[4]) : c); for (const [x, y, w, h, col] of ACC[idea[5]]) for (let yy = y; yy < y + h; yy++) for (let xx = x - 2; xx < x - 2 + w; xx++) if (xx >= 0 && xx < G && yy >= 0 && yy < G) g[yy * G + xx] = col; return g; });
     const R = round(now), born = R.start + Math.floor(hash(i * 7 + 3 + R.n * 101) * (i < 5 ? 0.2 : SUBMIT_D) * DAY);   // в каждом конкурсе боты выкладывают скины в разные дни (пятеро — в первые часы)
     if (born > now) return;
-    out.push({ id: 'b' + R.n + '_' + i, bot: true, u: 'bot_' + author, n: author, t: T(idea[0], idea[1]), d: T('СКИН ОТ ' + author + '. ЛАЙКНИ, ЕСЛИ НРАВИТСЯ!', 'A SKIN BY ' + author + '. LIKE IT IF YOU DO!'), k: i % 4 === 3 ? 'a' : 's', an: true, fps: 6, frames, au: { t: idea[2], c: idea[3] }, bg: '#3a2a6a', ts: born });
+    out.push({ id: 'b' + R.n + '_' + i, bot: true, u: 'bot_' + author, n: author, t: T(idea[0], idea[1]), q: idea[0] + ' ' + idea[1], d: T('СКИН ОТ ' + author + '. ЛАЙКНИ, ЕСЛИ НРАВИТСЯ!', 'A SKIN BY ' + author + '. LIKE IT IF YOU DO!'), k: i % 4 === 3 ? 'a' : 's', an: true, fps: 6, frames, au: { t: idea[2], c: idea[3] }, bg: '#3a2a6a', ts: born });
   });
   // особые скины — всегда в ленте (у каждого конкурса свой номер)
-  { const R = round(now); SPECIALS.forEach((sp, i) => { try { out.push({ id: 'x' + R.n + '_' + i, bot: true, u: 'bot_' + sp.a, n: sp.a, t: T(sp.ru, sp.en), d: T('ОСОБЫЙ СКИН ОТ ' + sp.a + '. ЛАЙКНИ, ЕСЛИ НРАВИТСЯ!', 'A SPECIAL SKIN BY ' + sp.a + '. LIKE IT IF YOU DO!'), k: 's', an: true, fps: sp.fps, frames: sp.fr || (sp.fr = sp.make(base)), st: sp.stc || (sp.stc = Object.assign(autoStates(sp.fr), sp.st ? sp.st(base, sp.fr) : {})), au: { ...sp.au }, bg: '#3a2a6a', ts: R.start + i * 3600e3 }); } catch (e) {} }); }
+  { const R = round(now); SPECIALS.forEach((sp, i) => { try { out.push({ id: 'x' + R.n + '_' + i, bot: true, u: 'bot_' + sp.a, n: sp.a, t: T(sp.ru, sp.en), q: sp.ru + ' ' + sp.en, d: T('ОСОБЫЙ СКИН ОТ ' + sp.a + '. ЛАЙКНИ, ЕСЛИ НРАВИТСЯ!', 'A SPECIAL SKIN BY ' + sp.a + '. LIKE IT IF YOU DO!'), k: 's', an: true, fps: sp.fps, frames: sp.fr || (sp.fr = sp.make(base)), st: sp.stc || (sp.stc = Object.assign(autoStates(sp.fr), sp.st ? sp.st(base, sp.fr) : {})), au: { ...sp.au }, bg: '#3a2a6a', ts: R.start + i * 3600e3 }); } catch (e) {} }); }
   return out;
 }
 const botLikes = s => { const age = Math.max(0, (Date.now() - s.ts) / 36e5), h = hash(strHash(s.id) * 13 + 5); return Math.floor(Math.min(40 + h * 260, age * (0.25 + h * 1.6))); };   // NPC тоже лайкают — и чужие, и твои скины
 
 // ---------- данные ----------
 const S = { list: [], likes: {}, my: new Set(ls.get('myLikes', [])), view: 'new', q: '', online: false, plk: {}, myPl: new Set(ls.get('myPl', [])) };
+// грубые слова в названиях, описаниях и никах закрываем звёздочками (сайтом пользуются дети)
+const BAD = /(?<![а-яёa-z])(?:на|за|вы|по|от|до|рас|при|у)?(?:х+у+[йиеёяю]|пизд|бля|ёб|еба|ебу|ебл|сук[аи]|муд[аио]|пид[оа]?р|залуп|шлюх|письк|писю|жоп|fuck|shit|bitch|dick|cunt|porn|nigg)[а-яёa-z]*/gi;
+const clean = v => String(v || '').replace(BAD, w => w[0] + '*'.repeat(Math.max(2, w.length - 1)));
 function decode(id, v) {
   try { const j = typeof v.j === 'string' ? JSON.parse(v.j) : v; const pal = (j.p || []).slice(0, 64).filter(c => /^#[0-9a-f]{6}$/i.test(c));
     const frames = (j.fr || []).slice(0, MAX_F).map(s => [...String(s).slice(0, G * G)].map(ch => ch === '.' ? null : (pal[parseInt(ch, 36)] || null)));
     if (!frames.length) return null; while (frames[0].length < G * G) frames[0].push(null);
     const dec = s0 => { const a = [...String(s0).slice(0, G * G)].map(ch => ch === '.' ? null : (pal[parseInt(ch, 36)] || null)); while (a.length < G * G) a.push(null); return a; };
     let st = null; if (j.A && typeof j.A === 'object') { st = {}; for (const k of ST_KEYS) if (k !== 'idle' && Array.isArray(j.A[k]) && j.A[k].length) st[k] = j.A[k].slice(0, MAX_F).map(dec); }
-    return { id, st, u: String(v.u || j.u || ''), n: String(j.n || 'PLAYER').slice(0, 20), t: String(j.t || '').slice(0, 30), d: String(j.d || '').slice(0, 160), k: j.k === 'a' ? 'a' : 's', an: !!j.an && frames.length > 1, fps: Math.max(2, Math.min(12, +j.fps || 6)), frames, au: { t: String((j.au || {}).t || 'none'), c: /^#[0-9a-f]{6}$/i.test((j.au || {}).c) ? j.au.c : '#ffd23a' }, bg: /^#[0-9a-f]{6}$/i.test(j.bg) ? j.bg : '#3a2a6a', ts: +v.ts || Date.now() };
+    return { id, st, u: String(v.u || j.u || ''), n: clean(String(j.n || 'PLAYER').slice(0, 20)), t: clean(String(j.t || '').slice(0, 30)), d: clean(String(j.d || '').slice(0, 160)), k: j.k === 'a' ? 'a' : 's', an: !!j.an && frames.length > 1, fps: Math.max(2, Math.min(12, +j.fps || 6)), frames, au: { t: String((j.au || {}).t || 'none'), c: /^#[0-9a-f]{6}$/i.test((j.au || {}).c) ? j.au.c : '#ffd23a' }, bg: /^#[0-9a-f]{6}$/i.test(j.bg) ? j.bg : '#3a2a6a', ts: +v.ts || Date.now() };
   } catch (e) { return null; }
 }
 function encode(sk) {
@@ -472,11 +567,11 @@ const left = ms => { ms = Math.max(0, ms); const d = Math.floor(ms / DAY), h = M
 
 // ---------- экраны ----------
 function card(s) {
-  const c = el('div', 'card' + (s.k === 'a' ? ' av' : '')); c.appendChild(preview(s, 132, { fill: s.k === 'a' ? 0.7 : 0.82 }));
+  const c = el('div', 'card' + (s.k === 'a' ? ' av' : '') + (s.bot ? '' : ' pl')); c.appendChild(preview(s, 132, { fill: s.k === 'a' ? 0.7 : 0.82 }));
   const info = el('div', 'ci'); info.append(el('div', 'ct', s.t || T('БЕЗ НАЗВАНИЯ', 'UNTITLED')));
   const au = el('a', 'ca', '@' + s.n); au.onclick = e => { e.stopPropagation(); go('#u=' + encodeURIComponent(s.u)); }; info.appendChild(au);
   const row = el('div', 'cr'); const lk = el('button', 'lk' + (S.my.has(s.id) ? ' on' : '')); lk.append(el('span', '', '❤'), el('b', '', String(likesOf(s)))); lk.onclick = e => { e.stopPropagation(); toggleLike(s, lk); };
-  const tag = el('span', 'tag', s.k === 'a' ? T('АВАТАРКА', 'AVATAR') : T('СКИН', 'SKIN')); if (s.an) tag.textContent += ' · ' + T('АНИМ.', 'ANIM');
+  const tag = el('span', 'tag', s.k === 'a' ? T('АВАТАРКА', 'AVATAR') : T('СКИН', 'SKIN')); if (s.an) tag.textContent += ' · ' + T('АНИМ.', 'ANIM'); if (!s.bot) tag.textContent = '👤 ' + tag.textContent;
   row.append(lk, tag); info.appendChild(row); c.appendChild(info);
   c.onclick = () => go('#s=' + s.id); return c;
 }
@@ -485,10 +580,11 @@ function viewFeed() {
   const m = $('#main'); m.innerHTML = '';
   const R = round(), hero = el('div', 'hero'); hero.innerHTML = `<div class="ht">${T('КОНКУРС СКИНОВ', 'SKIN CONTEST')} #${R.n + 1}</div><div class="hs">${R.phase === 'submit' ? T('ВЫКЛАДЫВАЙ СКИНЫ — ТОП-3 ПО ЛАЙКАМ ПРОЙДУТ В ФИНАЛ. ДО ФИНАЛА: ', 'POST SKINS — TOP 3 BY LIKES GO TO THE FINAL. FINAL IN: ') + left(R.sEnd - Date.now()) : T('ФИНАЛ! ВЫБЕРИ ЛУЧШИЙ ИЗ ТРЁХ. ОСТАЛОСЬ: ', 'FINAL! PICK THE BEST OF THREE. LEFT: ') + left(R.fEnd - Date.now())}</div><div class="hp">${T('ПОБЕДИТЕЛЬ ПОПАДЁТ В ИГРУ WALL PLAY!', 'THE WINNER GETS INTO WALL PLAY!')}</div>`;
   hero.onclick = () => go('#contest'); m.appendChild(hero);
-  const tabs = el('div', 'tabs'); [['new', T('НОВЫЕ', 'NEW')], ['top', T('ПОПУЛЯРНЫЕ', 'TOP')], ['s', T('СКИНЫ', 'SKINS')], ['a', T('АВАТАРКИ', 'AVATARS')], ['mine', T('МОИ', 'MINE')]].forEach(([k, n]) => { const b = el('button', 'tab' + (S.view === k ? ' on' : ''), n); b.onclick = () => { S.view = k; viewFeed(); }; tabs.appendChild(b); }); m.appendChild(tabs);
+  const tabs = el('div', 'tabs'); [['new', T('НОВЫЕ', 'NEW')], ['pl', T('ИГРОКИ', 'PLAYERS')], ['top', T('ПОПУЛЯРНЫЕ', 'TOP')], ['s', T('СКИНЫ', 'SKINS')], ['a', T('АВАТАРКИ', 'AVATARS')], ['mine', T('МОИ', 'MINE')]].forEach(([k, n]) => { const b = el('button', 'tab' + (S.view === k ? ' on' : ''), n); b.onclick = () => { S.view = k; viewFeed(); }; tabs.appendChild(b); }); m.appendChild(tabs);
   let L = S.list.slice(); const q = S.q.trim().toLowerCase();
-  if (q) L = L.filter(s => (s.t + ' ' + s.d + ' ' + s.n).toLowerCase().includes(q));
+  if (q) L = L.filter(s => (s.t + ' ' + s.d + ' ' + s.n + ' ' + (s.q || '')).toLowerCase().includes(q));
   if (S.view === 's' || S.view === 'a') L = L.filter(s => s.k === S.view);
+  if (S.view === 'pl') L = L.filter(s => !s.bot);
   if (S.view === 'mine') L = L.filter(s => s.u === ME.uid || (!s.bot && s.u === 'me'));
   L.sort(S.view === 'top' ? (a, b) => likesOf(b) - likesOf(a) : (a, b) => b.ts - a.ts);
   if (q) m.appendChild(el('div', 'sub', T('НАЙДЕНО: ', 'FOUND: ') + L.length));
@@ -667,4 +763,10 @@ function route() {
   { const mb = $('#mbtn'); const upd = () => { mb.textContent = SND.mus ? '🔊' : '🔇'; mb.title = SND.mus ? T('ВЫКЛЮЧИТЬ МУЗЫКУ', 'MUSIC OFF') : T('ВКЛЮЧИТЬ МУЗЫКУ', 'MUSIC ON'); }; upd(); mb.dataset.mute = '1'; mb.onclick = () => { SND.toggleMus(); upd(); }; }
   $('#fab').onclick = chooser; $('#home').onclick = () => go('#'); $('#cbtn').onclick = () => go('#contest'); $('#cbtn').textContent = '🏆 ' + T('КОНКУРС', 'CONTEST');
   addEventListener('hashchange', route); route();
+  setInterval(async () => {
+    if (document.hidden || (location.hash && location.hash !== '#') || document.activeElement === $('#q')) return;
+    const before = S.list.filter(s => !s.bot).map(s => s.id + (S.likes[s.id] | 0)).join();
+    try { await load(); } catch (e) { return; }
+    if (S.list.filter(s => !s.bot).map(s => s.id + (S.likes[s.id] | 0)).join() !== before && (!location.hash || location.hash === '#')) { const y = scrollY; viewFeed(); scrollTo(0, y); }
+  }, 45000);
 })();

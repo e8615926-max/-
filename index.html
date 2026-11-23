@@ -3395,7 +3395,7 @@ function pick(opts) {
 }
 
 // Пиксельные примитивы: «пиксель» = 2×2 точки
-const APP_VER = 'v112';
+const APP_VER = 'v113';
 let AV_HQ = false;   // рисуем аватарку: точные фигуры без привязки к сетке 2×2 (иначе глаза выходили разного размера)
 function prect(c, x, y, w, h, col) {
   if (AV_HQ) { c.fillStyle = col; c.fillRect(x, y, w, h); return; }
@@ -7549,12 +7549,11 @@ function emoSnd(id) {   // у каждой эмоции свой звук
   else { tone(700, 1100, 0.1, 'square', 0.05); tone(900, 1400, 0.12, 'triangle', 0.04, 0.08); }
 }
 function emoDo(id) {
-  if ((state !== 'play' && state !== 'menu') || !emoWheel().includes(id)) return; p.em = { id, t0: time }; emOpen = false; menuEmOpen = false; idleT = 0;   // выбрал — панель закрывается
+  if ((state !== 'play' && state !== 'menu') || !emoWheel().includes(id)) return; p.em = { id, t0: time }; emOpen = false; idleT = 0;   // выбрал — панель закрывается
   emoSnd(id);   // только значок над героем и звук — без вспышек вокруг героя
   if (mp.active) mpSend({ t: 'em', e: id });
 }
 // смайлики в меню: облачко «…» (будто кто-то пишет); нажал — веер смайликов, выбрал — герой показывает, веер закрывается
-let menuEmOpen = false, menuEmT = 0;
 function emoPlayClick(pt) {
   const wl = emoWheel(); if (!wl.length || TUT.on) return false;
   if (inRect(pt, EMO_BTN)) { emOpen = !emOpen; if (emOpen) emOpenT = time; sfx.click(); return true; }
@@ -12986,7 +12985,7 @@ function drawMenu() {
   mpMenu();
   drawMenuMeta();
   drawGearBtn();
-  const hint = (IDLE[curSkin().id] ? clamp(1 - (idleT - 9.5) * 2, 0, 1) : 1) * (1 - menuMoreT);   // во время сценки и при открытых кнопках подсказка уходит
+  const hint = (IDLE[curSkin().id] ? clamp(1 - (idleT - 9.5) * 2, 0, 1) : 1);   // во время сценки подсказка уходит
   ctx.globalAlpha = hint;
   text(T('tap1'), W / 2 + 10, 470, 2, '#ffffff');
   text(T('tap2'), W / 2 - 14, 494, 2, '#ffffff', 'center', OL, W - 100);
@@ -15991,7 +15990,7 @@ function drawHomeBtn() {
   pixIcon(HOME_PIX, HOME_COL, cx, cy, 0.9);
 }
 function goHome() {
-  sfx.click(); sv = null; tentFrom = false; emOpen = false; menuEmOpen = false;
+  sfx.click(); sv = null; tentFrom = false; emOpen = false;
   try { moClose(); } catch (e) {} try { if (sideUi) { sideUi.remove(); sideUi = null; } } catch (e) {}
   state = 'menu'; menuAt = time;
 }
@@ -19468,7 +19467,6 @@ function drawTopIcons() {
 const FRI_PIX = ["...........OOOO....", "..........OBBBBO...", "....OOOO.OBBBBBDO..", "...OWWWWOOBBBBBDO..", "..OWWWWWLOBBBBBDO..", "..OWWWWWLOOBBBDO...", "..OWWWWWLO.OOOO....", "...OWWWLO..OOOOOO..", "....OOOO..OBBBBBDO.", "..OOOOOOOOBBBBBBBDO", ".OWWWWWWWLOBBBBBBDO", "OWWWWWWWWWLOBBBBBDO", "OWWWWWWWWWLOBBBBBDO", "OWWWWWWWWWLOOOOOOOO", "OOOOOOOOOOOO......."], FRI_COL = { O: '#1a1030', W: '#ffffff', L: '#c8d0e8', B: '#8ad8ff', D: '#3a90d8' };
 const NEWS_PIX = ["OOOOOOOOOOOOOOOO..", "OWWWWWWWWWWWWWWO..", "OWRRRRRRRRRRRRWOO.", "OWRRRRRRRRRRRRWOSO", "OWWWWWWWWWWWWWWOSO", "OWPPPPPWGGGGGGWOSO", "OWPPYPPWWWWWWWWOSO", "OWPPPPPWGGGGGGWOSO", "OWPKKPPWWWWWWWWOSO", "OWKKKKPWGGGGGGWOSO", "OWWWWWWWWWWWWWWOSO", "OWGGGGGGWGGGGGWOSO", "OWWWWWWWWWWWWWWOSO", "OWGGGGGGWGGGGWWOSO", "OWWWWWWWWWWWWWWOSO", "OOOOOOOOOOOOOOOOSO", ".OSSSSSSSSSSSSSSSO", "..OOOOOOOOOOOOOOOO"], NEWS_COL = { O: '#1a1030', W: '#ffffff', R: '#e8264a', G: '#9a9ab0', P: '#7ad8ff', Y: '#ffd23a', K: '#3ac06a', S: '#c8c8d8' };
 const SWORD_PIX = ["OOOO.............OOOO", "OHSOO...........OOSHO", "OHWSOO.........OOSWHO", "OOHWSOO.......OOSWHOO", ".OOHWSOO.....OOSWHOO.", "..OOHWSOO...OOSWHOO..", "...OOHWSOO.OOSWHOO...", "....OOHWSOOOSWHOO....", ".....OOHWSOSWHOO.....", "...OOOOOHWSWHOOOOO...", "...ODYOOOSWHOOOYDO...", "...OODYOSWHWSOYDOO...", "....OODYOHOHOYDOO....", "....OOODYOOOYDOOO....", "...OOMNODYOYDONMOO...", "..OOMNOOODYDOOONMOO..", ".OOMNOO.OYDYO.OONMOO.", ".OYYOO..OOOOO..OOYYO.", ".ODYO...........OYDO.", ".OOOO...........OOOO."], SWORD_COL = { O: '#1a1030', W: '#ffffff', H: '#e8ecf8', S: '#a8b0c8', Y: '#ffd23a', D: '#c8820a', N: '#8a4a1a', M: '#5a2a0a' };
-let menuMore = false, menuMoreT = 0;   // стрелки «ЕЩЁ» больше нет: палатка — отдельной кнопкой, союзники и эмоции — внутри палатки
 // квадратная кнопка со скруглёнными углами (друзья, клан)
 function sqBtn(b, col, light, dark, y = b.y) {
   ctx.fillStyle = OL; ctx.fillRect(b.x, y - 2, b.w, b.h + 6); ctx.fillRect(b.x - 2, y, b.w + 4, b.h + 2);
@@ -20267,8 +20265,8 @@ function tourTap() {
   if (TOUR.t < 0.35) return;
   if (pkTalking()) { PKS.shown = pkPlain(PKS.str).length; return; }   // сначала — дочитать
   TOUR.i++; TOUR.t = 0; sfx.click();
-  if (TOUR.i >= TOUR_STEPS.length) { TOUR.on = false; store.set('tourDone', 1); menuMore = false; store.set('menuMore', false); menuAt = time; PKS.str = ''; return; }
-  const S = TOUR_STEPS[TOUR.i]; if (S.open) { menuMore = true; } else if (TOUR.i > 0 && TOUR_STEPS[TOUR.i - 1].open) menuMore = false;
+  if (TOUR.i >= TOUR_STEPS.length) { TOUR.on = false; store.set('tourDone', 1); menuAt = time; PKS.str = ''; return; }
+  const S = TOUR_STEPS[TOUR.i]; 
   pkSay(S.say());
 }
 function tourDraw(dt) {
