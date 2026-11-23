@@ -42,7 +42,7 @@
     position: absolute;
     top: calc(env(safe-area-inset-top, 0px) + 16px);
     left: max(16px, env(safe-area-inset-left, 0px));
-    display: grid; gap: 6px; width: min(300px, 42vw);
+    display: grid; gap: 6px; width: min(280px, 34vw);
   }
   .bar { height: 12px; background: rgba(0,0,0,.55); border: 1px solid rgba(240,196,122,.35); border-radius: 2px; overflow: hidden; position: relative; }
   .bar.thin { height: 7px; }
@@ -72,7 +72,7 @@
   .glory {
     position: absolute; top: calc(env(safe-area-inset-top, 0px) + 16px);
     right: max(16px, env(safe-area-inset-right, 0px));
-    display: grid; gap: 6px; width: min(220px, 32vw); text-align: right;
+    display: grid; gap: 6px; width: min(210px, 28vw); text-align: right;
   }
   .bar.gl > i { background: linear-gradient(90deg, #7a5420, var(--bronze), var(--bronze-hi)); }
   .glory.ready .bar.gl { box-shadow: 0 0 14px rgba(240,196,122,.8); animation: pulse 0.9s ease-in-out infinite; }
@@ -125,7 +125,9 @@
   .top-btns { position: absolute; bottom: calc(env(safe-area-inset-bottom, 0px) + 16px); right: max(16px, env(safe-area-inset-right, 0px)); display: flex; gap: 8px; pointer-events: auto; }
   .icon-btn { font: 600 12px var(--font-body); letter-spacing: .1em; text-transform: uppercase; color: var(--marble-dim); background: rgba(0,0,0,.45); border: 1px solid rgba(240,196,122,.3); border-radius: 3px; padding: 7px 10px; cursor: pointer; }
   .icon-btn:hover, .icon-btn:focus-visible { color: var(--bronze-hi); border-color: var(--bronze-hi); outline: none; }
-  body.is-touch .top-btns { top: calc(env(safe-area-inset-top, 0px) + 92px); bottom: auto; }
+  body.is-touch .top-btns { top: calc(env(safe-area-inset-top, 0px) + 58px); bottom: auto; right: auto; left: 50%; transform: translateX(-50%); }
+  body.is-touch .icon-btn { padding: 5px 8px; font-size: 11px; }
+  @media (max-height: 480px) { .tbtns { grid-template-columns: repeat(3, 52px); gap: 6px; } .tbtn { width: 52px; height: 52px; font-size: 10px; } .stick { width: 112px; height: 112px; bottom: calc(env(safe-area-inset-bottom, 0px) + 18px); } .wave-tag { font-size: 20px; } .banner { top: 18%; } }
   body.is-touch .actions { display: none; }
 
   /* ---------- Overlays ---------- */
@@ -363,8 +365,10 @@ function dirFromTo(a, b) { const d = new V3(b.x - a.x, 0, b.z - a.z); const l = 
 
 /* =================== Renderer & scene =================== */
 const canvas = $('scene');
-const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
-renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, isTouch ? 1.5 : 2));
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: !isTouch, powerPreference: 'high-performance' });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, isTouch ? 1.25 : 2));
+canvas.addEventListener('webglcontextlost', e => { e.preventDefault(); G.glLost = true; if (['fight', 'intro', 'cleared'].includes(G.phase) && !G.paused) setPaused(true); toast('Графика перезапускается…', 3); });
+canvas.addEventListener('webglcontextrestored', () => { G.glLost = false; toast('Графика восстановлена — продолжай', 2); });
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 renderer.outputEncoding = THREE.sRGBEncoding;
@@ -1866,7 +1870,7 @@ function updatePlayer(dt) {
       }
       if (p.t > .55) { p.state = 'free'; p.t = 0; }
     } else if (s === 'whirl') {
-      p.pos.addScaledVector(fw, 11 * (1 - p.t / .5) * dt);
+      p.pos.addScaledVector(fw, 11 * Math.max(0, 1 - p.t / .5) * dt);
       for (const e of G.units) {
         if (!e.alive || e.team !== 'enemy' || p.hitSet.has(e)) continue;
         if (flatDist(e.pos, p.pos) < 1.7 + e.radius) { p.hitSet.add(e); hit(e, 18 * G.up.dmg, p, { kind: 'whirl', bleed: .6 }); }
@@ -1890,7 +1894,7 @@ function updatePlayer(dt) {
       p.state = 'free'; p.t = 0;
     }
   } else if (p.state === 'dodge') {
-    const k = p.t / .42;
+    const k = clamp(p.t / .42, 0, 1);
     p.pos.addScaledVector(p.dodgeDir, 12.5 * legMul * Math.pow(1 - k, 1.6) * dt);
     if (p.t >= .42) { p.state = 'free'; p.t = 0; }
   } else if (p.state === 'stagger') {
@@ -1964,6 +1968,12 @@ function resolve() {
       a.pos.x -= nx * over * wa; a.pos.z -= nz2 * over * wa; b.pos.x += nx * over * wb; b.pos.z += nz2 * over * wb;
     }
   }
+  for (const a of allUnits()) {
+    if (!Number.isFinite(a.pos.x) || !Number.isFinite(a.pos.z)) { a.pos.set(a.isPlayer ? 0 : rand(-3, 3), 0, a.isPlayer ? 4 : rand(-3, 3)); a.vel.set(0, 0, 0); }
+    if (!Number.isFinite(a.vel.x) || !Number.isFinite(a.vel.z)) a.vel.set(0, 0, 0);
+    if (!Number.isFinite(a.facing)) a.facing = 0;
+    if (a.isPlayer && !Number.isFinite(a.hp)) a.hp = a.maxHp;
+  }
   for (const a of actors) { const r = Math.hypot(a.pos.x, a.pos.z), lim = ARENA_R - a.radius; if (r > lim) { a.pos.x *= lim / r; a.pos.z *= lim / r; } }
 }
 
@@ -1992,6 +2002,8 @@ function updateCamera(dt) {
   for (let i = 0; i < 8; i++) { const px = camTarget.x + off.x * dist, pz = camTarget.z + off.z * dist; if (Math.hypot(px, pz) < WALL_R - .6) break; dist *= .85; }
   camera.position.copy(camTarget).addScaledVector(off, dist);
   if (G.shake > 0) { camera.position.x += rand(-1, 1) * G.shake * .3; camera.position.y += rand(-1, 1) * G.shake * .3; G.shake = Math.max(0, G.shake - dt * 1.8); }
+  if (!Number.isFinite(camera.position.x + camera.position.y + camera.position.z)) { camTarget.set(player.pos.x || 0, 1.5, player.pos.z || 0); camera.position.set(camTarget.x, 5, camTarget.z + 6); }
+  if (!Number.isFinite(G.camYaw)) G.camYaw = 0;
   camera.lookAt(camTarget.x, camTarget.y + .3, camTarget.z);
 }
 function toggleLock() {
