@@ -103,6 +103,31 @@ body.touch #mission{top:150px;font-size:12px;max-width:40vw}
 body.touch #hint{bottom:12px;font-size:14px}
 body.touch #feed{top:auto;bottom:12px;left:50%;transform:translateX(-50%);font-size:12px}
 @media(max-width:700px){.cols{grid-template-columns:1fr}}
+#war{position:absolute;top:8px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,.6);padding:6px 14px;border-radius:8px;font-size:15px;white-space:nowrap;text-shadow:1px 1px 0 #000}
+#arbar{height:6px;background:rgba(0,0,0,.6);border:2px solid #000;margin-top:3px;border-radius:3px;overflow:hidden}#arfill{height:100%;width:0;background:linear-gradient(90deg,#2f7cff,#8fc0ff)}
+.nb{height:6px;width:140px;margin-left:auto;margin-top:4px;background:rgba(0,0,0,.6);border:1px solid #000;border-radius:3px;overflow:hidden}.nb i{display:block;height:100%;background:linear-gradient(90deg,#3af,#aef)}
+#scope{position:fixed;inset:0;pointer-events:none;z-index:4;display:none;background:radial-gradient(circle at center,transparent 0,transparent 30vmin,rgba(0,0,0,.96) 31vmin)}
+#scope:before,#scope:after{content:'';position:absolute;background:rgba(0,0,0,.85)}#scope:before{left:50%;top:20vh;bottom:20vh;width:2px}#scope:after{top:50%;left:30vw;right:30vw;height:2px}
+.ov{position:fixed;inset:0;background:rgba(0,0,0,.78);z-index:16;display:flex;align-items:flex-start;justify-content:center;padding:14px;overflow:auto}
+.ov .panel{font-family:Arial,sans-serif;margin:auto}
+.gp{width:min(1150px,100%)!important}
+.gh{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:8px}.gh h2{font-family:'Russo One',Impact,sans-serif;color:#ffd21f;font-weight:normal}
+.xbtn{background:#2a3448;border:none;color:#fff;font-size:20px;border-radius:8px;width:40px;height:40px;cursor:pointer;flex:none}
+.gcols{display:grid;grid-template-columns:minmax(0,400px) 1fr;gap:16px}
+#terr{width:100%;aspect-ratio:1;border-radius:10px;cursor:pointer;display:block}
+#terrInfo{margin-top:8px;font-size:14px;line-height:1.6}
+.gcard{border-left:5px solid;background:rgba(255,255,255,.05);border-radius:10px;padding:9px 12px;margin-bottom:9px}
+.gcard .t{font-family:'Russo One',Impact,sans-serif;font-size:18px}
+.sm{font-size:13px;color:#c8d3de;margin-top:3px}
+.chip{display:inline-block;padding:1px 7px;border-radius:10px;font-size:12px;margin:2px 3px 0 0;color:#fff}
+.chip.ally{background:#1f6b2e}.chip.enemy{background:#8a1f1f}.chip.neutral{background:#444}
+.rep{height:8px;background:#222;border-radius:4px;position:relative;overflow:hidden;margin-top:4px}.rep i{position:absolute;top:0;bottom:0}
+.sbtn{padding:7px 11px;border:none;border-radius:7px;background:#ffd21f;color:#111;font-weight:bold;cursor:pointer;margin:6px 6px 0 0;font-size:13px}
+.sbtn.r{background:#d33;color:#fff}.sbtn.b{background:#2f7cff;color:#fff}.sbtn:disabled{opacity:.4;cursor:not-allowed}
+#gMe{margin:6px 0 12px;font-size:14px;line-height:1.6}
+#gNews{margin-top:10px}#gNews div{font-size:13px;color:#ccc;padding:3px 0;border-bottom:1px solid rgba(255,255,255,.07)}
+.item{display:flex;align-items:center;gap:10px;padding:8px;border-radius:8px;background:rgba(255,255,255,.05);margin-bottom:6px}.item .ic{font-size:28px;width:40px;text-align:center}.item .nm{flex:1}.item small{color:#9fb3c8}
+@media(max-width:800px){.gcols{grid-template-columns:1fr}}
 </style>
 </head>
 <body>
@@ -118,7 +143,7 @@ body.touch #feed{top:auto;bottom:12px;left:50%;transform:translateX(-50%);font-s
   <label>ИЛИ ВОЙДИ ПО КОДУ ДРУГА</label>
   <div class="row"><input id="codeIn" maxlength="4" placeholder="КОД" autocomplete="off"><button class="btn green" id="btnJoin">ВОЙТИ</button></div>
   <div id="menuStatus">Загрузка города...</div>
-  <div class="tip">ПК: WASD + мышь, F — сесть в машину, H — управление и чит-коды<br>Телефон: держи горизонтально — появятся экранные кнопки</div>
+  <div class="tip">ПК: WASD + мышь, F — машина, E — говорить, K — банды, H — помощь<br>Телефон: держи горизонтально — появятся экранные кнопки</div>
 </div></div>
 
 <div id="hud" class="hide">
@@ -132,16 +157,24 @@ body.touch #feed{top:auto;bottom:12px;left:50%;transform:translateX(-50%);font-s
     <div id="ducks"></div>
   </div>
   <div id="mission"></div>
+  <div id="war" class="hide"></div>
   <div id="cross"></div>
   <div id="sub"></div>
   <div id="big"></div>
   <div id="hint"></div>
   <div id="chat"><div id="chatLog"></div><input id="chatInput" class="hide" maxlength="120" placeholder="Сообщение или /ЧИТКОД (Enter)"></div>
   <div id="speedo" class="hide"></div>
-  <div id="mmWrap"><canvas id="minimap" width="220" height="220"></canvas><div id="hpbar"><div id="hpfill"></div></div></div>
+  <div id="mmWrap"><canvas id="minimap" width="220" height="220"></canvas><div id="hpbar"><div id="hpfill"></div></div><div id="arbar"><div id="arfill"></div></div></div>
   <div id="lock" class="hide">🖱️ Кликни, чтобы играть<br><small style="font-size:14px;color:#ccc">H — управление и чит-коды</small></div>
 </div>
-<div id="gray"></div><div id="dmg"></div>
+<div id="gray"></div><div id="dmg"></div><div id="scope"></div>
+<div id="gangs" class="ov hide"><div class="panel gp">
+  <div class="gh"><h2>👥 ГРУППИРОВКИ</h2><button class="xbtn" data-a="close">✕</button></div>
+  <div id="gMe"></div>
+  <div class="gcols"><div><canvas id="terr" width="500" height="500"></canvas><div id="terrInfo"></div><div id="gNews"></div></div><div id="gList"></div></div>
+</div></div>
+<div id="gdlg" class="ov hide"><div class="panel" style="width:min(560px,100%)"><div id="gdlgBody"></div></div></div>
+<div id="shop" class="ov hide"><div class="panel" style="width:min(600px,100%)"><div id="shopBody"></div></div></div>
 
 <div id="help" class="hide"><div class="panel">
   <h2>УПРАВЛЕНИЕ</h2>
@@ -158,7 +191,11 @@ body.touch #feed{top:auto;bottom:12px;left:50%;transform:translateX(-50%);font-s
       <kbd>B</kbd> — пукнуть 💨 (все разбегаются)<br>
       <kbd>X</kbd> — упасть тряпичной куклой<br>
       <kbd>N</kbd> — сменить прикид, <kbd>C</kbd> — камера<br>
-      <kbd>T</kbd> — чат, <kbd>H</kbd> — это окно
+      <kbd>T</kbd> — чат, <kbd>H</kbd> — это окно<br>
+      <kbd>E</kbd> — говорить с лидером / оружейная<br>
+      <kbd>K</kbd> — «Группировки»: карта районов, отношения<br>
+      <kbd>Y</kbd> — позвать братву (если ты в банде)<br>
+      <kbd>Shift</kbd> в машине — нитро 🔥, <kbd>1-0</kbd> — оружие
     </div>
     <div>
       <b style="color:#ffd21f">ЧИТ-КОДЫ</b> — просто набери на клавиатуре во время игры или в чате через «/»<br>
@@ -170,7 +207,8 @@ body.touch #feed{top:auto;bottom:12px;left:50%;transform:translateX(-50%);font-s
       <kbd>MONEY</kbd> +$50 000 · <kbd>GOD</kbd> бессмертие · <kbd>FAST</kbd> турбо<br>
       <kbd>BOOM</kbd> взорвать всё вокруг · <kbd>PANIC</kbd> паника<br>
       <kbd>CLEAN</kbd> снять розыск · <kbd>WANTED</kbd> 5 звёзд<br>
-      <kbd>NIGHT</kbd> / <kbd>DAY</kbd> ночь / день для всех
+      <kbd>NIGHT</kbd> / <kbd>DAY</kbd> ночь / день для всех · <kbd>GUNS</kbd> всё оружие · <kbd>ARMOR</kbd> броня<br><br>
+      <b style="color:#ffd21f">БАНДЫ</b>: 🐍 Кобры, 🐉 Драконы, 🐺 Волки, 👑 Короли, ⛓️ Цепи. Найди базу (эмблема на карте), поговори с лидером — вступи, бери задания, расти в ранге до лидера. Банды сами воюют за районы — до 50 бойцов, пешком и на машинах.
     </div>
   </div>
   <button class="btn" id="helpClose">ПОНЯЛ, ПОЕХАЛИ!</button>
@@ -188,6 +226,9 @@ body.touch #feed{top:auto;bottom:12px;left:50%;transform:translateX(-50%);font-s
   <div class="tb" id="tFart" style="left:204px;top:10px;width:46px;height:46px;font-size:20px">💨</div>
   <div class="tb" id="tChat" style="left:258px;top:10px;width:46px;height:46px;font-size:20px">💬</div>
   <div class="tb" id="tHelp" style="left:312px;top:10px;width:46px;height:46px;font-size:20px">❓</div>
+  <div class="tb" id="tGangs" style="left:366px;top:10px;width:46px;height:46px;font-size:20px">👥</div>
+  <div class="tb" id="tTalk" style="right:206px;bottom:140px;width:54px;height:54px;font-size:22px">🤝</div>
+  <div class="tb" id="tNitro" style="right:270px;bottom:30px;width:54px;height:54px;font-size:22px">🔥</div>
 </div>
 <div id="rotate"><div class="ph">📱</div><div>Поверни телефон горизонтально</div><div style="font-size:14px;color:#999">Игра работает в альбомном режиме</div></div>
 
@@ -233,9 +274,9 @@ const col=c=>new THREE.Color(c).convertSRGBToLinear();
 let NOW=0;
 
 /* ---------- city constants ---------- */
-const P=74, ROAD=14, BLK=60, NB=8, HALF=NB*P/2, LANE=3.4, EDGE=335, RH=28, PER=8*RH;
+const P=74, ROAD=14, BLK=60, NB=10, HALF=NB*P/2, LANE=3.4, EDGE=HALF+40, RH=28, PER=8*RH;
 const bc=b=>-HALF+(b+0.5)*P;
-const SPECIAL={'3,3':'park','4,3':'fun','3,4':'stunt','4,4':'parking'};
+const SPECIAL={'4,4':'park','5,4':'fun','4,5':'stunt','5,5':'parking'};
 const SPAWN=new V3(27,0.3,9.5);
 
 /* ---------- renderer ---------- */
@@ -252,7 +293,7 @@ document.body.prepend(renderer.domElement);
 const scene=new THREE.Scene();
 const camera=new THREE.PerspectiveCamera(65,innerWidth/innerHeight,0.1,1600);
 camera.position.set(200,120,200);
-scene.fog=new THREE.Fog(0xbcd6ee,90,430);
+scene.fog=new THREE.Fog(0xbcd6ee,90,460);
 addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight);});
 
 /* ---------- sky ---------- */
@@ -509,7 +550,7 @@ function buildCity(){
     if(type!=='park')scene.add(at(mesh(swGeo,swMat,false,true),cx,0.15,cz));
     for(const t of [-19,0,19]){lampData.push({x:cx+t,z:cz-29.2,a:Math.PI});lampData.push({x:cx+t,z:cz+29.2,a:0});lampData.push({x:cx-29.2,z:cz+t,a:-Math.PI/2});lampData.push({x:cx+29.2,z:cz+t,a:Math.PI/2});}
     for(const t of [-10,10]){if(Math.random()<0.45)addTree(cx+t,cz-28.6,0.75);if(Math.random()<0.45)addTree(cx+t,cz+28.6,0.75);if(Math.random()<0.45)addTree(cx-28.6,cz+t,0.75);if(Math.random()<0.45)addTree(cx+28.6,cz+t,0.75);}
-    ({city:genCity,park:genPark,fun:genFun,stunt:genStunt,parking:genParking})[type](cx,cz);}
+    if(type.startsWith('base'))genBase(cx,cz,+type.slice(4));else ({city:genCity,park:genPark,fun:genFun,stunt:genStunt,parking:genParking,gunshop:genGunShop})[type](cx,cz);}
   // countryside trees
   for(let i=0;i<120;i++){const a=rand(0,Math.PI*2),r=rand(HALF+14,EDGE-5);let x=Math.cos(a)*r,z=Math.sin(a)*r;x=clamp(x,-EDGE+3,EDGE-3);z=clamp(z,-EDGE+3,EDGE-3);if(Math.abs(x)<HALF+10&&Math.abs(z)<HALF+10)continue;addTree(x,z,rand(1,1.8));}
   // lamps (instanced)
@@ -557,10 +598,16 @@ function makeHuman(o={}){
   const head=new THREE.Group();head.position.y=1.63;body.add(head);
   head.add(at(sm(BG(0.3,0.34,0.3),[mK,mK,mK,mK,faceMat(o.skin),mK]),0,0.18,0));
   head.add(at(sm(BG(0.32,0.09,0.32),mH),0,0.37,0));head.add(at(sm(BG(0.32,0.22,0.07),mH),0,0.24,-0.135));
-  if(o.hat===1){const hc=M(pick(['#c22','#228','#111','#2a2','#fa0']),0.8);head.add(at(sm(BG(0.34,0.1,0.34),hc),0,0.43,0));head.add(at(sm(BG(0.3,0.03,0.18),hc),0,0.39,0.22));}
+  if(o.hat===1){const hc=M(o.hatColor||pick(['#c22','#228','#111','#2a2','#fa0']),0.8);head.add(at(sm(BG(0.34,0.1,0.34),hc),0,0.43,0));head.add(at(sm(BG(0.3,0.03,0.18),hc),0,0.39,0.22));}
   if(o.hat===2){const hc=M('#d9b45a',0.9);head.add(at(sm(CG(0.75,0.75,0.04,18),hc),0,0.41,0));head.add(at(sm(new THREE.ConeGeometry(0.22,0.38,12),hc),0,0.6,0));}
   if(o.hat===3){const hc=M('#151515',0.6);head.add(at(sm(CG(0.17,0.17,0.36,12),hc),0,0.6,0));head.add(at(sm(CG(0.3,0.3,0.03,14),hc),0,0.42,0));}
   if(o.hat===4){const hc=M('#ff6ec7',0.9);head.add(at(sm(SG(0.2,8,6),hc),0,0.48,0));head.add(at(sm(SG(0.15,8,6),hc),0.12,0.52,0.08));head.add(at(sm(SG(0.15,8,6),hc),-0.12,0.5,-0.06));}
+  if(o.hat===5){const gm=M('#ffcc00',0.25,1);head.add(at(sm(CG(0.17,0.17,0.12,10),gm),0,0.45,0));for(let i=0;i<5;i++){const a=i/5*Math.PI*2;head.add(at(sm(new THREE.ConeGeometry(0.04,0.12,4),gm),Math.cos(a)*0.14,0.56,Math.sin(a)*0.14));}}
+  if(o.hat===6){const hm2=sm(SG(0.21,12,8),M('#111111',0.25,0.4));hm2.scale.set(1.05,0.85,1.1);hm2.position.y=0.32;head.add(hm2);}
+  if(o.bandana){const bm=M(o.bandana,0.8);head.add(at(sm(BG(0.325,0.08,0.325),bm),0,0.3,0));head.add(at(sm(BG(0.08,0.16,0.04),bm),0,0.24,-0.17));}
+  if(o.shades)head.add(at(sm(BG(0.29,0.06,0.03),M('#050505',0.1,0.5)),0,0.21,0.16));
+  if(o.chain)body.add(at(sm(BG(0.3,0.035,0.03),M(o.chain,0.2,1)),0,1.43,0.15));
+  if(o.cape){const cp=sm(BG(0.46,0.7,0.03),M(o.cape,0.8));cp.position.set(0,1.18,-0.16);body.add(cp);}
   if(o.police){const hc=M('#14215a',0.7);head.add(at(sm(CG(0.2,0.18,0.12,12),hc),0,0.45,0));head.add(at(sm(BG(0.3,0.03,0.16),M('#111',0.4)),0,0.39,0.18));}
   const mkArm=s=>{const a=new THREE.Group();a.position.set(0.33*s,1.52,0);body.add(a);a.add(at(sm(BG(0.13,0.3,0.14),mS),0,-0.15,0));const el=new THREE.Group();el.position.y=-0.3;a.add(el);el.add(at(sm(BG(0.11,0.27,0.12),mK),0,-0.135,0));el.add(at(sm(BG(0.1,0.1,0.11),mK),0,-0.31,0));return[a,el];};
   const [lA,lE]=mkArm(1),[rA,rE]=mkArm(-1);
@@ -569,12 +616,19 @@ function makeHuman(o={}){
   const gun=new THREE.Group();gun.position.set(0,-0.3,0.02);gun.rotation.x=Math.PI/2;rE.add(gun);
   return{g,body,head,lA,lE,rA,rE,lL,lK,rL,rK,gun,ph:Math.random()*10,opts:o,curGun:-1,aim:false,twoHand:false,punch:0};}
 function tagEnt(obj,ent){obj.traverse(o=>{o.userData.ent=ent;});}
-function gunMesh(i){const g=new THREE.Group();const dk=M('#1e1e1e',0.4,0.7);
-  if(i===1){g.add(at(mesh(BG(0.05,0.09,0.24),dk),0,0.03,0.08));g.add(at(mesh(BG(0.05,0.12,0.06),dk),0,-0.04,-0.01));}
-  if(i===2){g.add(at(mesh(BG(0.07,0.11,0.34),dk),0,0.03,0.1));g.add(at(mesh(BG(0.05,0.18,0.05),dk),0,-0.08,0.06));}
-  if(i===3){const b=mesh(CG(0.035,0.035,0.85,8),dk);b.rotation.x=Math.PI/2;b.position.set(0,0.04,0.35);g.add(b);g.add(at(mesh(BG(0.07,0.12,0.35),M('#6a4020',0.8)),0,0,-0.1));}
-  if(i===4){const b=mesh(CG(0.09,0.09,1.15,10),M('#4b5320',0.7));b.rotation.x=Math.PI/2;b.position.set(0,0.1,0.2);g.add(b);const c=mesh(new THREE.ConeGeometry(0.11,0.3,10),M('#6a6a40',0.7));c.rotation.x=Math.PI/2;c.position.set(0,0.1,0.9);g.add(c);}
-  if(i===5){const b=mesh(CG(0.1,0.13,0.7,10),M('#ffd400',0.4));b.rotation.x=Math.PI/2;b.position.set(0,0.08,0.2);g.add(b);const d=makeDuck(0.35);d.position.set(0,0.0,0.55);g.add(d);}
+function gunMesh(i){const w=WEAPONS[i];const g=new THREE.Group();const dk=M('#1e1e1e',0.4,0.7),wd=M('#6a4020',0.8);const md=w?w.model:'';
+  const cyl=(r,l,mat,z,y=0.04)=>{const b=mesh(CG(r,r,l,8),mat);b.rotation.x=Math.PI/2;b.position.set(0,y,z);g.add(b);return b;};
+  switch(md){
+    case 'bat':{const b=mesh(CG(0.06,0.03,0.95,8),M('#b07a3a',0.7));b.rotation.x=Math.PI/2;b.position.set(0,0,0.42);g.add(b);break;}
+    case 'knife':g.add(at(mesh(BG(0.03,0.08,0.12),dk),0,0,0));g.add(at(mesh(BG(0.015,0.06,0.26),M('#e0e4e8',0.15,1)),0,0.01,0.19));break;
+    case 'pistol':g.add(at(mesh(BG(0.05,0.09,0.24),dk),0,0.03,0.08));g.add(at(mesh(BG(0.05,0.12,0.06),dk),0,-0.04,-0.01));break;
+    case 'uzi':g.add(at(mesh(BG(0.07,0.11,0.34),dk),0,0.03,0.1));g.add(at(mesh(BG(0.05,0.18,0.05),dk),0,-0.08,0.06));break;
+    case 'shotgun':cyl(0.035,0.85,dk,0.35);g.add(at(mesh(BG(0.07,0.12,0.35),wd),0,0,-0.1));break;
+    case 'ak':{g.add(at(mesh(BG(0.07,0.12,0.5),dk),0,0.03,0.12));cyl(0.025,0.4,dk,0.55);const mg=mesh(BG(0.05,0.2,0.08),dk);mg.position.set(0,-0.1,0.18);mg.rotation.x=0.3;g.add(mg);g.add(at(mesh(BG(0.06,0.1,0.28),wd),0,0,-0.24));break;}
+    case 'sniper':{const gm=M('#2f3a2a',0.6);g.add(at(mesh(BG(0.06,0.1,0.55),gm),0,0.02,0.1));cyl(0.022,0.6,dk,0.65);cyl(0.04,0.28,dk,0.12,0.12);g.add(at(mesh(BG(0.06,0.1,0.3),gm),0,-0.02,-0.28));break;}
+    case 'minigun':for(let k=0;k<6;k++){const a=k/6*Math.PI*2;const b=mesh(CG(0.025,0.025,0.8,6),dk);b.rotation.x=Math.PI/2;b.position.set(Math.cos(a)*0.07,0.05+Math.sin(a)*0.07,0.45);g.add(b);}cyl(0.12,0.3,M('#555555',0.4,0.7),0.0,0.05);break;
+    case 'rpg':{cyl(0.09,1.15,M('#4b5320',0.7),0.2,0.1);const c=mesh(new THREE.ConeGeometry(0.11,0.3,10),M('#6a6a40',0.7));c.rotation.x=Math.PI/2;c.position.set(0,0.1,0.9);g.add(c);break;}
+    case 'duck':{cyl(0.12,0.7,M('#ffd400',0.4),0.2,0.08);const d=makeDuck(0.35);d.position.set(0,0.0,0.55);g.add(d);break;}}
   return g;}
 function setGun(H,i){if(H.curGun===i)return;H.curGun=i;while(H.gun.children.length)H.gun.remove(H.gun.children[0]);if(i>0)H.gun.add(gunMesh(i));}
 const _r=(o,x,y,z,k)=>{o.rotation.x+=(x-o.rotation.x)*k;o.rotation.y+=(y-o.rotation.y)*k;o.rotation.z+=(z-o.rotation.z)*k;};
@@ -597,7 +651,7 @@ function animHuman(H,st,dt,aimPitch=0){
   _r(H.lA,...la,k);_r(H.rA,...ra,k);_r(H.lE,...le,k);_r(H.rE,...re,k);_r(H.lL,...ll,k);_r(H.rL,...rl,k);_r(H.lK,...lk,k);_r(H.rK,...rk,k);_r(H.head,...hd,k);
   const b=H.body;b.position.y+=(by-b.position.y)*k;b.rotation.x+=(bx-b.rotation.x)*k;b.rotation.z+=(bz-b.rotation.z)*k;b.rotation.y+=(bry-b.rotation.y)*k;
   const hs=cheats.bighead?2.6:1;if(H.head.scale.x!==hs)H.head.scale.setScalar(hs);}
-function makeMiniDriver(police){const g=new THREE.Group();const sk=pick(SKINS);g.add(at(mesh(BG(0.5,0.55,0.3),M(police?'#1d3a8a':pick(SHIRTS),0.8),false),0,0.3,0));
+function makeMiniDriver(police,shirt){const g=new THREE.Group();const sk=pick(SKINS);g.add(at(mesh(BG(0.5,0.55,0.3),M(police?'#1d3a8a':(shirt||pick(SHIRTS)),0.8),false),0,0.3,0));
   g.add(at(mesh(BG(0.3,0.34,0.3),[M(sk),M(sk),M(pick(HAIRS),0.9),M(sk),faceMat(sk),M(sk)],false),0,0.78,0));if(police)g.add(at(mesh(CG(0.2,0.18,0.12,10),M('#14215a')),0,1.0,0));return g;}
 
 /* ---------- cars ---------- */
@@ -617,6 +671,10 @@ const CT={
   monster:{L:4.8,W:2.3,wr:1.0,wb:3.0,max:50,acc:22,grip:7,hp:220,mass:2.5,seatY:1.35,lift:1.15,wheelW:0.75,name:'Монстр-трак',
     body:[[-2.4,0.3],[2.4,0.3],[2.45,0.65],[2.3,0.95],[0.9,1.0],[-0.75,1.0],[-0.75,1.15],[-2.35,1.15],[-2.45,0.7]],
     cab:[[0.95,0.98],[0.4,1.62],[-0.6,1.62],[-0.72,0.98]],colors:['#00aa55','#aa00ff','#ff3300','#111111','#0088ff']},
+  muscle:{L:4.8,W:2.0,wr:0.38,wb:2.9,max:62,acc:26,grip:7,hp:110,mass:1.3,seatY:0.3,scoop:1,name:'Маслкар',body:[[-2.4,0.3],[2.4,0.3],[2.46,0.62],[2.3,0.86],[0.75,0.94],[-1.4,0.97],[-2.35,0.94],[-2.46,0.6]],cab:[[0.8,0.92],[0.1,1.32],[-0.95,1.32],[-1.45,0.97]],colors:['#d01010','#101010','#ff8800','#1040c0','#f0f0f0','#6a0dad']},
+  pickup:{L:5.1,W:2.1,wr:0.42,wb:3.1,max:44,acc:16,grip:7,hp:170,mass:1.8,seatY:0.55,name:'Пикап',body:[[-2.55,0.35],[2.55,0.35],[2.6,0.72],[2.45,1.05],[1.05,1.12],[-0.6,1.12],[-0.6,1.3],[-2.5,1.3],[-2.6,0.75]],cab:[[1.1,1.1],[0.5,1.78],[-0.45,1.78],[-0.58,1.12]],colors:['#8a4a1a','#2a5a2a','#c0c0c0','#1a1a5a','#a01010','#ffffff']},
+  limo:{L:7.2,W:2.0,wr:0.36,wb:4.6,max:42,acc:12,grip:7,hp:150,mass:2,seatY:0.38,seatZ:1.5,name:'Лимузин',body:[[-3.6,0.3],[3.6,0.3],[3.66,0.6],[3.5,0.88],[2.3,0.97],[-2.9,0.99],[-3.58,0.95],[-3.66,0.6]],cab:[[2.35,0.95],[1.6,1.45],[-2.3,1.45],[-2.95,0.99]],colors:['#111111','#f4f4f4','#2a2a3a']},
+  bus:{L:10,W:2.6,wr:0.5,wb:6.2,max:30,acc:8,grip:6,hp:300,mass:4.5,seatY:1.0,seatZ:3.9,glassW:1.01,name:'Автобус',body:[[-5,0.4],[5,0.4],[5.05,0.8],[5.0,3.0],[-4.95,3.05],[-5.05,2.9],[-5.05,0.8]],cab:[[5.07,1.35],[5.05,2.75],[-4.85,2.75],[-4.85,1.4]],colors:['#e8c21a','#2a7ad8','#d83a2a','#ffffff']},
   hotdog:{L:5.0,W:2.0,wr:0.34,wb:3.2,max:42,acc:14,grip:7,hp:130,mass:1.3,seatY:1.05,hotdog:1,name:'Хот-дог',colors:['#d9a35b']},
 };
 const glassMat=new THREE.MeshStandardMaterial({color:col('#1d2c3c'),metalness:0.9,roughness:0.05,transparent:true,opacity:0.72});
@@ -638,7 +696,7 @@ function buildCarMesh(type,color){
     res.seat=new V3(0,0.72,-0.3);res.seatMini=new V3(0,1.62,-0.3);
   }else{
     const body=mesh(profileGeo(s.body,W,0.07,lift),paint,true,false);g.add(body);
-    const cab=mesh(profileGeo(s.cab,W*0.84,0.04,lift),glassMat,true,false);g.add(cab);
+    const cab=mesh(profileGeo(s.cab,W*(s.glassW||0.84),0.04,lift),glassMat,true,false);g.add(cab);
     const c1=s.cab[1],c2=s.cab[2];const top=c1[1]+lift;
     const roof=mesh(profileGeo([[c1[0]+0.06,top-0.03],[c2[0]-0.04,top-0.03],[c2[0]-0.04,top+0.05],[c1[0]+0.02,top+0.05]],W*0.88,0.03),paint,true,false);g.add(roof);
     const pil=(z,y0,y1)=>{for(const x of [-1,1]){const p=mesh(BG(0.07,y1-y0,0.12),paint,false);p.position.set(x*W*0.425,(y0+y1)/2,z);g.add(p);}};
@@ -649,6 +707,7 @@ function buildCarMesh(type,color){
     g.add(at(mesh(BG(W*0.98,0.2,0.18),darkMat,false),0,0.38+lift,fz+0.02),at(mesh(BG(W*0.98,0.2,0.18),darkMat,false),0,0.38+lift,bz-0.02));
     g.add(at(mesh(BG(W*0.45,0.16,0.04),M('#111',0.4,0.5),false),0,0.56+lift,fz+0.03));
     g.add(at(mesh(BG(0.5,0.12,0.02),M('#f4f4f4',0.5),false),0,0.5+lift,bz-0.12));
+    if(s.scoop){g.add(at(mesh(BG(0.7,0.16,1.0),darkMat),0,0.96,1.45));g.add(at(mesh(BG(0.25,0.08,0.4),chromeMat,false),0.5,0.5,-2.46));g.add(at(mesh(BG(0.25,0.08,0.4),chromeMat,false),-0.5,0.5,-2.46));}
     if(s.spoiler){g.add(at(mesh(BG(W*0.92,0.06,0.38),paint),0,1.1,-1.95));for(const x of [-0.6,0.6])g.add(at(mesh(BG(0.06,0.26,0.1),darkMat,false),x,0.96,-1.95));}
     if(s.taxi){const tx=canvasTex(128,32,(c,w,h)=>{c.fillStyle='#ffd21f';c.fillRect(0,0,w,h);c.fillStyle='#111';c.font='26px Impact,Arial';c.textAlign='center';c.textBaseline='middle';c.fillText('TAXI',w/2,h/2+1);});
       g.add(at(mesh(BG(0.7,0.22,0.3),new THREE.MeshStandardMaterial({map:tx,emissive:0xffffff,emissiveMap:tx,emissiveIntensity:0.5})),0,top+0.17,(c1[0]+c2[0])/2));}
@@ -660,7 +719,7 @@ function buildCarMesh(type,color){
       for(const x of [-1,1]){const pl=mesh(new THREE.PlaneGeometry(1.8,0.34),new THREE.MeshStandardMaterial({map:pt,transparent:true}),false);pl.position.set(x*(W/2+0.005),0.75,0.1);pl.rotation.y=x*Math.PI/2;g.add(pl);}}
     if(type==='monster'){g.add(at(mesh(BG(1.4,0.5,3.4),darkMat),0,1.0,0));for(const z of [-1.5,1.5])g.add(at(mesh(CG(0.12,0.12,W+0.8,8),chromeMat),0,1.0,z).rotateZ(Math.PI/2));
       for(let i=0;i<3;i++)g.add(at(mesh(CG(0.09,0.09,0.25,8),M('#ffee88',0.3,0,{emissive:0xffee88,emissiveIntensity:0.6}),false),-0.4+i*0.4,top+0.14,c1[0]-0.1));}
-    res.seat=new V3(0.42,s.seatY+lift-0.85,(c1[0]+c2[0])/2-0.15);res.seatMini=new V3(0.42,s.seatY+lift+0.02,(c1[0]+c2[0])/2-0.15);
+    res.seat=new V3(0.42,s.seatY+lift-0.85,(s.seatZ!==undefined?s.seatZ:(c1[0]+c2[0])/2-0.15));res.seatMini=new V3(0.42,s.seatY+lift+0.02,(s.seatZ!==undefined?s.seatZ:(c1[0]+c2[0])/2-0.15));
   }
   const ww=s.wheelW||0.3;const wx=W/2-(s.lift?-0.25:0.12);
   const tireG=CG(s.wr,s.wr,ww,18).clone();tireG.rotateZ(Math.PI/2);const rimG=CG(s.wr*0.6,s.wr*0.6,ww+0.02,10).clone();rimG.rotateZ(Math.PI/2);
@@ -688,13 +747,19 @@ function carFwdSpeed(c){return c.vx*Math.sin(c.heading)+c.vz*Math.cos(c.heading)
 
 /* ---------- player ---------- */
 const WEAPONS=[
-  {name:'Кулаки',ic:'👊',rate:0.4},
-  {name:'Пистолет',ic:'🔫',rate:0.22,dmg:30,spread:0.008,snd:'pistol',max:120},
-  {name:'Узи',ic:'💥',rate:0.07,dmg:13,spread:0.035,snd:'uzi',auto:1,max:400},
-  {name:'Дробовик',ic:'🧨',rate:0.8,dmg:16,pellets:8,spread:0.07,snd:'shotgun',max:50},
-  {name:'РПГ',ic:'🚀',rate:1.1,proj:'rocket',snd:'rocket',max:15},
-  {name:'Уткомёт',ic:'🦆',rate:0.33,proj:'duck',snd:'quack',max:999,auto:1}];
-const player={H:null,pos:new V3().copy(SPAWN),vx:0,vz:0,vy:0,heading:0,hp:100,money:500,wanted:0,car:null,weapon:1,ammo:[Infinity,90,300,30,6,Infinity],
+  {id:'fist',name:'Кулаки',ic:'👊',rate:0.4,melee:1,dmg:14,range:1.3},
+  {id:'bat',name:'Бита',ic:'🏏',rate:0.55,melee:1,dmg:32,range:1.8,price:150,model:'bat',desc:'Классика уличных разборок'},
+  {id:'knife',name:'Нож',ic:'🔪',rate:0.35,melee:1,dmg:42,range:1.5,price:300,model:'knife',desc:'Тихо и быстро'},
+  {id:'pistol',name:'Пистолет',ic:'🔫',rate:0.22,dmg:30,spread:0.008,snd:'pistol',max:150,price:500,ammoPrice:60,pack:30,model:'pistol',range:22,desc:'Надёжный ствол'},
+  {id:'uzi',name:'Узи',ic:'💥',rate:0.07,dmg:13,spread:0.035,snd:'uzi',auto:1,max:450,price:1500,ammoPrice:150,pack:120,model:'uzi',range:20,desc:'Скорострельный'},
+  {id:'shotgun',name:'Дробовик',ic:'🧨',rate:0.8,dmg:16,pellets:8,spread:0.07,snd:'shotgun',max:60,price:2500,ammoPrice:150,pack:16,model:'shotgun',two:1,kick:4,range:12,desc:'В упор — наповал'},
+  {id:'ak',name:'Автомат',ic:'⚡',rate:0.1,dmg:24,spread:0.018,snd:'ak',auto:1,max:450,price:5000,ammoPrice:250,pack:90,model:'ak',two:1,kick:1.5,range:30,desc:'Король уличных войн'},
+  {id:'sniper',name:'Снайперка',ic:'🎯',rate:1.2,dmg:150,spread:0,snd:'sniper',max:40,price:8000,ammoPrice:300,pack:10,model:'sniper',two:1,kick:6,scope:1,range:60,desc:'ПКМ — оптика'},
+  {id:'minigun',name:'Миниган',ic:'🔥',rate:0.045,dmg:17,spread:0.05,snd:'minigun',auto:1,max:2000,price:25000,ammoPrice:900,pack:500,model:'minigun',two:1,range:25,desc:'Безумие на 6 стволов'},
+  {id:'rpg',name:'РПГ',ic:'🚀',rate:1.1,proj:'rocket',snd:'rocket',max:20,price:15000,ammoPrice:1500,pack:5,model:'rpg',two:1,range:42,desc:'Против машин и толп'},
+  {id:'duck',name:'Уткомёт',ic:'🦆',rate:0.33,proj:'duck',snd:'quack',max:999,auto:1,model:'duck',two:1,range:30,desc:'Кря.'}];
+const WID={};WEAPONS.forEach((w,i)=>WID[w.id]=i);
+const player={H:null,pos:new V3().copy(SPAWN),vx:0,vz:0,vy:0,heading:0,hp:100,money:500,wanted:0,car:null,weapon:3,ammo:WEAPONS.map((w,i)=>w.melee||w.id==='duck'?Infinity:i===3?60:0),owned:[0,3,10],armor:0,nitro:100,gang:-1,respect:0,trust:0,rep:[0,0,0,0,0,0],isLeader:false,baseColor:null,
   onGround:true,rag:null,dead:false,deadT:0,flip:0,dance:0,lastShot:-9,swim:false,scale:1,lastCrime:-99,ducks:0,name:'Игрок',color:'#d33',outfit:null,state:'idle',busted:0,isPlayer:true};
 function buildPlayerModel(){if(player.H)player.H.g.parent&&player.H.g.parent.remove(player.H.g);
   player.H=makeHuman(Object.assign({shirt:player.color},player.outfit||{}));player.outfit=player.H.opts;player.H.curGun=-1;scene.add(player.H.g);player.H.g.scale.setScalar(player.scale);
@@ -760,18 +825,21 @@ function updateRagdoll(e,dt){const r=e.rag,H=e.H;r.t+=dt;
     animHuman(H,'ragdoll',dt);}
   else animHuman(H,'dead',dt);
   H.g.position.copy(e.pos);if(r.rest)H.g.position.y+=0.15;}
-function damagePed(pd,dmg,dir,cause){if(pd.dead)return;pd.hp-=dmg;blood(pd.pos.clone().add(new V3(0,1.2,0)));
-  if(pd.hp<=0){pd.dead=true;const d=dir||new V3();startRag(pd,d.x*6,3+(cause==='super'?40:0),d.z*6);if(cause!=='car')addCrime(1);
+function damagePed(pd,dmg,dir,cause,by){if(pd.dead)return;pd.hp-=dmg;blood(pd.pos.clone().add(new V3(0,1.2,0)));
+  if(pd.hp<=0){pd.dead=true;const d=dir||new V3();startRag(pd,d.x*6,3+(cause==='super'?40:0),d.z*6);if(cause!=='car'&&by!=='npc')addCrime(pd.gang!==undefined?0.4:1);
     if(Math.random()<0.6)spawnPickup('cash',pd.pos.clone(),randi(10,80));}
-  else{if(!pd.rag){pd.state='panic';pd.timer=rand(5,8);pd.threat.copy(player.pos);}say(pd,'hit');}}
-function alertPeds(pos,r,type='panic'){for(const pd of peds){if(pd.dead||pd.rag)continue;if(pd.pos.distanceTo(pos)<r){pd.state='panic';pd.timer=rand(4,7);pd.threat.copy(pos);if(Math.random()<0.25)say(pd,type);}}}
-function updatePed(pd,dt){const H=pd.H;
+  else{if(!pd.rag&&pd.gang===undefined){pd.state='panic';pd.timer=rand(5,8);pd.threat.copy(player.pos);}say(pd,'hit');}
+  if(pd.gang!==undefined&&by!=='npc')gangOnHurt(pd);}
+function alertPeds(pos,r,type='panic'){for(const pd of peds){if(pd.dead||pd.rag||pd.gang!==undefined)continue;if(pd.pos.distanceTo(pos)<r){pd.state='panic';pd.timer=rand(4,7);pd.threat.copy(pos);if(Math.random()<0.25)say(pd,type);}}}
+function updatePed(pd,dt){const H=pd.H;if(pd.gang!==undefined){updateGangMember(pd,dt);return;}
   if(pd.rag){updateRagdoll(pd,dt);if(pd.rag.rest&&!pd.dead&&pd.rag.t>2.5){pd.rag=null;pd.state='panic';pd.timer=4;pd.threat.copy(player.pos);H.g.rotation.set(0,pd.heading,0);}if(pd.dead)pd.deadT+=dt;return;}
   const far=pd.pos.distanceToSquared(camera.position)>110*110;let st='walk';
   if(cheats.disco>0&&pd.state!=='panic'){pd.state='dance';pd.timer=2;}
   switch(pd.state){
-    case 'walk':{pd.t+=pd.dir*pd.speed*dt;const side=ringPos(pd.bx,pd.bz,pd.t,pd.pos);const d=SIDE_DIR[side];pd.heading=Math.atan2(d[0]*pd.dir,d[1]*pd.dir);if(Math.random()<0.001){pd.state='idle';pd.timer=rand(1,4);}break;}
+    case 'walk':{pd.t+=pd.dir*pd.speed*dt;const side=ringPos(pd.bx,pd.bz,pd.t,pd.pos);const d=SIDE_DIR[side];pd.heading=Math.atan2(d[0]*pd.dir,d[1]*pd.dir);if(Math.random()<0.001){pd.state='idle';pd.timer=rand(1,4);}else if(!far&&Math.random()<dt*0.035)startTalk(pd);break;}
     case 'idle':st='idle';pd.timer-=dt;if(pd.timer<=0)pd.state='walk';break;
+    case 'talk':{st='idle';pd.timer-=dt;const o=pd.partner;if(!o||o.dead||o.rag||o.state!=='talk'){pd.state='walk';break;}pd.heading+=angDiff(pd.heading,Math.atan2(o.pos.x-pd.pos.x,o.pos.z-pd.pos.z))*Math.min(1,dt*5);
+      pd.talkT-=dt;if(pd.talkT<=0){sayT(pd,pick(CIV_TALK),2.2);pd.talkT=99;o.talkT=rand(2.4,3.2);}if(pd.timer<=0){pd.state='walk';o.state='walk';}break;}
     case 'dance':st='dance';pd.timer-=dt;if(pd.timer<=0)pd.state='walk';break;
     case 'panic':{st='run';pd.timer-=dt;let dx=pd.pos.x-pd.threat.x,dz=pd.pos.z-pd.threat.z;const l=Math.hypot(dx,dz)||1;dx/=l;dz/=l;
       const a=Math.atan2(dx,dz)+Math.sin(NOW*2+pd.id)*0.5;pd.heading+=angDiff(pd.heading,a)*Math.min(1,dt*5);
@@ -780,6 +848,7 @@ function updatePed(pd,dt){const H=pd.H;
       if(pd.timer<=0){const r=nearestRing(pd.pos.x,pd.pos.z);pd.bx=r.bx;pd.bz=r.bz;pd.t=r.t;ringPos(r.bx,r.bz,r.t,pd.tgt);pd.state='return';}break;}
     case 'return':{const dx=pd.tgt.x-pd.pos.x,dz=pd.tgt.z-pd.pos.z;const l=Math.hypot(dx,dz);if(l<0.4){pd.state='walk';break;}pd.heading=Math.atan2(dx,dz);
       pd.pos.x+=dx/l*2.2*dt;pd.pos.z+=dz/l*2.2*dt;collideCircle(pd.pos,0.35);pd.pos.y=Math.max(0,heightAt(pd.pos.x,pd.pos.z));break;}}
+  if(!far&&!player.car&&!player.dead&&pd.state!=='panic'&&pd.pos.distanceToSquared(player.pos)<12&&Math.random()<dt*0.5)sayT(pd,civGreet());
   if(inWater(pd.pos.x,pd.pos.z)){pd.pos.y=-1.05;st='swim';}
   H.g.position.copy(pd.pos);H.g.rotation.y=pd.heading;if(!far)animHuman(H,st,dt);}
 
@@ -798,12 +867,14 @@ function spawnTraffic(near){for(let tries=0;tries<20;tries++){
   const mod=((s%P)+P)%P;if(mod<12||mod>P-12)continue;const sgn=Math.random()<0.5?1:-1;const dx=axisX?sgn:0,dz=axisX?0:sgn;
   const x=axisX?s:k+(-dz)*LANE,z=axisX?k+dx*LANE:s;
   if(near&&Math.hypot(x-near.x,z-near.z)<45)continue;if(cars.some(o=>Math.abs(o.pos.x-x)+Math.abs(o.pos.z-z)<12))continue;
-  const type=Math.random()<0.12?'taxi':Math.random()<0.1?'van':Math.random()<0.1?'sport':'sedan';
-  const c=makeCar(type,x,z,Math.atan2(dx,dz),{npc:true});c.ai={kind:'lane',dx,dz,speed:rand(8,12),cruise:rand(9,13),next:sgn>0?Math.ceil(s/P)*P:Math.floor(s/P)*P,wait:0};planTurn(c);return c;}}
+  const type=trafficType();
+  const c=makeCar(type,x,z,Math.atan2(dx,dz),{npc:true});c.ai={kind:'lane',dx,dz,speed:rand(8,12),cruise:rand(9,13),next:sgn>0?Math.ceil(s/P)*P:Math.floor(s/P)*P,wait:0};planTurn(c);gangTrafficHook(c);return c;}}
+function trafficType(){const r=Math.random();return r<0.38?'sedan':r<0.48?'taxi':r<0.56?'pickup':r<0.63?'muscle':r<0.7?'van':r<0.76?'sport':r<0.8?'limo':r<0.85?'bus':'sedan';}
 function aiBlocked(c){const ai=c.ai;const chk=(x,z,y)=>{if(Math.abs((y||0)-c.pos.y)>2.5)return false;const ox=x-c.pos.x,oz=z-c.pos.z;const f=ox*ai.dx+oz*ai.dz;if(f>0.5&&f<9.5){const l=Math.abs(ox*ai.dz-oz*ai.dx);if(l<2.3)return true;}return false;};
   if(!player.dead&&chk(player.car?player.car.pos.x:player.pos.x,player.car?player.car.pos.z:player.pos.z,player.car?player.car.pos.y:player.pos.y))return 'player';
   for(const o of cars){if(o===c)continue;if(Math.abs(o.pos.x-c.pos.x)+Math.abs(o.pos.z-c.pos.z)>14)continue;if(chk(o.pos.x,o.pos.z,o.pos.y))return 'car';}
   for(const r of NET.remotes.values()){if(chk(r.pos.x,r.pos.z,r.pos.y))return 'player';}
+  for(const pd of peds){if(!pd.dead&&!pd.rag&&Math.abs(pd.pos.x-c.pos.x)+Math.abs(pd.pos.z-c.pos.z)<12&&chk(pd.pos.x,pd.pos.z,pd.pos.y))return 'ped';}
   return false;}
 function updateLaneCar(c,dt){const ai=c.ai;const b=aiBlocked(c);let des=b?0:ai.cruise;if(!ai.straight&&Math.abs((ai.dx?c.pos.x:c.pos.z)-ai.turnAt)<10)des=Math.min(des,6);
   if(b){ai.wait+=dt;if(b==='player'&&ai.wait>1.5&&NOW-c.honkT>2.5){c.honkT=NOW;sfx('horn',c.pos);if(Math.random()<0.4&&c.npcDriver)say(c,'honk');}}else ai.wait=0;
@@ -819,7 +890,7 @@ const tmpA=new V3();
 function carPhysics(c,thr,steer,hb,dt){
   const s=c.spec;const h=c.heading;const fx=Math.sin(h),fz=Math.cos(h),rx=-Math.cos(h),rz=Math.sin(h);
   let vF=c.vx*fx+c.vz*fz,vS=c.vx*rx+c.vz*rz;const grounded=c.air<=0;
-  const isMe=c===player.car;const maxS=s.max*(cheats.fast&&isMe?1.9:1);const acc=s.acc*(cheats.fast&&isMe?1.8:1);
+  const isMe=c===player.car;const maxS=s.max*(cheats.fast&&isMe?1.9:1)*(c.nitroOn?1.35:1);const acc=s.acc*(cheats.fast&&isMe?1.8:1)*(c.nitroOn?2.2:1);
   if(c.dead||c.sunk){thr=0;steer=0;}
   c.steer+=(steer*0.55-c.steer)*Math.min(1,dt*(steer?5:9));
   const fly=cheats.flycar&&isMe;
@@ -892,19 +963,20 @@ function updatePoliceCar(c,dt){const ai=c.ai;const tgt=player.car?player.car.pos
 
 /* ---------- player damage / death ---------- */
 let dmgFlash=0;
-function damagePlayer(d,by){if(player.dead||cheats.god)return;player.hp-=d;dmgFlash=0.4;if(player.hp<=0){player.hp=0;die(by);}}
+function damagePlayer(d,by){if(player.dead||cheats.god)return;if(player.armor>0){const a=Math.min(player.armor,d*0.7);player.armor-=a;d-=a;}player.hp-=d;dmgFlash=0.4;if(player.hp<=0){player.hp=0;die(by);}}
 function die(by){if(player.dead)return;player.dead=true;player.deadT=0;if(player.car)exitCar(true);if(!player.rag)startRag(player,rand(-2,2),4,rand(-2,2));
   bigMsg('ПОТРАЧЕНО','#c00',4);$('gray').style.opacity=1;sfx('wasted');
   if(NET.on){netSend({t:'kill',k:by||'?',v:player.name});feed('☠ '+player.name+' — '+(by||'?'),'#f66');}}
 function busted(){if(player.dead)return;player.dead=true;player.deadT=0;player.busted=1;bigMsg('ПОПАЛСЯ!','#38e8ff',4);$('gray').style.opacity=1;addMoney(-Math.floor(player.money*0.15));
   if(player.H)animHuman(player.H,'hands',0.1);}
-function respawn(){const wasBusted=player.busted;player.dead=false;player.rag=null;player.hp=100;player.wanted=0;player.busted=0;player.pos.copy(SPAWN);player.vx=player.vz=player.vy=0;$('gray').style.opacity=0;
+function respawn(){gangOnRespawn();const wasBusted=player.busted;player.dead=false;player.rag=null;player.hp=100;player.wanted=0;player.busted=0;player.pos.copy(SPAWN);player.vx=player.vz=player.vy=0;$('gray').style.opacity=0;
   if(player.H){player.H.g.rotation.set(0,0,0);}addMoney(-Math.min(player.money,100));subMsg(wasBusted?'Вас отпустили под залог':'Больница: -$100',3);
   for(const c of cars.slice())if(c.ai&&c.ai.kind==='police')c.ai.leave=99;}
 
 /* ---------- enter / exit ---------- */
 function nearestEnterable(){let best=null,bd=4.2;for(const c of cars){if(c.dead||c.sunk)continue;const d=Math.hypot(c.pos.x-player.pos.x,c.pos.z-player.pos.z)-c.spec.W*0.3;if(d<bd&&Math.abs(c.pos.y-player.pos.y)<2.5){bd=d;best=c;}}return best;}
-function enterCar(c){if(c.npcDriver){c.g.remove(c.npcDriver);c.npcDriver=null;const side=new V3(Math.cos(c.heading),0,-Math.sin(c.heading)).multiplyScalar(c.spec.W/2+0.8);
+function enterCar(c){if(c.ai&&c.ai.kind==='gangcar')unloadCar(c);if(c.gang!==undefined&&player.gang!==c.gang){GS[c.gang].hate=Math.max(GS[c.gang].hate,NOW+25);addRep(c.gang,-4);if(c.npcDriver){c.g.remove(c.npcDriver);c.npcDriver=null;const sd=new V3(Math.cos(c.heading),0,-Math.sin(c.heading)).multiplyScalar(c.spec.W/2+0.9);const m=spawnGM(c.gang,c.pos.clone().add(sd),'member','loiter');m.target='player';}}
+  if(c.npcDriver){c.g.remove(c.npcDriver);c.npcDriver=null;const side=new V3(Math.cos(c.heading),0,-Math.sin(c.heading)).multiplyScalar(c.spec.W/2+0.8);
     const pd=spawnPedAt(c.pos.clone().add(side),'panic');pd.pos.y=heightAt(pd.pos.x,pd.pos.z);if(c.police){pd.H.g.parent.remove(pd.H.g);removePed(pd);}else{say(pd,'car');startRag(pd,side.x*2,3,side.z*2);}
     if(c.police)addCrime(2);else if(Math.random()<0.3)addCrime(1);}
   if(c.ai)c.ai=null;c.parked=false;player.car=c;c.driver='me';player.siren=false;const H=player.H;H.g.rotation.set(0,0,0);c.g.add(H.g);H.g.position.copy(c.seat);H.g.scale.setScalar(0.92);
@@ -917,10 +989,10 @@ function exitCar(force){const c=player.car;if(!c)return;const sp=carSpeed(c);con
 function tryEnterExit(){if(player.dead)return;if(player.car){exitCar(false);return;}if(player.rag)return;const c=nearestEnterable();if(c)enterCar(c);}
 
 /* ---------- projectiles & explosions ---------- */
-function spawnProjectile(type,pos,vel,real){let m;
+function spawnProjectile(type,pos,vel,real,owner){let m;
   if(type==='rocket'){m=new THREE.Group();const b=mesh(CG(0.1,0.1,0.8,8),M('#555',0.5,0.5));b.rotation.x=Math.PI/2;m.add(b);const t=mesh(new THREE.ConeGeometry(0.11,0.3,8),M('#a22',0.5));t.rotation.x=Math.PI/2;t.position.z=0.55;m.add(t);}
   else{m=makeDuck(type==='rain'?rand(0.5,0.9):0.55);}
-  m.position.copy(pos);scene.add(m);const p={type,m,pos:m.position,vel:vel.clone(),life:type==='rain'?14:type==='duck'?3.2:5,bounces:0,real,spin:rand(-8,8)};projectiles.push(p);return p;}
+  m.position.copy(pos);scene.add(m);const p={type,m,pos:m.position,vel:vel.clone(),life:type==='rain'?14:type==='duck'?3.2:5,bounces:0,real,owner,spin:rand(-8,8)};projectiles.push(p);return p;}
 function updateProjectiles(dt){for(let i=projectiles.length-1;i>=0;i--){const p=projectiles[i];p.life-=dt;let boom=p.life<=0;
   if(p.type!=='rocket')p.vel.y-=GRAV()*dt*(p.type==='rain'?0.6:1);p.pos.addScaledVector(p.vel,dt);
   if(p.type==='rocket'){p.m.lookAt(p.pos.clone().add(p.vel));if(Math.random()<0.8)smokePuff(p.pos,0.35);emit(p.pos,1,{color:'#ffb040',size:0.6,life:0.12,add:true});}
@@ -930,11 +1002,12 @@ function updateProjectiles(dt){for(let i=projectiles.length-1;i>=0;i--){const p=
   const before=p.pos.clone();if(collideCircle(p.pos,0.3)){hit=true;}
   if(hit){if(p.type==='rocket')boom=true;else{p.bounces++;const n=p.pos.clone().sub(before);if(p.pos.y<=gh+0.01){p.vel.y=Math.abs(p.vel.y)*0.55;p.vel.x*=0.75;p.vel.z*=0.75;}if(n.lengthSq()>1e-6){n.normalize();const vn=p.vel.dot(n);if(vn<0)p.vel.addScaledVector(n,-1.6*vn);}
     if(p.vel.length()>2.5)sfx('quack',p.pos);if(p.type==='duck'&&p.bounces>=3)boom=true;if(p.type==='rain'&&p.bounces>1){p.vel.multiplyScalar(0.5);}}}
-  if(p.real&&!boom&&p.type!=='rain'){for(const pd of peds){if(!pd.dead&&pd.pos.distanceToSquared(p.pos)<2.2&&Math.abs(pd.pos.y+1-p.pos.y)<1.3){boom=true;break;}}
+  if(p.real&&!boom&&p.type!=='rain'){for(const pd of peds){if(pd!==p.owner&&!pd.dead&&pd.pos.distanceToSquared(p.pos)<2.2&&Math.abs(pd.pos.y+1-p.pos.y)<1.3){boom=true;break;}}
     if(!boom)for(const c of cars){if(c!==player.car&&!c.dead&&c.pos.distanceToSquared(p.pos)<4.5){boom=true;break;}}
-    if(!boom)for(const r of NET.remotes.values()){if(r.pos.distanceToSquared(p.pos)<2.5){boom=true;break;}}}
+    if(!boom)for(const r of NET.remotes.values()){if(r.pos.distanceToSquared(p.pos)<2.5){boom=true;break;}}
+    if(!boom&&p.owner&&!player.dead&&(player.car?player.car.pos:player.pos).distanceToSquared(p.pos)<(player.car?6:2.5))boom=true;}
   if(p.type==='rain'&&p.vel.lengthSq()>16){for(const pd of peds){if(!pd.dead&&!pd.rag&&pd.pos.distanceToSquared(p.pos)<1.8&&p.pos.y-pd.pos.y<2.2){startRag(pd,p.vel.x*0.3,4,p.vel.z*0.3);say(pd,'duck');}}}
-  if(boom){if(p.type!=='rain'&&p.real)explode(p.pos.clone(),p.type==='duck'?0.9:1.4,true,p.type==='duck'?'duck':'boom');
+  if(boom){if(p.type!=='rain'&&p.real)explode(p.pos.clone(),p.type==='duck'?0.9:1.4,!p.owner,p.type==='duck'?'duck':'boom',p.owner?GANGS[p.owner.gang].name:undefined);
     if(p.type==='rain'){emit(p.pos,6,{color:'#ffd400',size:0.3,speed:3,life:0.5,grav:8});}
     scene.remove(p.m);projectiles.splice(i,1);}}}
 function explode(pos,power=1,mine=true,kind='boom',byName){
@@ -947,7 +1020,7 @@ function explode(pos,power=1,mine=true,kind='boom',byName){
     flashLight.position.copy(pos).add(new V3(0,2,0));flashLight.intensity=8*power;}
   shake=Math.max(shake,clamp(1.3-d/60,0,1.3)*power*(duck?0.4:1));
   const R=(duck?6:8)*power;
-  for(const pd of peds){const dd=pd.pos.distanceTo(pos);if(dd<R){const dir=pd.pos.clone().sub(pos);dir.y=0;dir.normalize();const f=(1-dd/R);
+  for(const pd of peds){const dd=pd.pos.distanceTo(pos);if(dd<R){pd.lastBy=mine?'player':'npc';if(mine&&pd.gang!==undefined&&!pd.dead)gangOnHurt(pd);const dir=pd.pos.clone().sub(pos);dir.y=0;dir.normalize();const f=(1-dd/R);
     if(duck){startRag(pd,dir.x*12*f,10+12*f,dir.z*12*f);say(pd,'duck');if(pd.dead)continue;pd.hp-=5;}
     else{if(!pd.dead){pd.dead=pd.hp-f*120<=0;pd.hp-=f*120;if(pd.dead&&mine)addCrime(1);}startRag(pd,dir.x*16*f,8+14*f,dir.z*16*f);}}}
   alertPeds(pos,60);
@@ -965,7 +1038,7 @@ const ray=new THREE.Raycaster();
 function castRay(o,d,far){let t=far,kind=null,ent=null;
   if(d.y<-1e-4){const tg=(0-o.y)/d.y;if(tg>0&&tg<t){t=tg;kind='ground';}}
   const tb=rayBoxes(o,d,t);if(tb<t){t=tb;kind='wall';}
-  const objs=[];for(const pd of peds)if(pd.pos.distanceToSquared(o)<160*160)objs.push(pd.H.g);
+  const objs=[];for(const pd of peds)if(pd.H.g.visible&&pd.pos.distanceToSquared(o)<160*160)objs.push(pd.H.g);
   for(const c of cars)if(c!==player.car&&c.pos.distanceToSquared(o)<160*160)objs.push(c.g);
   for(const r of NET.remotes.values()){objs.push(r.H.g);if(r.carMesh)objs.push(r.carMesh.g);}
   for(const b of barrels)if(b.alive)objs.push(b.g);
@@ -980,13 +1053,13 @@ function applyHit(h,dmg,dir){const e=h.ent;if(!e)return;
   else if(e.isBarrel){explodeBarrel(e,true);}}
 let crossHit=0;
 function shoot(){const w=WEAPONS[player.weapon];if(NOW-player.lastShot<w.rate||player.dead||player.rag)return;
-  if(player.weapon===0){if(!player.car)punch();player.lastShot=NOW;return;}
+  if(w.melee){if(!player.car)punch(w);player.lastShot=NOW;return;}
   if(player.ammo[player.weapon]<=0){if(NOW-player.lastShot>0.3){sfx('click');player.lastShot=NOW;}return;}
   player.lastShot=NOW;player.ammo[player.weapon]--;
   const o=camera.position.clone(),d=camera.getWorldDirection(new V3());const mz=muzzlePos();
   // skip anything between camera and the player
   const skip=player.car?6:CAM_D[camDistIdx]*0.9;o.addScaledVector(d,player.aiming?1.5:skip*0.8);
-  sfx(w.snd,player.pos);camPitch+=w.proj?0.03:0.008*(player.weapon===3?4:1);
+  sfx(w.snd,player.pos);camPitch+=w.proj?0.03:0.008*(w.kick||1);
   emit(mz,1,{color:'#ffe08a',size:0.5,life:0.06,add:true});flashLight.position.copy(mz);flashLight.intensity=Math.max(flashLight.intensity,2);
   if(w.proj){const h=castRay(o,d,300);const dir=h.point.clone().sub(mz).normalize();const v=dir.multiplyScalar(w.proj==='rocket'?65:34);if(w.proj==='duck')v.y+=4;
     spawnProjectile(w.proj,mz.clone(),v,true);if(NET.on)netSend({t:'proj',k:w.proj,p:[mz.x,mz.y,mz.z],v:[v.x,v.y,v.z]});}
@@ -994,17 +1067,17 @@ function shoot(){const w=WEAPONS[player.weapon];if(NOW-player.lastShot<w.rate||p
       tracer(mz,h.point);if(h.kind==='ent')applyHit(h,w.dmg,dd);else if(h.kind)sparks(h.point);}
     if(NET.on)netSend({t:'shot',a:[mz.x,mz.y,mz.z],b:o.clone().addScaledVector(d,60).toArray()});}
   alertPeds(player.pos,45);for(const c of cars)if(c.police&&c.pos.distanceTo(player.pos)<40&&!c.dead)addCrime(0.05);}
-function punch(){const H=player.H;H.punch=0.25;sfx('swing');const f=new V3(Math.sin(player.heading),0,Math.cos(player.heading));const hp=player.pos.clone().addScaledVector(f,0.9);
+function punch(w=WEAPONS[0]){const H=player.H;H.punch=0.25;sfx('swing');const f=new V3(Math.sin(player.heading),0,Math.cos(player.heading));const hp=player.pos.clone().addScaledVector(f,0.9);
   const pw=cheats.superpunch?1:0;const big=player.scale>1.5;
-  for(const pd of peds){if(pd.dead)continue;if(pd.pos.distanceTo(hp)<1.3*player.scale){sfx('punch',pd.pos);if(pw||big){startRag(pd,f.x*(pw?30:14),pw?60:8,f.z*(pw?30:14));pd.hp-=pw?100:20;if(pd.hp<=0)pd.dead=true;}else{damagePed(pd,14,f,'punch');if(!pd.dead&&Math.random()<0.5)startRag(pd,f.x*5,3,f.z*5);}
+  for(const pd of peds){if(pd.dead)continue;if(pd.pos.distanceTo(hp)<(w.range||1.3)*player.scale){sfx(w.id==='knife'?'stab':'punch',pd.pos);if(pw||big){startRag(pd,f.x*(pw?30:14),pw?60:8,f.z*(pw?30:14));pd.hp-=pw?100:20;if(pd.hp<=0)pd.dead=true;}else{damagePed(pd,w.dmg,f,'punch');if(!pd.dead&&Math.random()<(w.id==='bat'?0.8:0.4))startRag(pd,f.x*(w.id==='bat'?9:5),3,f.z*(w.id==='bat'?9:5));}
       if(Math.random()<0.3)spawnPickup('cash',pd.pos.clone(),randi(5,40));addCrime(0.2);}}
   for(const c of cars){if(c.dead)continue;if(c.pos.distanceTo(hp)<c.spec.L*0.55&&(pw||big)){c.vx+=f.x*(pw?40:12);c.vz+=f.z*(pw?40:12);c.vy+=pw?18:4;c.air=0.01;if(c.ai&&c.ai.kind==='lane')c.ai=null;sfx('crash',c.pos);}}
-  for(const r of NET.remotes.values()){if(r.pos.distanceTo(hp)<1.4*player.scale)netSend({t:'hit',to:r.id,dmg:pw?50:10,n:player.name,imp:[f.x*(pw?30:6),pw?40:4,f.z*(pw?30:6)]});}}
+  for(const r of NET.remotes.values()){if(r.pos.distanceTo(hp)<1.4*player.scale)netSend({t:'hit',to:r.id,dmg:pw?50:w.dmg,n:player.name,imp:[f.x*(pw?30:6),pw?40:4,f.z*(pw?30:6)]});}}
 function fart(){if(player.dead)return;sfx('fart',player.pos);const p=player.pos.clone().add(new V3(-Math.sin(player.heading)*0.4,0.9,-Math.cos(player.heading)*0.4));
   for(let i=0;i<14;i++)emit(p,1,{color:['#9acd32','#7cbf2a','#b5d65a'],size:0.9,speed:1.5,up:0.6,life:2,grow:1.2,jit:0.3,drag:1});
-  for(const pd of peds){if(pd.dead||pd.rag)continue;const d=pd.pos.distanceTo(player.pos);if(d<10){pd.state='panic';pd.timer=rand(3,6);pd.threat.copy(player.pos);say(pd,'fart');if(d<3){startRag(pd,(pd.pos.x-player.pos.x)*2,4,(pd.pos.z-player.pos.z)*2);}}}
+  for(const pd of peds){if(pd.dead||pd.rag)continue;const d=pd.pos.distanceTo(player.pos);if(pd.gang!==undefined){if(d<10)say(pd,'fart');continue;}if(d<10){pd.state='panic';pd.timer=rand(3,6);pd.threat.copy(player.pos);say(pd,'fart');if(d<3){startRag(pd,(pd.pos.x-player.pos.x)*2,4,(pd.pos.z-player.pos.z)*2);}}}
   if(NET.on)netSend({t:'fart',p:p.toArray()});}
-function startDance(){player.dance=8;for(const pd of peds){if(!pd.dead&&!pd.rag&&pd.pos.distanceTo(player.pos)<16){pd.state='dance';pd.timer=rand(5,9);if(Math.random()<0.4)say(pd,'dance');}}}
+function startDance(){player.dance=8;for(const pd of peds){if(pd.gang!==undefined){if(!pd.target&&pd.pos.distanceTo(player.pos)<16)pd.danceT=7;continue;}if(!pd.dead&&!pd.rag&&pd.pos.distanceTo(player.pos)<16){pd.state='dance';pd.timer=rand(5,9);if(Math.random()<0.4)say(pd,'dance');}}}
 
 /* ---------- pickups / golden ducks ---------- */
 const cashTex=canvasTex(64,32,(g,w,h)=>{g.fillStyle='#2f8a3a';g.fillRect(0,0,w,h);g.strokeStyle='#bfe8a0';g.lineWidth=2;g.strokeRect(3,3,w-6,h-6);g.fillStyle='#e8ffd0';g.font='bold 22px Arial';g.textAlign='center';g.textBaseline='middle';g.fillText('$',w/2,h/2+1);});
@@ -1022,7 +1095,7 @@ function updatePickups(dt){const me=player.car?player.car.pos:player.pos;const r
     if(!player.dead&&Math.abs(p.pos.x-me.x)<r&&Math.abs(p.pos.z-me.z)<r&&Math.abs(p.pos.y-me.y)<3){
       if(p.type==='cash'){addMoney(p.amount);feed('+$'+p.amount,'#6dff8a');}
       if(p.type==='health'){player.hp=Math.min(100,player.hp+50);sfx('pickup');feed('+50 здоровья','#ff8080');}
-      if(p.type==='ammo'){for(let k=1;k<6;k++)player.ammo[k]=Math.min(WEAPONS[k].max,player.ammo[k]+Math.ceil(WEAPONS[k].max/3));sfx('pickup');feed('Патроны пополнены','#ffd21f');}
+      if(p.type==='ammo'){for(let k=0;k<WEAPONS.length;k++)if(WEAPONS[k].max&&player.owned.includes(k)&&WEAPONS[k].id!=='duck')player.ammo[k]=Math.min(WEAPONS[k].max,player.ammo[k]+(WEAPONS[k].pack||10));sfx('pickup');feed('Патроны пополнены','#ffd21f');}
       if(p.type==='gduck'){player.ducks++;addMoney(1000);sfx('bigquack');bigMsg('ЗОЛОТАЯ УТКА '+player.ducks+'/10','#ffcf40',2.5);if(player.ducks===10){subMsg('ВСЕ УТКИ СОБРАНЫ! Награда: $50 000 и Уткомёт с бесконечным кряком',6);addMoney(50000);}scene.remove(p.g);pickups.splice(i,1);continue;}
       if(p.respawn){p.hidden=p.respawn;p.g.visible=false;}else{scene.remove(p.g);pickups.splice(i,1);}}}}
 
@@ -1034,7 +1107,7 @@ function makeMarker(){const g=new THREE.Group();const beam=new THREE.Mesh(new TH
 function roadPoint(minD,maxD){const p=player.car?player.car.pos:player.pos;for(let i=0;i<60;i++){const axisX=Math.random()<0.5;const k=randi(0,NB)*P-HALF;const s=rand(-HALF+10,HALF-10);const x=axisX?s:k+pick([-1,1])*(LANE+2.5),z=axisX?k+pick([-1,1])*(LANE+2.5):s;const d=Math.hypot(x-p.x,z-p.z);if(d>minD&&d<maxD)return new V3(x,0,z);}return new V3(0,0,0);}
 const CLIENTS=['Дядя Ашот','Бабушка Зина','Мафиози Тони','Сосед Вася','Блогер Кирилл','Доктор Утконос','Таинственный Голубь'];
 const CARGO=['пиццу','шаурму','чемодан с деньгами','живую курицу','резиновую утку','секретные документы','бабушкины пирожки','гитару'];
-function updateMission(dt){if(!mission.marker)mission.marker=makeMarker();const mk=mission.marker;
+function updateMission(dt){if(!mission.marker)mission.marker=makeMarker();const mk=mission.marker;if(gmis.active){mk.visible=false;return;}
   if(mission.stage===0){mission.wait-=dt;mk.visible=false;if(mission.wait<=0){mission.stage=1;mission.target.copy(roadPoint(60,180));mission.client=pick(CLIENTS);mission.cargo=pick(CARGO);subMsg(mission.client+': забери '+mission.cargo+'!',4);}}
   else{mk.visible=true;mk.position.copy(mission.target);mk.userData.arrow.position.y=4+Math.sin(NOW*4)*0.5;mk.userData.arrow.rotation.y+=dt*3;
     const me=player.car?player.car.pos:player.pos;const d=Math.hypot(me.x-mission.target.x,me.z-mission.target.z);
@@ -1089,6 +1162,11 @@ function sfx(n,pos){if(!AC)return;const v=svol(pos);if(v<=0.01)return;
     case 'door':nz(0.08,900,0.4*v);tn(200,0.06,'square',0.15*v,120);break;
     case 'wasted':tn(330,0.5,'sawtooth',0.15,null,0);tn(247,0.5,'sawtooth',0.15,null,0.45);tn(165,1.4,'sawtooth',0.18,82,0.9);break;
     case 'siren1':tn(700,0.25,'square',0.1);tn(950,0.25,'square',0.1,null,0.25);break;
+    case 'ak':nz(0.14,2600,0.6*v,'lowpass',1,350);tn(120,0.06,'square',0.22*v,55);break;
+    case 'sniper':nz(0.5,4200,1.0*v,'lowpass',1,200);tn(220,0.25,'sawtooth',0.3*v,50);break;
+    case 'minigun':nz(0.06,3000,0.35*v,'lowpass',1,600);break;
+    case 'stab':nz(0.1,3000,0.4*v,'bandpass',2,800);tn(300,0.06,'sine',0.2*v,120);break;
+    case 'nitro':nz(0.5,1200,0.35*v,'bandpass',1,3000);break;
     case 'cheat':[523,659,784,1047].forEach((f,i)=>tn(f,0.15,'square',0.12,null,i*0.08));break;}}
 /* radio */
 const radio={on:false,step:0,next:0,st:0};const STATIONS=['ELDAR FM','КРЯ-РАДИО','БАСС 104'];
@@ -1144,7 +1222,8 @@ function onNet(m,conn){if(!m||typeof m!=='object')return;
     case 'fun':applyGlobal(m.k,m.n,false);break;
     case 'tod':if(!NET.host)tod=m.v;break;
     case 'fart':{const p=new V3().fromArray(m.p);sfx('fart',p);for(let i=0;i<10;i++)emit(p,1,{color:['#9acd32','#7cbf2a'],size:0.9,speed:1.5,up:0.6,life:2,grow:1.2,jit:0.3,drag:1});alertPeds(p,10,'fart');break;}
-    case 'horn':sfx('horn',new V3().fromArray(m.p));break;}}
+    case 'horn':sfx('horn',new V3().fromArray(m.p));break;
+    case 'gs':case 'gcap':case 'graid':case 'gend':case 'grel':case 'gn':gangNet(m);break;}}
 function recvState(m){let r=NET.remotes.get(m.id);
   if(!r){const H=makeHuman({shirt:m.c,skin:m.sk||'#f1c27d',hair:m.hr||'#222',hat:m.ht||0,pants:m.pn||'#223'});scene.add(H.g);
     const tag=textSprite(m.n,{size:40,color:m.c,bg:'rgba(0,0,0,.55)',depthTest:false},0.45);tag.material.depthTest=false;scene.add(tag);
@@ -1161,7 +1240,7 @@ function updateRemotes(dt){for(const r of [...NET.remotes.values()]){const m=r.t
     r.pos.x+=(m.x-r.pos.x)*k;r.pos.y+=(m.y-r.pos.y)*k;r.pos.z+=(m.z-r.pos.z)*k;if(r.pos.distanceTo(new V3(m.x,m.y,m.z))>15)r.pos.set(m.x,m.y,m.z);
     r.heading+=angDiff(r.heading,m.h)*k;r.H.g.position.copy(r.pos);r.H.g.scale.setScalar(m.sc||1);
     if(m.a==='rag'||m.a==='dead'){r.H.g.rotation.set(m.a==='dead'?-Math.PI/2:Math.sin(NOW*6)*1.5,r.heading,m.a==='dead'?0:Math.cos(NOW*5));}else r.H.g.rotation.set(0,r.heading,0);
-    r.H.aim=!!m.aim;r.H.twoHand=m.w>=2;setGun(r.H,m.w||0);if(m.pu)r.H.punch=0.25;animHuman(r.H,m.a==='rag'?'ragdoll':m.a||'idle',dt,m.ap||0);
+    r.H.aim=!!m.aim;r.H.twoHand=!!(WEAPONS[m.w]&&WEAPONS[m.w].two);setGun(r.H,m.w||0);if(m.pu)r.H.punch=0.25;animHuman(r.H,m.a==='rag'?'ragdoll':m.a||'idle',dt,m.ap||0);
     pushOut(player.pos,r.pos,0.8);}
   r.tag.position.copy(r.pos).add(new V3(0,m.v?3.2:2.5*(m.sc||1)+(cheats.bighead?0.6:0),0));}}
 function pushOut(p,o,rr){const dx=p.x-o.x,dz=p.z-o.z;const d=Math.hypot(dx,dz);if(d<rr&&d>1e-4&&Math.abs(p.y-o.y)<1.8){p.x+=dx/d*(rr-d);p.z+=dz/d*(rr-d);}}
@@ -1195,6 +1274,7 @@ const CHEATS={
   HOTDOG:()=>{spawnCheatCar('hotdog');return 'Машина-хот-дог!';},
   MONSTER:()=>{spawnCheatCar('monster');return 'Монстр-трак!';},
   SPORT:()=>{spawnCheatCar('sport');return 'Спорткар!';},
+  GUNS:()=>{player.owned=WEAPONS.map((w,i)=>i);WEAPONS.forEach((w,i)=>{if(w.max)player.ammo[i]=w.max;});return 'Весь арсенал!';},ARMOR:()=>{player.armor=100;return 'Броня 100';},
   DUCKRAIN:()=>global('DUCKRAIN'),DISCO:()=>global('DISCO'),NIGHT:()=>global('NIGHT'),DAY:()=>global('DAY')};
 function spawnCheatCar(t){const f=new V3(Math.sin(player.heading),0,Math.cos(player.heading));const p=player.pos.clone().addScaledVector(f,5);const c=makeCar(t,p.x,p.z,player.heading+Math.PI/2);c.pos.y=heightAt(p.x,p.z)+2;c.air=0.01;}
 function global(k){netSend({t:'fun',k,n:player.name});return applyGlobal(k,player.name,true);}
@@ -1213,14 +1293,17 @@ function tryCheat(code){code=code.toUpperCase().replace(/[^A-Z]/g,'');const f=CH
 const cvs=renderer.domElement;
 addEventListener('keydown',e=>{if(!started)return;
   if(chatOpen){if(e.code==='Enter'){sendChat();}else if(e.code==='Escape'){closeChat();}return;}
+  if(uiOpen()){if(e.code==='Escape'||(e.code==='KeyK'&&gangUIOpen)||(e.code==='KeyE'&&(shopOpen||dlgOpen)))closeAllUI();return;}
   if(e.code==='KeyH'){toggleHelp();return;}
+  if(e.code==='KeyK'){openGangUI();return;}
   if(helpOpen&&e.code==='Escape'){toggleHelp();return;}
   keys[e.code]=true;
   if(e.code.startsWith('Key')){cheatBuf=(cheatBuf+e.code.slice(3)).slice(-12);for(const k in CHEATS)if(cheatBuf.endsWith(k)){tryCheat(k);cheatBuf='';break;}}
   if(e.repeat)return;
   if(e.code==='KeyF'||e.code==='Enter')tryEnterExit();
   if(e.code==='KeyT'){e.preventDefault();openChat();}
-  if(e.code>='Digit1'&&e.code<='Digit6'){player.weapon=+e.code.slice(5)-1;}
+  if(/^Digit\d$/.test(e.code)){const n=(+e.code.slice(5)+9)%10;const ow=player.owned.slice().sort((a,b)=>a-b);if(ow[n]!==undefined)player.weapon=ow[n];}
+  if(e.code==='KeyY')toggleFollowers();
   if(e.code==='KeyQ')honk();
   if(e.code==='KeyR'&&player.car){if(!radio.on){radio.on=true;subMsg('📻 '+STATIONS[radio.st],2);}else{radio.st++;if(radio.st>=STATIONS.length){radio.st=0;radio.on=false;subMsg('📻 Радио выключено',1.5);}else subMsg('📻 '+STATIONS[radio.st],2);}}
   if(e.code==='KeyG'&&!player.car)startDance();
@@ -1228,7 +1311,7 @@ addEventListener('keydown',e=>{if(!started)return;
   if(e.code==='KeyX'&&!player.car&&!player.dead&&!player.rag)startRag(player,Math.sin(player.heading)*4,5,Math.cos(player.heading)*4);
   if(e.code==='KeyN'){player.outfit=null;buildPlayerModel();subMsg('Новый прикид!',1.5);}
   if(e.code==='KeyC')camDistIdx=(camDistIdx+1)%CAM_D.length;
-  if(e.code==='KeyE'&&player.car&&player.car.police){player.siren=!player.siren;}
+  if(e.code==='KeyE'){if(player.car){if(player.car.police)player.siren=!player.siren;}else interact();}
   if(e.code==='Space')e.preventDefault();});
 addEventListener('keyup',e=>{keys[e.code]=false;});
 function honk(){if(player.car){sfx('horn',player.car.pos);netSend({t:'horn',p:player.car.pos.toArray()});for(const pd of peds)if(!pd.dead&&pd.pos.distanceTo(player.car.pos)<12&&Math.random()<0.5){pd.state='panic';pd.timer=2;pd.threat.copy(player.car.pos);}}}
@@ -1237,9 +1320,9 @@ addEventListener('mouseup',e=>{if(e.button===0)mouse.left=false;if(e.button===2)
 cvs.addEventListener('contextmenu',e=>e.preventDefault());
 $('lock').addEventListener('mousedown',()=>{audioInit();cvs.requestPointerLock&&cvs.requestPointerLock();});
 document.addEventListener('pointerlockchange',()=>{pointerLocked=document.pointerLockElement===cvs;updateLockMsg();});
-function updateLockMsg(){$('lock').classList.toggle('hide',pointerLocked||IS_TOUCH||!started||chatOpen||helpOpen);}
-addEventListener('mousemove',e=>{if(!pointerLocked)return;camYaw-=e.movementX*0.0024;camPitch=clamp(camPitch+e.movementY*0.0022,-0.45,1.25);camFree=1.6;});
-addEventListener('wheel',e=>{if(!started||!pointerLocked)return;player.weapon=(player.weapon+(e.deltaY>0?1:-1)+6)%6;});
+function updateLockMsg(){$('lock').classList.toggle('hide',pointerLocked||IS_TOUCH||!started||chatOpen||helpOpen||uiOpen());}
+addEventListener('mousemove',e=>{if(!pointerLocked)return;const sn=(player.aiming&&WEAPONS[player.weapon].scope)?0.28:1;camYaw-=e.movementX*0.0024*sn;camPitch=clamp(camPitch+e.movementY*0.0022*sn,-0.45,1.25);camFree=1.6;});
+addEventListener('wheel',e=>{if(!started||!pointerLocked)return;cycleWeapon(e.deltaY>0?1:-1);});
 function openChat(){chatOpen=true;const i=$('chatInput');i.classList.remove('hide');i.value='';setTimeout(()=>i.focus(),10);for(const k in keys)keys[k]=false;if(document.exitPointerLock)document.exitPointerLock();updateLockMsg();}
 function closeChat(){chatOpen=false;const i=$('chatInput');i.blur();i.classList.add('hide');updateLockMsg();if(!IS_TOUCH&&cvs.requestPointerLock)cvs.requestPointerLock();}
 function sendChat(){const v=$('chatInput').value.trim();if(v){if(v.startsWith('/')){if(!tryCheat(v.slice(1)))addChat('⚠','Нет такого чита','#f66');}else{addChat(player.name,v,player.color);netSend({t:'chat',n:player.name,m:v,c:player.color});}}closeChat();}
@@ -1257,8 +1340,8 @@ $('helpClose').onclick=()=>{toggleHelp();if(!IS_TOUCH&&cvs.requestPointerLock)cv
   const btn=(id,down,up)=>{const b=$(id);b.addEventListener('touchstart',e=>{e.preventDefault();e.stopPropagation();audioInit();b.classList.add('p');down&&down();},{passive:false});
     const u=e=>{e.preventDefault();b.classList.remove('p');up&&up();};b.addEventListener('touchend',u);b.addEventListener('touchcancel',u);};
   btn('tFire',()=>touch.fire=true,()=>touch.fire=false);btn('tJump',()=>touch.jump=true,()=>touch.jump=false);btn('tAim',()=>touch.aim=!touch.aim);
-  btn('tCar',tryEnterExit);btn('tWeap',()=>{player.weapon=(player.weapon+1)%6;});btn('tHorn',()=>{if(player.car)honk();else startDance();});
-  btn('tDance',startDance);btn('tFart',fart);btn('tChat',()=>{const v=prompt('Сообщение или /ЧИТКОД:');if(v){$('chatInput').value=v;sendChat();}});btn('tHelp',toggleHelp);})();
+  btn('tCar',tryEnterExit);btn('tWeap',()=>cycleWeapon(1));btn('tHorn',()=>{if(player.car)honk();else startDance();});
+  btn('tDance',startDance);btn('tFart',fart);btn('tChat',()=>{const v=prompt('Сообщение или /ЧИТКОД:');if(v){$('chatInput').value=v;sendChat();}});btn('tHelp',toggleHelp);btn('tTalk',()=>interact());btn('tGangs',()=>{gangUIOpen?closeGangUI():openGangUI();});btn('tNitro',()=>touch.nitro=true,()=>touch.nitro=false);})();
 
 /* =====================================================================
    PLAYER UPDATE
@@ -1271,9 +1354,9 @@ function updatePlayerFoot(dt){const p=player,H=p.H;
   const run=keys.ShiftLeft||keys.ShiftRight||(touch.joyId!==null&&ml>0.85);
   const spd=(run?8.5:4.2)*(cheats.fast?1.8:1)*(p.swim?0.45:1)*(p.scale>1?1.6:p.scale<1?0.7:1);
   if(ml>1){dx/=ml;dz/=ml;}
-  p.aiming=(mouse.right||touch.aim)&&p.weapon>0;const shooting=NOW-p.lastShot<0.5&&p.weapon>0;
+  const W0=WEAPONS[p.weapon];p.aiming=(mouse.right||touch.aim)&&!W0.melee;const shooting=NOW-p.lastShot<0.5&&!W0.melee;
   if(ml>0.05&&!p.aiming&&!shooting)p.heading+=angDiff(p.heading,Math.atan2(dx,dz))*Math.min(1,dt*12);
-  if(p.aiming||shooting||(p.weapon===0&&NOW-p.lastShot<0.3&&ml<0.1))p.heading+=angDiff(p.heading,camYaw)*Math.min(1,dt*20);
+  if(p.aiming||shooting||(W0.melee&&NOW-p.lastShot<0.3&&ml<0.1))p.heading+=angDiff(p.heading,camYaw)*Math.min(1,dt*20);
   const ctrl=p.onGround?1:0.3;p.vx=lerp(p.vx,dx*spd,Math.min(1,dt*12*ctrl));p.vz=lerp(p.vz,dz*spd,Math.min(1,dt*12*ctrl));
   if(jumpHeld()&&p.onGround&&!p.swim&&!p.jumpLock){p.vy=cheats.moon?13:8.5;p.onGround=false;p.jumpLock=true;sfx('jump');}if(!jumpHeld())p.jumpLock=false;
   if(ml>0.1)p.dance=0;if(p.dance>0)p.dance-=dt;
@@ -1292,13 +1375,14 @@ function updatePlayerFoot(dt){const p=player,H=p.H;
     else if(p.pos.y>gh+0.05&&!p.carTop)p.onGround=false;}
   p.carTop=false;
   const hs=Math.hypot(p.vx,p.vz);const st=p.swim?'swim':!p.onGround?'jump':hs>6?'run':hs>0.6?'walk':p.dance>0?'dance':'idle';p.state=st;
-  H.aim=(p.aiming||shooting)&&p.weapon>0;H.twoHand=p.weapon>=2;setGun(H,p.weapon);animHuman(H,st,dt,camPitch-0.2);
+  H.aim=(p.aiming||shooting)&&!W0.melee;H.twoHand=!!W0.two;setGun(H,p.weapon);animHuman(H,st,dt,camPitch-0.2);H.g.visible=!(p.aiming&&W0.scope);
   H.g.position.copy(p.pos);H.g.rotation.y=p.heading;
   if(p.flip>0){p.flip+=dt*7;H.g.rotation.x=p.flip;if(p.onGround||p.flip>Math.PI*2*2){p.flip=0;H.g.rotation.x=0;}}else H.g.rotation.x=0;}
 function updatePlayerCar(dt){const c=player.car,H=player.H;const mv=getMove();
   if(c.sunk&&c.pos.y<-1){exitCar(false);player.pos.y=-1;return;}
-  carPhysics(c,mv.y,mv.x,jumpHeld()&&!cheats.flycar,dt);
-  const aiming=(mouse.right||touch.aim||NOW-player.lastShot<0.5)&&player.weapon>0;H.aim=aiming;H.twoHand=false;setGun(H,aiming?player.weapon:0);
+  const nk=(keys.ShiftLeft||keys.ShiftRight||touch.nitro)&&mv.y>0&&player.nitro>1&&!c.dead;if(nk&&!c.nitroOn)sfx('nitro',c.pos);c.nitroOn=nk;
+  carPhysics(c,mv.y,mv.x,jumpHeld()&&!cheats.flycar,dt);carFx(c,dt);H.g.visible=true;
+  const aiming=(mouse.right||touch.aim||NOW-player.lastShot<0.5)&&!WEAPONS[player.weapon].melee;H.aim=aiming;H.twoHand=false;setGun(H,aiming?player.weapon:0);
   animHuman(H,'drive',dt,camPitch-0.2);if(aiming){H.g.rotation.y=angDiff(c.heading,camYaw)*0.9;}else H.g.rotation.y*=0.8;
   player.pos.copy(c.pos);player.heading=c.heading;player.state='drive';
   const sp=carSpeed(c);
@@ -1319,9 +1403,9 @@ function updateCamera(dt){let dist,shoulder=0,hgt;
   if(player.car){const c=player.car;camFree-=dt;const sp=carSpeed(c);
     if(camFree<=0&&sp>2){const back=carFwdSpeed(c)<-2?c.heading+Math.PI:c.heading;camYaw+=angDiff(camYaw,back)*Math.min(1,dt*2.5);camPitch=lerp(camPitch,0.22,dt*1.5);}
     camTgt.copy(c.pos);camTgt.y+=1.4+(c.spec.lift||0)*0.8;dist=7+c.spec.L*0.45+sp*0.04+(c.type==='van'?1.5:0);if(camDistIdx===1)dist*=1.4;if(camDistIdx===2)dist*=0.75;
-    const f=65+Math.min(18,sp*0.25);camera.fov+=(f-camera.fov)*dt*3;}
+    const f=65+Math.min(18,sp*0.25)+(c.nitroOn?10:0);camera.fov+=(f-camera.fov)*dt*3;}
   else{camTgt.copy(player.pos);if(player.rag)camTgt.y+=0.6;else camTgt.y+=(player.swim?0.6:1.55)*player.scale;const aim=player.aiming;dist=(aim?2.4:CAM_D[camDistIdx])*Math.max(0.6,player.scale);shoulder=aim?0.65:0.3;
-    const f=aim?48:65;camera.fov+=(f-camera.fov)*Math.min(1,dt*8);}
+    const f=aim?(WEAPONS[player.weapon].scope?14:48):65;camera.fov+=(f-camera.fov)*Math.min(1,dt*8);}
   if(player.dead){camPitch=lerp(camPitch,0.9,dt*0.6);dist=lerp(dist,14,0.5);camYaw+=dt*0.15;}
   camera.updateProjectionMatrix();
   const cp=Math.cos(camPitch),spn=Math.sin(camPitch);camBack.set(-Math.sin(camYaw)*cp,spn,-Math.cos(camYaw)*cp);camRight.set(-Math.cos(camYaw),0,Math.sin(camYaw));
@@ -1350,15 +1434,15 @@ function updateSky(focus){const ang=(tod-0.25)*Math.PI*2;const sy=Math.sin(ang),
 /* =====================================================================
    NPC MANAGEMENT
    ===================================================================== */
-const PED_MAX=LOW?16:32,TRAFFIC_MAX=LOW?10:20;
+const PED_MAX=LOW?20:42,TRAFFIC_MAX=LOW?12:28;
 function focusPoint(){return started?(player.car?player.car.pos:player.pos):new V3(0,0,0);}
 function manageNPC(){const f=focusPoint();
-  for(const pd of peds.slice()){const d=pd.pos.distanceTo(f);if(d>170||(pd.dead&&pd.deadT>25))removePed(pd);}
-  let tries=0;while(peds.length<PED_MAX&&tries++<6){const fb=nearestRing(f.x,f.z);const bx=clamp(fb.bx+randi(-2,2),0,NB-1),bz=clamp(fb.bz+randi(-2,2),0,NB-1);const pd=spawnPed(bx,bz,rand(0,PER));if(started&&pd.pos.distanceTo(f)<25){removePed(pd);}}
+  for(const pd of peds.slice()){if(pd.gang!==undefined)continue;const d=pd.pos.distanceTo(f);if(d>170||(pd.dead&&pd.deadT>25))removePed(pd);}
+  let tries=0;while(peds.filter(p=>p.gang===undefined).length<Math.round(PED_MAX*QUAL)&&tries++<6){const fb=nearestRing(f.x,f.z);const bx=clamp(fb.bx+randi(-2,2),0,NB-1),bz=clamp(fb.bz+randi(-2,2),0,NB-1);const pd=spawnPed(bx,bz,rand(0,PER));if(started&&pd.pos.distanceTo(f)<25){removePed(pd);}}
   for(const c of cars.slice()){if(c===player.car||c.parked)continue;const d=c.pos.distanceTo(f);if(d>220||(c.dead&&c.deadT>30&&d>40)||(c.ai&&c.ai.kind==='police'&&c.ai.leave>8&&d>40)||(!c.ai&&!c.dead&&d>160))removeCar(c);}
-  const traffic=cars.filter(c=>c.ai&&c.ai.kind==='lane').length;if(traffic<TRAFFIC_MAX)spawnTraffic(started?f:null);
+  const traffic=cars.filter(c=>c.ai&&c.ai.kind==='lane').length;if(traffic<Math.round(TRAFFIC_MAX*QUAL))spawnTraffic(started?f:null);
   if(started){const pol=cars.filter(c=>c.ai&&c.ai.kind==='police'&&!c.dead&&!c.ai.leave).length;const want=player.wanted>=1?Math.min(5,Math.ceil(player.wanted)):0;if(pol<want&&!player.dead)spawnPolice();}
-  for(const s of parkingSpots){if(s.car&&cars.includes(s.car)&&!s.car.dead&&s.car.parked)continue;if(s.car&&cars.includes(s.car)&&s.car.pos.distanceTo(new V3(s.x,0.3,s.z))<3)continue;if(f.distanceTo(new V3(s.x,0,s.z))>70||!started){s.car=makeCar(s.type,s.x,s.z,s.h,{parked:true});}}}
+  for(const s of parkingSpots){if(s.car&&cars.includes(s.car)&&!s.car.dead&&s.car.parked)continue;if(s.car&&cars.includes(s.car)&&s.car.pos.distanceTo(new V3(s.x,0.3,s.z))<3)continue;if(f.distanceTo(new V3(s.x,0,s.z))>70||!started){s.car=makeCar(s.type,s.x,s.z,s.h,{parked:true,color:s.color});if(s.gang!==undefined)s.car.gang=s.gang;}}}
 function updateWanted(dt){if(player.wanted<=0)return;const cool=NOW-player.lastCrime>22+player.wanted*6;let near=false;for(const c of cars)if(c.ai&&c.ai.kind==='police'&&!c.dead&&c.pos.distanceTo(player.pos)<45)near=true;
   $('stars').classList.toggle('blink',cool);if(cool&&!near){player.wanted=Math.max(0,Math.ceil(player.wanted)-1);player.lastCrime=NOW-12;if(player.wanted===0)subMsg('Розыск снят',2);}}
 
@@ -1372,6 +1456,7 @@ function drawMinimap(){const S=mmc.width,c=S/2;const sc=S/230;const me=player.ca
   const poly=(pts,fill)=>{mm.beginPath();pts.forEach((p,i)=>{const q=T(p[0],p[1]);i?mm.lineTo(q[0],q[1]):mm.moveTo(q[0],q[1]);});mm.closePath();mm.fillStyle=fill;mm.fill();};
   poly([[-EDGE,-EDGE],[EDGE,-EDGE],[EDGE,EDGE],[-EDGE,EDGE]],'#59704f');
   for(let bx=0;bx<NB;bx++)for(let bz=0;bz<NB;bz++){const x=bc(bx),z=bc(bz),h=30;const t=SPECIAL[bx+','+bz];poly([[x-h,z-h],[x+h,z-h],[x+h,z+h],[x-h,z+h]],t==='park'?'#4f8a3a':t?'#7a7a6a':'#8d8f8a');}
+  mmGangs(poly);
   for(const L of lakes){const pts=[];for(let i=0;i<20;i++){const a=i/20*Math.PI*2;pts.push([L.x+Math.cos(a)*L.rx,L.z+Math.sin(a)*L.rz]);}poly(pts,'#3a8ac0');}
   mm.strokeStyle='#2c2c2e';mm.lineWidth=ROAD*sc;mm.lineCap='butt';for(let k=0;k<=NB;k++){const v=-HALF+k*P;let a=T(v,-HALF-7),b=T(v,HALF+7);mm.beginPath();mm.moveTo(a[0],a[1]);mm.lineTo(b[0],b[1]);mm.stroke();a=T(-HALF-7,v);b=T(HALF+7,v);mm.beginPath();mm.moveTo(a[0],a[1]);mm.lineTo(b[0],b[1]);mm.stroke();}
   const blip=(x,z,color,r=4,clampIt,shape)=>{let [px,py]=T(x,z);const dx=px-c,dy=py-c,dd=Math.hypot(dx,dy);if(dd>c-8){if(!clampIt)return;px=c+dx/dd*(c-8);py=c+dy/dd*(c-8);}mm.fillStyle=color;mm.strokeStyle='#000';mm.lineWidth=1.5;mm.beginPath();if(shape==='sq')mm.rect(px-r,py-r,r*2,r*2);else mm.arc(px,py,r,0,Math.PI*2);mm.fill();mm.stroke();};
@@ -1379,28 +1464,33 @@ function drawMinimap(){const S=mmc.width,c=S/2;const sc=S/230;const me=player.ca
   for(const k of cars)if(k.ai&&k.ai.kind==='police'&&!k.dead)blip(k.pos.x,k.pos.z,Math.sin(NOW*10)>0?'#f22':'#24f',4,true);
   if(mission.stage>0)blip(mission.target.x,mission.target.z,'#ffd21f',6,true,'sq');
   for(const r of NET.remotes.values())blip(r.pos.x,r.pos.z,r.color,5,true);
+  for(const m of GM)if(!m.dead&&m.H.g.visible&&(m.target==='player'||m.state==='follow'))blip(m.pos.x,m.pos.z,m.target==='player'?'#f33':'#3f3',2.5);
+  if(gmis.active&&gmis.tp)blip(gmis.tp.x,gmis.tp.z,GANGS[gmis.g].color,6,true,'sq');mmIcons(T,c);
   mm.restore();const a=-angDiff(camYaw,player.heading);mm.save();mm.translate(c,c);mm.rotate(a);mm.fillStyle='#fff';mm.strokeStyle='#000';mm.lineWidth=2;mm.beginPath();mm.moveTo(0,-8);mm.lineTo(6,7);mm.lineTo(0,3);mm.lineTo(-6,7);mm.closePath();mm.fill();mm.stroke();mm.restore();
   mm.fillStyle='#fff';mm.font='bold 13px Arial';mm.textAlign='center';const nx=T(me.x,me.z-200);const ndx=nx[0]-c,ndy=nx[1]-c,nd=Math.hypot(ndx,ndy);mm.fillText('С',c+ndx/nd*(c-12),c+ndy/nd*(c-12)+4);}
 let hudT=0;
 function updateHUD(dt){if(bigT>0){bigT-=dt;if(bigT<=0)$('big').style.opacity=0;}if(subT>0){subT-=dt;if(subT<=0)$('sub').style.opacity=0;}
   if(dmgFlash>0){dmgFlash-=dt;$('dmg').style.opacity=dmgFlash*2;}else $('dmg').style.opacity=0;
   crossHit-=dt;$('cross').classList.toggle('hit',crossHit>0);
+  $('scope').style.display=(player.aiming&&WEAPONS[player.weapon].scope&&!player.car&&!player.dead)?'block':'none';
   hudT-=dt;if(hudT>0)return;hudT=0.1;
   $('money').textContent='$'+String(Math.floor(player.money)).padStart(8,'0');
   const w=Math.ceil(player.wanted);let s='';for(let i=0;i<5;i++)s+='<span class="'+(i<w?'on':'')+'">★</span>';$('stars').innerHTML=s;
-  const wp=WEAPONS[player.weapon];$('weapon').innerHTML='<span class="ic">'+wp.ic+'</span> '+wp.name+(player.weapon>0?' · '+(player.ammo[player.weapon]===Infinity?'∞':player.ammo[player.weapon]):'');
+  const wp=WEAPONS[player.weapon];$('weapon').innerHTML='<span class="ic">'+wp.ic+'</span> '+wp.name+(!wp.melee?' · '+(player.ammo[player.weapon]===Infinity?'∞':player.ammo[player.weapon]):'');
   $('ducks').textContent=player.ducks?'🦆 '+player.ducks+'/10':'';
   const hh=Math.floor(tod*24),mi=Math.floor((tod*24-hh)*60);$('clock').textContent=String(hh).padStart(2,'0')+':'+String(mi).padStart(2,'0');
-  $('hpfill').style.width=player.hp+'%';$('hpfill').style.background=player.hp<30?'#e33':'';
-  const sp=$('speedo');if(player.car){sp.classList.remove('hide');sp.innerHTML=Math.round(Math.abs(carFwdSpeed(player.car))*3.6)+'<small>км/ч'+(radio.on?' • 📻 '+STATIONS[radio.st]:'')+'</small>';}else sp.classList.add('hide');
-  $('cross').style.display=(player.weapon>0&&(player.aiming||!player.car))&&!player.dead?'block':'none';
+  $('hpfill').style.width=player.hp+'%';$('arfill').style.width=player.armor+'%';$('hpfill').style.background=player.hp<30?'#e33':'';
+  const sp=$('speedo');if(player.car){sp.classList.remove('hide');sp.innerHTML=Math.round(Math.abs(carFwdSpeed(player.car))*3.6)+'<small>км/ч'+(radio.on?' • 📻 '+STATIONS[radio.st]:'')+'</small><div class="nb"><i style="width:'+player.nitro+'%"></i></div>';}else sp.classList.add('hide');
+  $('cross').style.display=(!WEAPONS[player.weapon].melee&&(player.aiming||!player.car))&&!player.dead?'block':'none';
   let hint='';if(!player.dead){if(!player.car){const c=nearestEnterable();if(c)hint=(IS_TOUCH?'🚗':'F')+' — '+(c.npcDriver?'угнать ':'сесть в ')+c.spec.name.toLowerCase();}else if(player.car.police)hint=IS_TOUCH?'':'E — сирена';else if(!radio.on&&!IS_TOUCH)hint='R — радио';}
+  {const gh=gangHint();if(gh)hint=gh;}
   $('hint').innerHTML=hint?'<span>'+hint+'</span>':'';
   drawMinimap();}
 
 /* =====================================================================
    MAIN LOOP
    ===================================================================== */
+let cullT=0;
 let started=false,last=performance.now(),npcT=0;
 function update(dt){
   if(!NET.on||NET.host)tod=(tod+dt/DAYLEN)%1;
@@ -1412,21 +1502,538 @@ function update(dt){
     updateMission(dt);updateWanted(dt);
     if(duckRain>0){duckRain-=dt;for(let i=0;i<(LOW?1:2);i++)if(Math.random()<0.5){const p=player.pos.clone().add(new V3(rand(-30,30),rand(25,40),rand(-30,30)));spawnProjectile('rain',p,new V3(0,-5,0),false);}}
   }
-  for(const c of cars.slice()){if(c.ai&&c.ai.kind==='lane')updateLaneCar(c,dt);else if(c.ai&&c.ai.kind==='police')updatePoliceCar(c,dt);else if(c!==player.car&&(carSpeed(c)>0.05||c.air>0||c.vy!==0||c.sunk))carPhysics(c,0,0,!c.driver,dt);updateCarCommon(c,dt);}
+  for(const c of cars.slice()){if(c.ai&&c.ai.kind==='lane')updateLaneCar(c,dt);else if(c.ai&&c.ai.kind==='police')updatePoliceCar(c,dt);else if(c.ai&&c.ai.kind==='gangcar'){}else if(c!==player.car&&(carSpeed(c)>0.05||c.air>0||c.vy!==0||c.sunk))carPhysics(c,0,0,!c.driver,dt);updateCarCommon(c,dt);}
   carCarCollisions();
-  for(const pd of peds)updatePed(pd,dt);
+  for(const pd of peds.slice())updatePed(pd,dt);
+  if(started)updateGangs(dt);
+  cullT-=dt;if(cullT<=0){cullT=0.25;const cp=camera.position;const pr=(LOW?95:140)*(0.7+0.3*QUAL);for(const pd of peds)pd.H.body.visible=pd.pos.distanceToSquared(cp)<pr*pr;for(const c of cars)c.g.visible=c===player.car||c.pos.distanceToSquared(cp)<230*230;}
   for(const b of barrels)if(!b.alive&&b.respawn>0){b.respawn-=dt;if(b.respawn<=0){b.alive=true;b.g.visible=true;}}
-  for(const f of funObjs){if(f.type==='wheel'){f.m.rotation.x+=dt*0.12;for(const cb of f.m.userData.cabs)cb.rotation.x=-f.m.rotation.x;}if(f.type==='bob'){f.m.position.y=0.1+Math.sin(NOW*1.2)*0.15;f.m.rotation.z=Math.sin(NOW*0.9)*0.05;f.m.rotation.y+=dt*0.1;}}
+  for(const f of funObjs){if(f.type==='spin')f.m.rotation.y+=dt*0.8;if(f.type==='float')f.m.position.y=f.y+Math.sin(NOW*1.5)*0.3;if(f.type==='flag')f.m.rotation.y=Math.sin(NOW*2+f.base)*0.25;if(f.type==='fire'){const q=1.3+Math.sin(NOW*17)*0.15+Math.random()*0.2;f.m.scale.set(q,q*1.35,1);}if(f.type==='wheel'){f.m.rotation.x+=dt*0.12;for(const cb of f.m.userData.cabs)cb.rotation.x=-f.m.rotation.x;}if(f.type==='bob'){f.m.position.y=0.1+Math.sin(NOW*1.2)*0.15;f.m.rotation.z=Math.sin(NOW*0.9)*0.05;f.m.rotation.y+=dt*0.1;}}
   updateProjectiles(dt);updateParticles(dt);updatePickups(dt);updateRemotes(dt);
   flashLight.intensity=Math.max(0,flashLight.intensity-dt*25);
   npcT-=dt;if(npcT<=0){npcT=0.4;manageNPC();}
   if(NET.on){NET.sendT-=dt;if(NET.sendT<=0){NET.sendT=1/15;sendState();}if(NET.host){NET.todT-=dt;if(NET.todT<=0){NET.todT=3;netSend({t:'tod',v:tod});}}}}
 let menuT=0;
-function loop(){requestAnimationFrame(loop);const now=performance.now();const dt=Math.min(0.05,(now-last)/1000);last=now;NOW=now/1000;
+let perfT=0,perfN=0;
+function loop(){requestAnimationFrame(loop);const now=performance.now();const rdt=(now-last)/1000;const dt=Math.min(0.05,rdt);last=now;NOW=now/1000;perfT+=rdt;perfN++;if(perfT>4){const fps=perfN/perfT;perfT=0;perfN=0;if(started){if(fps<26&&QUAL>0.5)QUAL=Math.max(0.5,QUAL-0.15);else if(fps>50&&QUAL<1)QUAL=Math.min(1,QUAL+0.1);}}
   update(dt);
   if(started){updateCamera(dt);updateAudio(dt);updateHUD(dt);updateSky(focusPoint());}
   else{menuT+=dt;const a=menuT*0.04;camera.position.set(Math.cos(a)*190,70+Math.sin(menuT*0.1)*15,Math.sin(a)*190);camera.lookAt(0,10,0);updateSky(new V3(0,0,0));}
   renderer.render(scene,camera);}
+
+
+/* =====================================================================
+   GANGS: data, districts, relations, bases
+   ===================================================================== */
+let QUAL=1;
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'})[c]);
+const ND=NB/2,CENTER_D=Math.floor(ND/2)*ND+Math.floor(ND/2);
+const DNAMES=['Ржавый Порт','Старые Доки','Гаражи','Северная Свалка','Маяк','Шанхайка','Кирпичный','Депо','Бетонка','Пустыри','Неоновый','Рынок','Центр','Утиный Пруд','Восточный','Лесопилка','Трущобы','Бульвар','Набережная','Колесо','Южный Порт','Сады','Золотая Миля','Ипподром','Холмы'];
+const GANGS=[
+ {name:'Кобры',emb:'🐍',color:'#2ecc40',shirt:'#1e7a2c',pants:'#22262a',bandana:'#2ecc40',hat:0,lead:{shirt:'#0f4a1a',hat:1,hatColor:'#2ecc40',chain:'#d4af37'},car:'muscle',carColor:'#1f8a2e',weapons:['knife','pistol','pistol','uzi','shotgun','ak'],aggr:0.8,power:1,style:'зелёные банданы, майки',lines:['Кобры жалят!','Шшш... Это наш район.','Зелёный — цвет победы!','Не наступи на змею, брат.'],leader:'Шрам',bd:0},
+ {name:'Красные Драконы',emb:'🐉',color:'#ff2a2a',shirt:'#b01c1c',pants:'#111111',hat:0,chain:'#d4af37',lead:{shirt:'#7a0d0d',hat:3},car:'sport',carColor:'#c41a1a',weapons:['knife','knife','uzi','ak','pistol','sniper'],aggr:0.9,power:1.1,style:'красные куртки, золото',lines:['Дракон не спит!','Уважай Драконов!','Красный — цвет крови врагов.','Огонь и честь!'],leader:'Мадам Лотос',bd:4},
+ {name:'Синие Волки',emb:'🐺',color:'#2f7cff',shirt:'#1d4fa8',pants:'#222233',hat:1,hatColor:'#2f7cff',lead:{shirt:'#0d2a66',hat:1},car:'van',carColor:'#1d4fa8',weapons:['bat','bat','pistol','shotgun','ak','uzi'],aggr:0.6,power:1,style:'синие кепки, спортивки',lines:['Стая всегда вместе!','Аууууу!','Волк одиночкой не ходит.','Синие держат район.'],leader:'Седой',bd:20},
+ {name:'Золотые Короли',emb:'👑',color:'#ffcc00',shirt:'#1a1a1a',pants:'#111111',hat:3,chain:'#ffcc00',lead:{shirt:'#2a2410',hat:5},car:'limo',carColor:'#111111',weapons:['pistol','pistol','uzi','ak','sniper','shotgun'],aggr:0.7,power:1.25,style:'костюмы, цилиндры, золото',lines:['Деньги решают всё.','Короли не просят — берут.','Видел мою цепь?','Золото не ржавеет.'],leader:'Король Монета',bd:24},
+ {name:'Ржавые Цепи',emb:'⛓️',color:'#ff7a1a',shirt:'#3b2a1e',pants:'#2a3a5a',hat:6,chain:'#888888',lead:{shirt:'#2a1a10',hat:6},car:'pickup',carColor:'#8a4a1a',weapons:['bat','bat','shotgun','shotgun','pistol','rpg'],aggr:0.75,power:1.15,style:'кожа, шлемы, цепи',lines:['Цепи не рвутся!','Ржавчина вечна!','Рёв моторов — наша музыка.','Чужим тут не место.'],leader:'Гвоздь',bd:2},
+ {name:'Местная шпана',emb:'✊',color:'#9a9a9a',shirt:'#555555',pants:'#333333',hat:1,hatColor:'#444444',car:'sedan',carColor:'#555555',weapons:['bat','knife','pistol'],aggr:0,power:0.7,hidden:true,style:'',lines:['Это наш двор!','Чё надо?'],leader:'—',bd:-1}];
+const LOCALS=5;
+const DEPN=['Хвост','Малой','Кабан','Шустрый','Тень','Лёха Два Ствола','Борода','Кнопка','Профессор','Зуб','Пятак','Ворон','Банан','Тихий','Чика','Гриф','Клык','Сова','Жора','Рыжий'];
+const GS=GANGS.map((gd,i)=>({roster:i===LOCALS?999:randi(44,60),money:2000,leader:gd.leader,deps:[pick(DEPN),pick(DEPN)],hate:0,raidCD:rand(30,80),dead:false,reviveT:0,mutiny:false,base:null,baseUp:false}));
+const GBASE=GANGS.map(gd=>{if(gd.bd<0)return null;const dx=gd.bd%ND,dz=Math.floor(gd.bd/ND);return{bx:dx*2+(dx<2?0:1),bz:dz*2+(dz<2?0:1)};});
+GBASE.forEach((b,i)=>{if(b)SPECIAL[b.bx+','+b.bz]='base'+i;});
+SPECIAL['6,5']='gunshop';SPECIAL['4,8']='gunshop';
+const districts=[];for(let d=0;d<ND*ND;d++){const dx=d%ND,dz=Math.floor(d/ND);districts.push({id:d,name:DNAMES[d],owner:-1,base:-1,dx,dz,center:new V3(-HALF+(dx*2+1)*P,0.3,-HALF+(dz*2+1)*P)});}
+[[0,1,5,6],[3,4,8,9],[15,20,21,16],[19,23,24,18],[2,7]].forEach((a,g)=>a.forEach(d=>districts[d].owner=g));
+GANGS.forEach((gd,i)=>{if(gd.bd>=0)districts[gd.bd].base=i;});
+function districtOf(x,z){const bx=Math.floor((x+HALF)/P),bz=Math.floor((z+HALF)/P);if(bx<0||bz<0||bx>=NB||bz>=NB)return -1;return Math.floor(bz/2)*ND+Math.floor(bx/2);}
+function distBlocks(d){const dx=d%ND,dz=Math.floor(d/ND);return[[dx*2,dz*2],[dx*2+1,dz*2],[dx*2,dz*2+1],[dx*2+1,dz*2+1]];}
+function neighbors(d){const dx=d%ND,dz=Math.floor(d/ND),r=[];if(dx>0)r.push(d-1);if(dx<ND-1)r.push(d+1);if(dz>0)r.push(d-ND);if(dz<ND-1)r.push(d+ND);return r;}
+function ownedCount(g){let n=0;for(const d of districts)if(d.owner===g)n++;return n;}
+function capturable(d){return d!==CENTER_D&&districts[d].base<0;}
+const gN=g=>GANGS[g].emb+' '+GANGS[g].name;
+const REL=[];for(let i=0;i<6;i++){REL.push([]);for(let j=0;j<6;j++)REL[i].push(i===j?100:(i===LOCALS||j===LOCALS)?-50:0);}
+function setRel(a,b,v){REL[a][b]=REL[b][a]=clamp(v,-100,100);}
+[[0,2,60],[1,3,55],[0,1,-70],[2,3,-60],[4,3,-50],[4,0,-10],[4,2,20],[0,3,-20],[1,2,-35],[1,4,0]].forEach(([a,b,v])=>setRel(a,b,v));
+function relStatus(a,b){if(a===b)return 'self';const v=REL[a][b];return v>=40?'ally':v<=-30?'enemy':'neutral';}
+const REL_TXT={ally:'Союзники',enemy:'Враги',neutral:'Нейтралитет'};
+const gangNews=[];
+function gnews(t,important,color){gangNews.unshift({t});if(gangNews.length>40)gangNews.pop();if(important)feed(t,color||'#ffd21f');if(NET.on&&NET.host)netSend({t:'gn',m:t,i:important?1:0});}
+const RANKS=['Новичок','Боец','Солдат','Капо','Правая рука','Лидер'],RANK_REQ=[0,150,400,900,1800];
+function rankIdx(){if(player.isLeader)return 5;let r=0;for(let i=0;i<5;i++)if(player.respect>=RANK_REQ[i])r=i;return r;}
+function addRespect(v){if(player.gang<0)return;const r0=rankIdx();player.respect+=v;const r1=rankIdx();if(r1>r0){bigMsg('НОВЫЙ РАНГ: '+RANKS[r1].toUpperCase(),GANGS[player.gang].color,3);sfx('cheat');}}
+function addRep(g,v){if(g===LOCALS)return;player.rep[g]=clamp(player.rep[g]+v,-100,100);}
+function repLabel(v){return v<=-60?'Кровный враг':v<=-30?'Враждебны':v<10?'Нейтрально':v<40?'Уважают':v<75?'Друг банды':'Легенда';}
+function hostileToPlayer(g){const s=GS[g];if(player.gang===g)return false;if(NOW<s.hate)return true;if(g===LOCALS)return false;
+  if(player.gang>=0&&relStatus(player.gang,g)==='ally')return false;if(player.rep[g]<=-40)return true;
+  if(player.gang>=0&&relStatus(player.gang,g)==='enemy'){const d=districtOf(player.pos.x,player.pos.z);return d>=0&&districts[d].owner===g;}return false;}
+function warOpp(a,b){return wars.some(w=>w.phys&&((w.atk===a&&w.def===b)||(w.atk===b&&w.def===a)));}
+function isEnemy(a,b){if(a===b)return false;if(a===LOCALS||b===LOCALS)return warOpp(a,b);return relStatus(a,b)==='enemy'||warOpp(a,b);}
+
+/* ---------- materials for bases ---------- */
+function gangSignMat(g){const gd=GANGS[g];const t=canvasTex(512,100,(c,w,h)=>{c.fillStyle='#0d0f14';c.fillRect(0,0,w,h);c.strokeStyle=gd.color;c.lineWidth=6;c.strokeRect(5,5,w-10,h-10);c.font='52px "Russo One",Impact,Arial';c.textAlign='center';c.textBaseline='middle';c.shadowColor=gd.color;c.shadowBlur=20;c.fillStyle=gd.color;c.fillText(gd.emb+' '+gd.name.toUpperCase(),w/2,h/2+3,w-30);});
+  return nightMat(new THREE.MeshStandardMaterial({map:t,emissiveMap:t,emissive:0xffffff,emissiveIntensity:0.4}),0.45,1.8);}
+function graffitiMat(g){const gd=GANGS[g];const t=canvasTex(512,96,(c,w,h)=>{c.clearRect(0,0,w,h);c.save();c.translate(w/2,h/2);c.rotate(-0.06);c.font='italic 60px "Russo One",Impact';c.textAlign='center';c.textBaseline='middle';c.lineWidth=10;c.strokeStyle='#111';c.strokeText(gd.name.toUpperCase(),0,0,w-30);c.fillStyle=gd.color;c.fillText(gd.name.toUpperCase(),0,0,w-30);c.restore();c.fillStyle=gd.color;for(let i=0;i<14;i++)c.fillRect(rand(40,w-40),h/2+18,3,rand(8,28));});
+  return new THREE.MeshStandardMaterial({map:t,transparent:true,roughness:0.9});}
+function gunSignMat(){const t=canvasTex(512,96,(c,w,h)=>{c.fillStyle='#120606';c.fillRect(0,0,w,h);c.strokeStyle='#ff3030';c.lineWidth=6;c.strokeRect(5,5,w-10,h-10);c.font='48px "Russo One",Impact';c.textAlign='center';c.textBaseline='middle';c.shadowColor='#ff3030';c.shadowBlur=18;c.fillStyle='#ff4a4a';c.fillText('🔫 ОРУЖЕЙНАЯ «БАХ-БАХ»',w/2,h/2+2,w-30);});
+  return nightMat(new THREE.MeshStandardMaterial({map:t,emissiveMap:t,emissive:0xffffff,emissiveIntensity:0.4}),0.5,1.8);}
+const SHOPS_POS=[];
+function genGunShop(cx,cz){lotPlane(cx,cz,lotMats.plaza);
+  const x0=cx-13,x1=cx+13,z0=cz-25,z1=cz-9,h=8;const wm=windowMats[1][5];const geo=new THREE.BoxGeometry(26,h,16);scaleUV(geo,26,h,16,12,12);
+  const b=mesh(geo,[wm,wm,roofMat,roofMat,wm,wm],true,true);b.position.set(cx,0.3+h/2,(z0+z1)/2);scene.add(b);addBox(x0,x1,z0,z1,h+0.3);
+  const sg=mesh(new THREE.PlaneGeometry(15,2.8),gunSignMat(),false,false);sg.position.set(cx,5.7,z0-0.07);sg.rotation.y=Math.PI;scene.add(sg);
+  const fr=mesh(new THREE.PlaneGeometry(16,3),glassFront,false,false);fr.position.set(cx,1.9,z0-0.06);fr.rotation.y=Math.PI;scene.add(fr);
+  scene.add(at(mesh(BG(17,0.14,1.8),M('#a01010',0.8),true,false),cx,3.6,z0-0.9));
+  const big=gunMesh(WID.pistol);big.scale.setScalar(12);big.position.set(cx,0.3+h+2.2,(z0+z1)/2);scene.add(big);funObjs.push({m:big,type:'spin'});
+  makeBuilding(cx-25,cx-1.5,cz-5,cz+25,randi(4,10)*3,0.6,cx,cz);makeBuilding(cx+1.5,cx+25,cz-5,cz+25,randi(4,10)*3,0.6,cx,cz);
+  const p=new V3(cx,0.3,cz-27.3);SHOPS_POS.push(p);const ring=new THREE.Mesh(new THREE.TorusGeometry(1.3,0.1,8,32),new THREE.MeshBasicMaterial({color:0xff3030}));ring.rotation.x=Math.PI/2;ring.position.set(p.x,0.36,p.z);scene.add(ring);
+  const ic=textSprite('🔫 ОРУЖИЕ',{size:44,color:'#ff5050',bg:'rgba(0,0,0,.6)'},0.6);ic.position.set(p.x,2.6,p.z);scene.add(ic);funObjs.push({m:ic,type:'float',y:2.6});}
+function genBase(cx,cz,g){const gd=GANGS[g];lotPlane(cx,cz,lotMats.asph);
+  const sz=cz<0?1:-1;const hz=cz-sz*15;const w=32,dpt=14,h=13;
+  const geo=new THREE.BoxGeometry(w,h,dpt);scaleUV(geo,w,h,dpt,12,12);const wm=windowMats[3][5];
+  const b=mesh(geo,[wm,wm,roofMat,roofMat,wm,wm],true,true);b.position.set(cx,0.3+h/2,hz);scene.add(b);addBox(cx-w/2,cx+w/2,hz-dpt/2,hz+dpt/2,h+0.3);
+  scene.add(at(mesh(new THREE.BoxGeometry(w+0.1,0.8,dpt+0.1),M(gd.color,0.6),false,false),cx,0.3+h-0.6,hz));
+  const front=hz+sz*(dpt/2+0.06),rot=sz>0?0:Math.PI;
+  const sg=mesh(new THREE.PlaneGeometry(16,3.2),gangSignMat(g),false,false);sg.position.set(cx,8,front);sg.rotation.y=rot;scene.add(sg);
+  const door=mesh(new THREE.PlaneGeometry(3,3.6),M('#2a1a10',0.8),false,false);door.position.set(cx,2.1,front);door.rotation.y=rot;scene.add(door);
+  const em=textSprite(gd.emb,{size:120,bg:null},7);em.position.set(cx,0.3+h+4.5,hz);scene.add(em);funObjs.push({m:em,type:'float',y:em.position.y});
+  for(const fx of [-14,14]){const px=cx+fx,pz=hz+sz*10;scene.add(at(mesh(CG(0.08,0.08,7,6),M('#dddddd',0.4,0.6)),px,3.8,pz));const fl=mesh(new THREE.PlaneGeometry(2.4,1.5),M(gd.color,0.8,0,{side:THREE.DoubleSide}),true);fl.position.set(px+1.2,6.4,pz);scene.add(fl);funObjs.push({m:fl,type:'flag',base:px});addBox(px-0.15,px+0.15,pz-0.15,pz+0.15,7,true);}
+  const wallM=M('#6a6e74',0.9),wh=1.8;
+  const wall=(x0,x1,z0,z1)=>{const m=mesh(new THREE.BoxGeometry(x1-x0,wh,z1-z0),wallM,true,true);m.position.set((x0+x1)/2,0.3+wh/2,(z0+z1)/2);scene.add(m);addBox(x0,x1,z0,z1,wh+0.3);
+    scene.add(at(mesh(new THREE.BoxGeometry(x1-x0+0.02,0.25,z1-z0+0.02),M(gd.color,0.6),false,false),(x0+x1)/2,0.3+wh-0.3,(z0+z1)/2));};
+  const E=25.5,gz=cz+sz*E,oz=cz-sz*E;
+  wall(cx-E,cx-6,gz-0.3,gz+0.3);wall(cx+6,cx+E,gz-0.3,gz+0.3);wall(cx-E,cx+E,oz-0.3,oz+0.3);wall(cx-E-0.3,cx-E+0.3,cz-E,cz+E);wall(cx+E-0.3,cx+E+0.3,cz-E,cz+E);
+  const gt=graffitiMat(g);for(const gx of [cx-15.5,cx+15.5]){const p=mesh(new THREE.PlaneGeometry(9,1.6),gt,false,false);p.position.set(gx,1.2,gz+sz*0.32);p.rotation.y=rot;scene.add(p);}
+  const fbx=cx-8,fbz=cz+sz*6;scene.add(at(mesh(CG(0.45,0.45,1.1,12),M('#4a3a2a',0.9)),fbx,0.85,fbz));
+  const fire=new THREE.Sprite(new THREE.SpriteMaterial({map:PTEX,color:0xff7a20,blending:THREE.AdditiveBlending,transparent:true,depthWrite:false}));fire.position.set(fbx,1.9,fbz);scene.add(fire);funObjs.push({m:fire,type:'fire'});addBox(fbx-0.45,fbx+0.45,fbz-0.45,fbz+0.45,1.5,true);
+  for(const x of [cx+14,cx+19.5])parkingSpots.push({x,z:cz+sz*3,h:rot,type:gd.car,color:gd.carColor,gang:g});
+  const lp=new V3(cx,0.3,hz+sz*(dpt/2+3));
+  GS[g].base={center:new V3(cx,0.3,cz),leaderPos:lp,face:rot,depPos:[lp.clone().add(new V3(-2.3,0,-sz*0.6)),lp.clone().add(new V3(2.3,0,-sz*0.6))],
+    guardPos:[new V3(cx-4,0.3,gz-sz*2.2),new V3(cx+4,0.3,gz-sz*2.2),new V3(cx-18,0.3,cz),new V3(cx+10,0.3,cz-sz*2)],drop:new V3(cx-3,0.3,cz+sz*9)};}
+
+/* =====================================================================
+   GANGS: members, AI, groups, wars
+   ===================================================================== */
+const GM=[],groups=[],wars=[];let FL=[],warId=1;const tmpG=new V3();
+const PCAP=LOW?6:13;
+const CIV_TALK=['Как дела?','Нормально, а у тебя?','Слышал про войну банд?','Цены на шаурму опять выросли!','Видел гигантскую утку в парке?','Мне кажется, за нами следят...','Пойдём в казино?','Опять пробки...','Говорят, Короли скупают весь район.','Не ходи ночью к докам.','Я вчера видел летающую машину!','Мой кот умнее меня.','Ты слышал этот взрыв?','Купи себе бронежилет, серьёзно.','В оружейной скидки!','Драконы опять стреляли на Рынке.','Я устал, хочу в отпуск.','Ха-ха, точно!','Да ладно?!','Ну ты даёшь!'];
+function civGreet(){if(player.wanted>=3)return pick(['Это же он, из новостей!','Мама, преступник!','Я ничего не видел!']);
+  if(player.gang>=0)return pick(['Ой, это бандит...','Не трогайте меня!','Мне проблемы не нужны.','Привет '+GANGS[player.gang].emb+'...']);
+  if(player.scale>1.5)return pick(['ГИГАНТ!','Ты что ел на завтрак?!']);if(cheats.bighead)return pick(['Какая большая голова!','Голова как арбуз!']);
+  return pick(['Привет!','Добрый день!','Классный прикид!','Не толкайся!','Ты чего так смотришь?','Автограф дашь?','Хорошая погодка!','Где тут шаурма?','Осторожно, тут банды ходят.']);}
+function sayT(ent,text,dur=2.4){if(!ent||!ent.pos)return;if(ent.sayT&&NOW-ent.sayT<2.5)return;ent.sayT=NOW;if(ent.pos.distanceTo(camera.position)>60)return;
+  const s=textSprite(text,{size:38,bg:'rgba(255,255,255,.92)',color:'#111',pad:12},0.52);s.material.depthTest=false;scene.add(s);bubbles.push({s,ent,t:dur});}
+function startTalk(pd){for(const o of peds){if(o===pd||o.gang!==undefined||o.state!=='walk'||o.dead||o.rag)continue;if(o.pos.distanceToSquared(pd.pos)<30){pd.state=o.state='talk';pd.partner=o;o.partner=pd;pd.timer=o.timer=rand(7,12);pd.talkT=0.3;o.talkT=99;return;}}}
+function gangOutfit(g,role){const gd=GANGS[g];const o={shirt:gd.shirt,pants:gd.pants,hat:gd.hat,hatColor:gd.hatColor,bandana:gd.bandana,chain:gd.chain,shadow:!LOW,skin:pick(SKINS),hair:pick(HAIRS)};
+  if(role!=='member'&&gd.lead){Object.assign(o,gd.lead);o.shades=true;}if(role==='leader')o.cape=gd.color;return o;}
+function spawnGM(g,pos,role,state,o2={}){const pd=spawnPed(0,0,0,gangOutfit(g,role));pd.pos.copy(pos);pd.pos.y=Math.max(0,heightAt(pos.x,pos.z));pd.H.g.position.copy(pd.pos);
+  Object.assign(pd,{gang:g,role,state,hp:role==='leader'?350:role==='deputy'?170:95,anchor:pos.clone(),scanT:rand(0,0.4),fireT:rand(0.6,1.6),target:null,path:null,stuck:0,strafe:0,talkT:rand(2,8),heading:rand(0,6.28)},o2);
+  pd.maxhp=pd.hp;const gd=GANGS[g];
+  pd.wpn=role==='leader'?WID[pick(['ak','shotgun','uzi'])]:role==='deputy'?WID[pick(['ak','uzi','shotgun','pistol'])]:WID[pick(gd.weapons)];
+  if(role==='leader')pd.H.g.scale.setScalar(1.08);setGun(pd.H,pd.wpn);pd.H.twoHand=!!WEAPONS[pd.wpn].two;
+  if(role!=='member'){pd.name=role==='leader'?GS[g].leader:(o2.name||pick(GS[g].deps));const tag=textSprite(gd.emb+' '+pd.name,{size:34,color:gd.color,bg:'rgba(0,0,0,.55)'},0.38);tag.position.y=2.55;pd.H.g.add(tag);}
+  GM.push(pd);return pd;}
+function removeGM(pd){removePed(pd);const i=GM.indexOf(pd);if(i>=0)GM.splice(i,1);detachGrp(pd);}
+function detachGrp(m){if(m.grp){const j=m.grp.members.indexOf(m);if(j>=0)m.grp.members.splice(j,1);m.grp=null;}}
+function gmMove(pd,tx,tz,speed,dt){const dx=tx-pd.pos.x,dz=tz-pd.pos.z;const d=Math.hypot(dx,dz);if(d<0.05)return d;pd.heading+=angDiff(pd.heading,Math.atan2(dx,dz))*Math.min(1,dt*9);
+  const s=Math.min(speed,d/Math.max(dt,1e-3));pd.pos.x+=Math.sin(pd.heading)*s*dt;pd.pos.z+=Math.cos(pd.heading)*s*dt;
+  if(collideCircle(pd.pos,0.38))pd.stuck+=dt;else pd.stuck=Math.max(0,pd.stuck-dt);pd.pos.y=Math.max(0,heightAt(pd.pos.x,pd.pos.z));return d;}
+function roadPath(from,to){const pts=[];const rx=Math.round(from.x/P)*P,rz=Math.round(from.z/P)*P,tx=Math.round(to.x/P)*P,tz=Math.round(to.z/P)*P;const o=()=>rand(-4,4);
+  if(Math.abs(from.x-rx)<Math.abs(from.z-rz)){pts.push(new V3(rx+o(),0,from.z),new V3(rx+o(),0,tz+o()),new V3(tx+o(),0,tz+o()));}
+  else{pts.push(new V3(from.x,0,rz+o()),new V3(tx+o(),0,rz+o()),new V3(tx+o(),0,tz+o()));}pts.push(to.clone());return pts;}
+const tpos=t=>t==='player'?(player.car?player.car.pos:player.pos):t.pos;
+function validTarget(pd,t){if(t==='player')return !player.dead&&pd.state!=='follow'&&(hostileToPlayer(pd.gang)||(GS[pd.gang].mutiny&&pd.base===pd.gang));return !t.dead&&GM.includes(t)&&t.H.g.visible;}
+function acquireTarget(pd){
+  if(pd.target&&validTarget(pd,pd.target)&&tpos(pd.target).distanceTo(pd.pos)<70)return;
+  const old=pd.target;pd.target=null;let best=null,bd=pd.war?90:pd.state==='follow'?32:28;const fol=pd.state==='follow';
+  for(const o of GM){if(o===pd||o.dead||!o.H.g.visible||o.gang===pd.gang)continue;let en;
+    if(fol)en=hostileToPlayer(o.gang)||isEnemy(pd.gang,o.gang)||o.target==='player';
+    else en=isEnemy(pd.gang,o.gang)||o.target===pd||(o.target==='player'&&pd.gang===player.gang)||(o.target&&o.target!=='player'&&(o.target.gang===pd.gang||relStatus(pd.gang,o.target.gang)==='ally'));
+    if(!en)continue;const d=o.pos.distanceTo(pd.pos);if(d<bd){bd=d;best=o;}}
+  if(!fol&&!player.dead&&(hostileToPlayer(pd.gang)||(GS[pd.gang].mutiny&&pd.base===pd.gang))){const d=tpos('player').distanceTo(pd.pos);if(d<Math.min(bd*1.2,40))best='player';}
+  pd.target=best;if(best&&best!==old&&Math.random()<0.35)sayT(pd,best==='player'?pick(['Вот он!','Ты труп!','Мочи его!','Стоять!']):pick(['Это '+GANGS[best.gang].name+'!','Огонь!','За '+GANGS[pd.gang].name+'!','Чужаки на районе!']));}
+function gmDamage(t,dmg,src){const nm=GANGS[src.gang].name;
+  if(t==='player'){if(player.car){damageCar(player.car,dmg*0.4);if(Math.random()<0.3)damagePlayer(dmg*0.35,nm);}else damagePlayer(dmg,nm);return;}
+  if(t.dead)return;t.lastBy='npc';const dir=t.pos.clone().sub(src.pos);dir.y=0;dir.normalize();damagePed(t,dmg,dir,'shot','npc');if(!t.target&&!t.dead&&t.gang!==undefined&&GM.includes(src))t.target=src;}
+function gmFire(pd,w,tp,d,ty){
+  if(w.melee){pd.H.punch=0.25;pd.fireT=w.rate*rand(1.6,2.4);sfx(w.id==='knife'?'stab':'punch',pd.pos);gmDamage(pd.target,w.dmg*0.7,pd);return;}
+  const eye=new V3(pd.pos.x,pd.pos.y+1.45,pd.pos.z),tgt=new V3(tp.x,ty,tp.z);const dir=tgt.clone().sub(eye);const dist=dir.length();dir.divideScalar(dist);
+  if(rayBoxes(eye,dir,dist)<dist-0.6){pd.blocked=1.2;pd.fireT=0.3;return;}
+  const mz=new V3();if(pd.H.gun.children.length)pd.H.gun.children[0].getWorldPosition(mz);else mz.copy(eye);
+  sfx(w.snd,pd.pos);
+  if(w.proj){const v=dir.clone().multiplyScalar(w.proj==='rocket'?50:30);if(w.proj==='duck')v.y+=4;spawnProjectile(w.proj,mz.clone().addScaledVector(dir,1.2),v,true,pd);pd.fireT=rand(3.5,6);return;}
+  emit(mz,1,{color:'#ffe08a',size:0.4,life:0.05,add:true});
+  const moving=pd.target==='player'&&(player.car?carSpeed(player.car)>5:Math.hypot(player.vx,player.vz)>5);
+  let acc=clamp(0.62-d/((w.range||25)*2.2)-(moving?0.18:0),0.07,0.7)*(pd.role==='leader'?1.25:pd.role==='deputy'?1.1:1);if(pd.target==='player')acc*=0.55;
+  const hit=Math.random()<acc*(w.pellets?1.5:1);
+  tracer(mz,hit?tgt:tgt.clone().add(new V3(rand(-1.5,1.5),rand(-0.8,1.2),rand(-1.5,1.5))));
+  if(hit)gmDamage(pd.target,w.dmg*(w.pellets?3:1)*(pd.target==='player'?0.6:1.5),pd);
+  pd.fireT=w.auto?w.rate*rand(1.5,3.2):Math.max(w.rate*2.5,rand(0.55,1.2));if(Math.random()<0.12)alertPeds(pd.pos,35);}
+function gmCombat(pd,dt){const H=pd.H,w=WEAPONS[pd.wpn];const tp=tpos(pd.target);const dx=tp.x-pd.pos.x,dz=tp.z-pd.pos.z;const d=Math.hypot(dx,dz);
+  const range=w.melee?1.6:w.proj?42:(w.range||25);pd.heading+=angDiff(pd.heading,Math.atan2(dx,dz))*Math.min(1,dt*10);pd.fireT-=dt;
+  if(d>range*0.85||pd.blocked>0){if(pd.blocked>0)pd.blocked-=dt;const s=Math.min(w.melee?6:5,d);pd.pos.x+=Math.sin(pd.heading)*s*dt;pd.pos.z+=Math.cos(pd.heading)*s*dt;
+    if(collideCircle(pd.pos,0.38)){pd.stuck+=dt;if(pd.stuck>1){pd.heading+=1.3;pd.stuck=0;}}pd.pos.y=Math.max(0,heightAt(pd.pos.x,pd.pos.z));H.aim=!w.melee&&d<range*1.4;return 'run';}
+  pd.strT=(pd.strT||0)-dt;if(pd.strT<=0){pd.strT=rand(0.8,2);pd.strafe=Math.random()<0.4?0:rand(-1,1);}
+  if(pd.strafe&&!w.melee){pd.pos.x+=-Math.cos(pd.heading)*pd.strafe*1.8*dt;pd.pos.z+=Math.sin(pd.heading)*pd.strafe*1.8*dt;collideCircle(pd.pos,0.38);pd.pos.y=Math.max(0,heightAt(pd.pos.x,pd.pos.z));}
+  H.aim=!w.melee;H.twoHand=!!w.two;const ty=pd.target==='player'?(player.car?player.car.pos.y+1:player.pos.y+1.3):pd.target.pos.y+1.2;pd.aimP=clamp(Math.atan2(ty-(pd.pos.y+1.4),d),-0.6,0.6);
+  if(pd.fireT<=0)gmFire(pd,w,tp,d,ty);return pd.strafe&&!w.melee?'walk':'idle';}
+function gangGreet(pd){const g=pd.gang;if(pd.role==='leader'&&player.gang===g)return 'Есть дело, заходи (E)';
+  if(player.gang===g)return pick(['Здорово, брат!','Наш человек!',RANKS[rankIdx()]+', привет!','Что слышно?','Мы с тобой!']);
+  if(player.gang>=0&&relStatus(player.gang,g)==='ally')return pick(['Привет союзникам!','Наши люди.','Уважение '+GANGS[player.gang].emb]);
+  if(player.rep[g]>=30)return pick(['Уважаю.','Ты наш друг.','Заходи на базу, поговорим.']);
+  if(g===LOCALS)return pick(GANGS[g].lines);
+  return pick(['Чего уставился?','Проходи, не задерживайся.','Ты на нашей земле '+GANGS[g].emb,'Деньги есть? Нет? Тогда иди.','Хочешь к нам? Иди к лидеру на базу.']);}
+function gangChat(g){const en=[0,1,2,3,4].filter(h=>relStatus(g,h)==='enemy');const r=Math.random();
+  if(en.length&&r<0.3){const e=GANGS[pick(en)].name;return pick(['Эти '+e+' совсем страх потеряли.','Скоро накажем '+e+'.','Видел '+e+' у границы.']);}
+  if(r<0.6)return pick(GANGS[g].lines);return pick(['Босс сказал — держать район.','Кто последний за шаурмой?','Видели того психа с уткомётом?','Тихо сегодня...','У меня новая пушка, смотри.','Скоро будет движ.','Ха-ха!','Слыхал? Цены на патроны выросли.']);}
+function updateGangMember(pd,dt){const H=pd.H;
+  if(pd.rag){updateRagdoll(pd,dt);if(pd.dead){if(!pd.counted)gangMemberDied(pd);pd.deadT+=dt;}else if(pd.rag.rest&&pd.rag.t>2){pd.rag=null;H.g.rotation.set(0,pd.heading,0);}return;}
+  if(pd.dead){if(!pd.counted)gangMemberDied(pd);startRag(pd,0,2,0);return;}
+  if(pd.state==='incar'){if(player.car&&!player.dead){H.g.visible=false;pd.pos.copy(player.car.pos);return;}H.g.visible=true;pd.state='follow';const a=rand(0,6.28);pd.pos.copy(player.pos).add(new V3(Math.cos(a)*2,0,Math.sin(a)*2));collideCircle(pd.pos,0.4);pd.pos.y=Math.max(0,heightAt(pd.pos.x,pd.pos.z));}
+  const far=pd.pos.distanceToSquared(camera.position)>130*130;
+  pd.scanT-=dt;if(pd.scanT<=0){pd.scanT=rand(0.3,0.55);acquireTarget(pd);}
+  let st='idle';H.aim=false;
+  if(pd.target)st=gmCombat(pd,dt);
+  else switch(pd.state){
+    case 'patrol':{const g=pd.grp;if(!g){pd.state='loiter';pd.anchor=pd.pos.clone();break;}ringPos(g.bx,g.bz,g.t-pd.gi*1.7*g.dir,tmpG);const dd=Math.hypot(tmpG.x-pd.pos.x,tmpG.z-pd.pos.z);
+      if(dd>2.5){gmMove(pd,tmpG.x,tmpG.z,4.5,dt);st='run';}else{const side=ringPos(g.bx,g.bz,g.t-pd.gi*1.7*g.dir,pd.pos);const sd=SIDE_DIR[side];pd.heading=Math.atan2(sd[0]*g.dir,sd[1]*g.dir);st='walk';}break;}
+    case 'hang':case 'guard':{const sp=pd.state==='hang'?(pd.spot||pd.anchor):pd.anchor;const dd=Math.hypot(sp.x-pd.pos.x,sp.z-pd.pos.z);
+      if(dd>0.6){gmMove(pd,sp.x,sp.z,dd>4?4.5:1.6,dt);st=dd>4?'run':'walk';}
+      else{const fa=pd.state==='hang'&&pd.grp&&pd.grp.spot?Math.atan2(pd.grp.spot.x-pd.pos.x,pd.grp.spot.z-pd.pos.z):(pd.face||0);pd.heading+=angDiff(pd.heading,fa)*Math.min(1,dt*4);st=pd.danceT>0?'dance':'idle';}
+      if(pd.danceT>0)pd.danceT-=dt;break;}
+    case 'assault':case 'retreat':{const dst=pd.state==='assault'&&pd.war?districts[pd.war.d].center:pd.anchor;
+      if(!pd.path||pd.stuck>2){pd.path=roadPath(pd.pos,dst.clone().add(new V3(rand(-8,8),0,rand(-8,8))));pd.stuck=0;}
+      if(pd.path.length){const p=pd.path[0];const dd=gmMove(pd,p.x,p.z,4.6,dt);st='run';if(dd<1.8)pd.path.shift();}
+      else{if(pd.state==='retreat'){removeGM(pd);return;}pd.state='loiter';pd.anchor=pd.pos.clone();}break;}
+    case 'defend':{const a=pd.anchor;const dd=Math.hypot(a.x-pd.pos.x,a.z-pd.pos.z);if(dd>1){gmMove(pd,a.x,a.z,dd>5?4.5:1.6,dt);st=dd>5?'run':'walk';}else{st='idle';H.aim=!WEAPONS[pd.wpn].melee;}break;}
+    case 'follow':{if(player.car&&!player.dead&&pd.pos.distanceTo(player.car.pos)<15){pd.state='incar';return;}
+      const k=FL.indexOf(pd),n=FL.length;const ang=player.heading+Math.PI+(k-(n-1)/2)*0.55;const r=2.2+(k%2)*0.9;const tx=player.pos.x+Math.sin(ang)*r,tz=player.pos.z+Math.cos(ang)*r;const dd=Math.hypot(tx-pd.pos.x,tz-pd.pos.z);
+      if(dd>60)pd.pos.set(tx,Math.max(0,heightAt(tx,tz)),tz);else if(dd>0.8){gmMove(pd,tx,tz,dd>4?(player.state==='run'?8.6:6):2.5,dt);st=dd>4?'run':'walk';}
+      else{pd.heading+=angDiff(pd.heading,player.heading)*Math.min(1,dt*4);st=player.dance>0?'dance':'idle';}break;}
+    default:{pd.timer=(pd.timer||0)-dt;if(!pd.wander||pd.timer<=0){pd.timer=rand(3,8);pd.wander=pd.anchor.clone().add(new V3(rand(-5,5),0,rand(-5,5)));}
+      const dd=Math.hypot(pd.wander.x-pd.pos.x,pd.wander.z-pd.pos.z);if(dd>0.8){gmMove(pd,pd.wander.x,pd.wander.z,1.4,dt);st='walk';if(pd.stuck>1)pd.timer=0;}break;}}
+  if(!pd.target&&!far){pd.talkT-=dt;if(pd.talkT<=0){pd.talkT=rand(5,10);const pd2=player.pos.distanceTo(pd.pos);
+    if(pd2<5&&!player.car&&!player.dead)sayT(pd,gangGreet(pd));else if(pd.state==='hang'&&Math.random()<0.6)sayT(pd,gangChat(pd.gang));
+    else if(pd.state==='follow'&&Math.random()<0.25)sayT(pd,pick(['Мы с тобой!','Куда идём?','Готов к движу.','Прикрою!']));}}
+  if(inWater(pd.pos.x,pd.pos.z)){pd.pos.y=-1.05;st='swim';}
+  H.g.position.copy(pd.pos);H.g.rotation.y=pd.heading;if(!far)animHuman(H,st,dt,pd.aimP||0);}
+function gangOnHurt(pd){const g=pd.gang;if(g===undefined)return;pd.lastBy='player';if(player.gang===g){addRep(g,-2);return;}
+  GS[g].hate=Math.max(GS[g].hate,NOW+40);addRep(g,-2);for(const m of GM)if(m.gang===g&&!m.dead&&m.state!=='follow'&&m.pos.distanceTo(pd.pos)<40)m.target='player';}
+function gangMemberDied(pd){if(pd.counted)return;pd.counted=true;const g=pd.gang,byP=pd.lastBy!=='npc';
+  if(g!==LOCALS)GS[g].roster=Math.max(0,GS[g].roster-1);
+  if(pd.role==='leader'&&pd.base===g)leaderDied(g,byP);
+  else if(pd.role==='deputy'&&!pd.mtarget){const i=GS[g].deps.indexOf(pd.name);if(i>=0)GS[g].deps[i]=pick(DEPN);if(byP)gnews('💀 Заместитель '+gN(g)+' '+pd.name+' убит',true);}
+  if(byP&&g!==LOCALS){addRep(g,pd.role==='member'?-6:-15);for(let h=0;h<5;h++)if(h!==g&&relStatus(h,g)==='enemy')addRep(h,2);
+    if(player.gang>=0&&player.gang!==g&&(relStatus(player.gang,g)==='enemy'||(pd.war&&(pd.war.atk===player.gang||pd.war.def===player.gang))))addRespect(pd.role==='member'?12:40);
+    if(player.gang===g&&!GS[g].mutiny){addRep(g,-20);player.trust=Math.max(0,player.trust-20);if(player.rep[g]<-20&&!player.isLeader){leaveGang(true);}}}
+  if(Math.random()<0.35)spawnPickup(Math.random()<0.5?'ammo':'cash',pd.pos.clone(),randi(20,120));
+  if(g!==LOCALS&&GS[g].roster<=0&&!GS[g].dead)destroyGang(g);
+  if(gmis.active&&gmis.type==='hit'&&gmis.target===pd)completeGangMission();}
+function leaderDied(g,byP){if(player.isLeader&&player.gang===g)return;const old=GS[g].leader;
+  if(GS[g].mutiny&&byP&&player.gang===g){becomeLeader(g,false);return;}
+  GS[g].leader=GS[g].deps.shift()||pick(DEPN);GS[g].deps.push(pick(DEPN));gnews('☠️ Лидер '+gN(g)+' '+old+' убит! Новый лидер — '+GS[g].leader,true,'#ff8a8a');
+  if(byP){addRep(g,-40);GS[g].hate=NOW+120;if(player.gang>=0&&relStatus(player.gang,g)==='enemy'){addRespect(400);player.trust=Math.min(100,player.trust+25);}}}
+function destroyGang(g){const s=GS[g];s.dead=true;s.reviveT=NOW+180;for(const d of districts)if(d.owner===g&&d.base<0)d.owner=-1;gnews('💀 '+gN(g)+' разгромлены! Их районы опустели.',true,'#ff8a8a');}
+function reviveGang(g){const s=GS[g];s.dead=false;s.roster=22;gnews('🔥 '+gN(g)+' собрали новых бойцов и вернулись!',true,GANGS[g].color);}
+
+/* ---------- groups & ambient ---------- */
+function spawnGroup(g,d,k){const bl=pick(distBlocks(d));const grp={g,bx:bl[0],bz:bl[1],t:rand(0,PER),dir:Math.random()<0.5?1:-1,type:Math.random()<0.45?'hang':'patrol',timer:rand(25,60),members:[],d};
+  ringPos(bl[0],bl[1],grp.t,tmpG);if(started&&tmpG.distanceTo(focusPoint())<30)grp.t+=PER/2;ringPos(bl[0],bl[1],grp.t,tmpG);grp.spot=tmpG.clone();
+  for(let i=0;i<k;i++){const pos=new V3();ringPos(bl[0],bl[1],grp.t-i*1.7*grp.dir,pos);const m=spawnGM(g,pos,i===0&&Math.random()<0.15?'deputy':'member',grp.type,{grp,gi:i,home:d});
+    const a=i/k*Math.PI*2;m.spot=grp.spot.clone().add(new V3(Math.cos(a)*1.4,0,Math.sin(a)*1.4));grp.members.push(m);}
+  groups.push(grp);return grp;}
+function updateGroups(dt){for(let i=groups.length-1;i>=0;i--){const g=groups[i];g.members=g.members.filter(m=>!m.dead&&m.grp===g&&GM.includes(m));if(!g.members.length){groups.splice(i,1);continue;}
+  g.members.forEach((m,k)=>m.gi=k);if(g.type==='patrol')g.t+=g.dir*1.35*dt;g.timer-=dt;
+  if(g.timer<=0&&!g.fixed){g.timer=rand(25,60);if(g.type==='patrol'){g.type='hang';ringPos(g.bx,g.bz,g.t,tmpG);g.spot=tmpG.clone();const dance=Math.random()<0.2;
+      g.members.forEach((m,k)=>{const a=k/g.members.length*Math.PI*2;m.spot=g.spot.clone().add(new V3(Math.cos(a)*1.4,0,Math.sin(a)*1.4));if(m.state==='patrol')m.state='hang';if(dance)m.danceT=rand(6,10);});}
+    else{g.type='patrol';g.members.forEach(m=>{if(m.state==='hang')m.state='patrol';});}}}}
+function manageGangs(){const f=focusPoint();const phys=wars.some(w=>w.phys);
+  for(const m of GM.slice()){if((m.war&&!m.war.ended)||m.state==='follow'||m.state==='incar'||m.keep)continue;const d=m.pos.distanceTo(f);if(d>280||(m.dead&&m.deadT>25))removeGM(m);}
+  for(let g=0;g<5;g++){const b=GS[g].base;if(!b)continue;const d=b.center.distanceTo(f);
+    if(d<200&&!GS[g].baseUp&&!GS[g].dead){GS[g].baseUp=true;b.depPos.forEach((p,i)=>spawnGM(g,p,'deputy','guard',{base:g,face:b.face,name:GS[g].deps[i],anchor:p.clone()}));b.guardPos.forEach(p=>spawnGM(g,p,'member','guard',{base:g,face:b.face+rand(-0.6,0.6),anchor:p.clone()}));}
+    else if(d>260&&GS[g].baseUp){GS[g].baseUp=false;GM.filter(m=>m.base===g).forEach(removeGM);}
+    if(GS[g].baseUp&&!(player.isLeader&&player.gang===g)&&!GS[g].dead&&!GM.some(m=>m.base===g&&m.role==='leader'&&!m.dead)&&(d>70||!GS[g].leaderSpawned)){GS[g].leaderSpawned=true;spawnGM(g,b.leaderPos,'leader','guard',{base:g,face:b.face,anchor:b.leaderPos.clone()});}}
+  let amb=GM.filter(m=>m.grp&&!m.dead).length;const cap=Math.round((LOW?8:20)*QUAL*(phys?0.5:1));
+  const ds=districts.filter(d=>d.owner>=0&&d.owner!==LOCALS&&!GS[d.owner].dead&&d.center.distanceTo(f)<230).sort((a,b)=>a.center.distanceTo(f)-b.center.distanceTo(f));
+  for(const d of ds){if(amb>=cap)break;const have=GM.filter(m=>m.home===d.id&&m.grp&&!m.dead).length;if(have<(LOW?2:5)&&GS[d.owner].roster>4){const k=Math.min(randi(2,4),cap-amb);spawnGroup(d.owner,d.id,k);amb+=k;}}}
+
+/* ---------- wars ---------- */
+function startWar(a,d,opt={}){const def0=districts[d].owner;if(wars.some(w=>w.d===d))return null;const def=def0>=0?def0:LOCALS;
+  const ap=opt.pool||clamp(Math.floor(GS[a].roster*rand(0.45,0.7)),12,50);const dp=opt.dpool||(def!==LOCALS?clamp(Math.floor(GS[def].roster*rand(0.35,0.55)),8,50):randi(8,14));
+  const w={id:opt.id||warId++,atk:a,def,d,atkPool:ap,defPool:dp,atkRes:ap,defRes:dp,atkAct:[],defAct:[],cars:[],t:0,phys:false,dur:rand(45,80),player:!!opt.player,owner:opt.owner||null,remote:!!opt.remote,reinT:0,ended:false,aL:ap,dL:dp};
+  wars.push(w);if(opt.remote)return w;if(def!==LOCALS)setRel(a,def,REL[a][def]-25);
+  const imp=player.gang===a||player.gang===def||districts[d].center.distanceTo(focusPoint())<300;
+  gnews('⚔️ '+gN(a)+' ('+ap+' бойцов) идут на район «'+districts[d].name+'»'+(def!==LOCALS?' — '+gN(def):' (местная шпана)'),imp,'#ff8a8a');
+  if(player.gang===def&&!w.player){w.defendCall=true;subMsg('🚨 Наш район «'+districts[d].name+'» атакуют '+gN(a)+'! Помоги отбиться!',5);}
+  return w;}
+function pickTarget(g){let best=-1,bs=-1e9;for(const d of districts){if(d.owner===g||!capturable(d.id)||wars.some(w=>w.d===d.id))continue;if(!neighbors(d.id).some(n=>districts[n].owner===g))continue;const o=d.owner;if(o>=0&&relStatus(g,o)==='ally')continue;
+  let s=rand(0,3);if(o<0)s+=2.5;else{s+=relStatus(g,o)==='enemy'?4:0.5;s+=(GS[g].roster-GS[o].roster)/20;}if(s>bs){bs=s;best=d.id;}}return best;}
+function captureTargets(g){return districts.filter(d=>capturable(d.id)&&d.owner!==g&&(d.owner<0||relStatus(g,d.owner)!=='ally')&&neighbors(d.id).some(n=>districts[n].owner===g)&&!wars.some(w=>w.d===d.id)).map(d=>d.id);}
+function captureDistrict(d,g){const old=districts[d].owner;districts[d].owner=g;
+  gnews('🏴 '+gN(g)+' захватили район «'+districts[d].name+'»'+(old>=0?' у '+gN(old):''),true,GANGS[g].color);if(old>=0)setRel(g,old,REL[g][old]-15);
+  if(NET.on&&!NET.host)netSend({t:'gcap',d,g});}
+function beginPhys(w){w.phys=true;const c=districts[w.d].center;const b=GS[w.atk].base;const ab=b?b.center:c.clone().add(new V3(200,0,0));
+  const dx=ab.x-c.x,dz=ab.z-c.z;let ax=0,az=0;if(Math.abs(dx)>Math.abs(dz))ax=Math.sign(dx)||1;else az=Math.sign(dz)||1;
+  let k=2,st;do{st=new V3(c.x+ax*P*k,0.3,c.z+az*P*k);k--;}while(k>0&&(Math.abs(st.x)>HALF||Math.abs(st.z)>HALF));if(Math.abs(st.x)>HALF||Math.abs(st.z)>HALF){ax=-ax;az=-az;st=new V3(c.x+ax*P,0.3,c.z+az*P);}
+  w.stage=st;w.ax=ax;w.az=az;w.reinT=0;
+  if(started&&(player.gang===w.atk||player.gang===w.def))bigMsg('⚔️ ВОЙНА БАНД!','#ff3b3b',2.5);}
+function suspendPhys(w){for(const m of [...w.atkAct,...w.defAct])if(!m.dead){if(m.side==='a')w.atkRes++;else w.defRes++;removeGM(m);}w.atkAct=[];w.defAct=[];
+  for(const c of w.cars){if(c.ai&&c.ai.kind==='gangcar')w.atkRes+=c.ai.crew;c.ai=null;removeCar(c);}w.cars=[];w.phys=false;w.dur=w.t+30;}
+function spawnWarCar(w){const gd=GANGS[w.atk];const back=w.stage.clone().add(new V3(w.ax*rand(14,26),0,w.az*rand(14,26)));back.x+=w.az*LANE;back.z+=-w.ax*LANE;
+  if(Math.abs(back.x)>HALF+5||Math.abs(back.z)>HALF+5)back.copy(w.stage);
+  const c=makeCar(gd.car,back.x,back.z,Math.atan2(-w.ax,-w.az),{color:gd.carColor});c.gang=w.atk;c.npcDriver=makeMiniDriver(false,gd.shirt);c.npcDriver.position.copy(c.seatMini);c.g.add(c.npcDriver);
+  const crew=Math.min(w.atkRes,randi(2,4));w.atkRes-=crew;c.ai={kind:'gangcar',dest:districts[w.d].center.clone().add(new V3(rand(-4,4),0,rand(-4,4))),crew,war:w,stuck:0,rev:0,stuckT:0};w.cars.push(c);}
+function updateWarCar(c,dt){const ai=c.ai;const dx=ai.dest.x-c.pos.x,dz=ai.dest.z-c.pos.z;const dist=Math.hypot(dx,dz);
+  if(dist<13||ai.stuckT>5||ai.war.ended){unloadCar(c);return;}
+  const diff=angDiff(c.heading,Math.atan2(dx,dz));let steer=clamp(-diff*2.2,-1,1),thr=dist<25?0.5:1;const sp=carSpeed(c);
+  if(thr>0.4&&sp<1.5){ai.stuck+=dt;ai.stuckT+=dt;if(ai.stuck>1.4){ai.rev=1.1;ai.stuck=0;}}else ai.stuck=0;
+  if(ai.rev>0){ai.rev-=dt;thr=-1;steer=-steer;}carPhysics(c,thr,steer,false,dt);}
+function unloadCar(c){const ai=c.ai;c.ai=null;if(c.npcDriver){c.g.remove(c.npcDriver);c.npcDriver=null;}const w=ai.war;
+  if(c.dead||w.ended){if(!w.ended)GS[w.atk].roster=Math.max(0,GS[w.atk].roster-ai.crew);return;}
+  const side=new V3(Math.cos(c.heading),0,-Math.sin(c.heading));
+  for(let i=0;i<ai.crew;i++){const p=c.pos.clone().addScaledVector(side,(i%2?-1:1)*(c.spec.W/2+0.8)).add(new V3(Math.sin(c.heading)*(i-1),0,Math.cos(c.heading)*(i-1)));const m=spawnGM(w.atk,p,'member','assault',{war:w,side:'a'});w.atkAct.push(m);}sfx('door',c.pos);}
+function updatePhysWar(w,dt,auth){
+  w.atkAct=w.atkAct.filter(m=>!m.dead&&GM.includes(m));w.defAct=w.defAct.filter(m=>!m.dead&&GM.includes(m));
+  w.reinT-=dt;const cap=Math.round(PCAP*QUAL);const c=districts[w.d].center;
+  if(w.reinT<=0){w.reinT=LOW?3:1.8;
+    if(w.atkAct.length<cap&&w.atkRes>0){if(!LOW&&Math.random()<0.33&&w.cars.filter(k=>k.ai).length<2&&cars.length<50)spawnWarCar(w);
+      else{const k=Math.min(w.atkRes,randi(2,4),cap-w.atkAct.length);for(let i=0;i<k;i++){const pos=w.stage.clone().add(new V3((w.az?rand(-5,5):0)+w.ax*rand(0,10),0,(w.ax?rand(-5,5):0)+w.az*rand(0,10)));
+        w.atkN=(w.atkN||0)+1;const m=spawnGM(w.atk,pos,w.atkN===1&&w.atk!==LOCALS?'deputy':'member','assault',{war:w,side:'a'});w.atkAct.push(m);}w.atkRes-=k;}}
+    if(w.defAct.length<cap&&w.defRes>0){const k=Math.min(w.defRes,randi(2,4),cap-w.defAct.length);for(let i=0;i<k;i++){const bl=pick(distBlocks(w.d));const pos=new V3();ringPos(bl[0],bl[1],rand(0,PER),pos);
+      const m=spawnGM(w.def,pos,'member','defend',{war:w,side:'d',anchor:c.clone().add(new V3(rand(-14,14),0,rand(-14,14)))});w.defAct.push(m);}w.defRes-=k;}}
+  const crew=w.cars.reduce((s,k)=>s+(k.ai&&k.ai.kind==='gangcar'?k.ai.crew:0),0);w.aL=w.atkRes+w.atkAct.length+crew;w.dL=w.defRes+w.defAct.length;
+  if(!((auth&&!w.remote)||w.owner===NET.myId))return;
+  if(w.dL<=0)endWar(w,true);else if(w.aL<=0)endWar(w,false);else if(w.t>w.dur+220)endWar(w,false);}
+function resolveAbstract(w){const as=w.atkRes*GANGS[w.atk].power*rand(0.6,1.4),ds=w.defRes*GANGS[w.def].power*rand(0.75,1.5)*1.15;const win=as>ds;
+  const al=Math.round(w.atkRes*rand(win?0.2:0.5,win?0.5:0.9)),dl=Math.round(w.defRes*rand(win?0.5:0.2,win?0.9:0.5));
+  GS[w.atk].roster=Math.max(0,GS[w.atk].roster-al);if(w.def!==LOCALS)GS[w.def].roster=Math.max(0,GS[w.def].roster-dl);
+  gnews('📻 Итог боя за «'+districts[w.d].name+'»: '+gN(w.atk)+' −'+al+', '+gN(w.def)+' −'+dl,false);endWar(w,win);}
+function endWar(w,win){if(w.ended)return;w.ended=true;const i=wars.indexOf(w);if(i>=0)wars.splice(i,1);
+  const dn=districts[w.d].name;const imp=player.gang===w.atk||player.gang===w.def||districts[w.d].center.distanceTo(focusPoint())<300;
+  if(win)captureDistrict(w.d,w.atk);else gnews('🛡️ '+gN(w.def)+' отбили атаку '+gN(w.atk)+' на «'+dn+'»',imp,'#9fd0ff');
+  for(const m of w.atkAct)if(!m.dead){m.war=null;m.path=null;m.target=null;m.home=w.d;if(win){m.state='loiter';m.anchor=m.pos.clone();}else{m.state='retreat';m.anchor=w.stage?w.stage.clone():m.pos.clone();}}
+  for(const m of w.defAct)if(!m.dead){m.war=null;m.state='loiter';m.anchor=m.pos.clone();m.home=w.d;}
+  for(const c of w.cars)if(c.ai&&c.ai.kind==='gangcar')c.ai=null;
+  if(NET.on&&!NET.host&&w.owner===NET.myId)netSend({t:'gend',id:w.id,win:win?1:0});
+  if(gmis.active&&gmis.type==='capture'&&gmis.war===w){if(win)completeGangMission();else failGangMission('Атака провалилась');}
+  if(w.defendCall&&player.gang===w.def&&!player.dead&&districts[w.d].center.distanceTo(player.pos)<170){if(!win){addRespect(160);player.trust=Math.min(100,player.trust+10);addMoney(1000);bigMsg('РАЙОН ОТБИТ! +$1000','#6dff8a',3);}else subMsg('Мы потеряли район «'+dn+'»...',4);}}
+function finishRemoteWar(w){w.ended=true;const i=wars.indexOf(w);if(i>=0)wars.splice(i,1);for(const m of [...w.atkAct,...w.defAct])if(!m.dead){m.war=null;m.state='loiter';m.anchor=m.pos.clone();m.target=null;}
+  for(const c of w.cars)if(c.ai)c.ai=null;if(gmis.active&&gmis.war===w){if(districts[w.d].owner===w.atk)completeGangMission();else failGangMission('Атака провалилась');}}
+function updateWars(dt,auth){const f=focusPoint();for(const w of wars.slice()){if(w.ended)continue;w.t+=dt;const dc=districts[w.d].center.distanceTo(f);
+  if(!w.phys&&started&&dc<250&&!wars.some(o=>o!==w&&o.phys))beginPhys(w);
+  if(w.phys){if(dc>380)suspendPhys(w);else updatePhysWar(w,dt,auth);}
+  else if(auth&&!w.remote&&!w.owner){if(w.player){if(w.t>300)endWar(w,false);}else if(w.t>w.dur)resolveAbstract(w);}}}
+function gangTick(){for(let g=0;g<5;g++){const s=GS[g];if(s.dead){if(NOW>s.reviveT)reviveGang(g);continue;}if(s.roster<=0){destroyGang(g);continue;}
+    const n=ownedCount(g);s.money+=n*30;if(s.roster<24+n*9&&s.money>=60){const k=randi(1,3);s.roster+=k;s.money-=k*20;}
+    if(player.isLeader&&player.gang===g){s.money+=n*40;continue;}s.raidCD-=5;
+    if(s.raidCD<=0&&wars.length<3&&!wars.some(w=>w.atk===g)&&s.roster>=16&&Math.random()<GANGS[g].aggr*0.4){const t=pickTarget(g);if(t>=0)startWar(g,t);s.raidCD=rand(70,140);}}
+  if(Math.random()<0.15)diplomacyEvent();}
+function diplomacyEvent(){const a=randi(0,4),b=randi(0,4);if(a===b)return;if(player.isLeader&&(a===player.gang||b===player.gang)&&Math.random()<0.7)return;
+  const before=relStatus(a,b);const ev=pick([['делёж рынка',-18],['перестрелка на границе',-22],['общий бизнес',16],['свадьба детей боссов',25],['кража партии товара',-28],['совместная вечеринка',14],['общий враг',12]]);
+  setRel(a,b,REL[a][b]+ev[1]);const after=relStatus(a,b);
+  if(after!==before)gnews((after==='ally'?'🤝 ':after==='enemy'?'💢 ':'🕊️ ')+gN(a)+' и '+gN(b)+': '+ev[0]+' → теперь '+REL_TXT[after].toLowerCase(),true,'#cfe6ff');else gnews('📰 '+gN(a)+' и '+gN(b)+': '+ev[0],false);}
+function gangTrafficHook(c){const d=districtOf(c.pos.x,c.pos.z);if(d<0)return;const g=districts[d].owner;if(g<0||g===LOCALS||GS[g].dead||Math.random()>0.3)return;
+  c.paint.color.copy(col(GANGS[g].carColor));c.color=GANGS[g].carColor;c.gang=g;if(c.npcDriver)c.g.remove(c.npcDriver);c.npcDriver=makeMiniDriver(false,GANGS[g].shirt);c.npcDriver.position.copy(c.seatMini);c.g.add(c.npcDriver);}
+function updateGangCars(dt){for(const c of cars.slice()){if(c.gang===undefined)continue;
+  if(c.ai&&c.ai.kind==='gangcar'){if(c.dead){unloadCar(c);continue;}updateWarCar(c,dt);}
+  if(c.dead||!c.npcDriver)continue;c.dbT=(c.dbT===undefined?rand(0.5,1):c.dbT)-dt;if(c.dbT>0)continue;c.dbT=rand(0.6,1.2);
+  let tgt=null,bd=20;for(const m of GM){if(m.dead||!m.H.g.visible||!isEnemy(c.gang,m.gang))continue;const d=m.pos.distanceTo(c.pos);if(d<bd){bd=d;tgt=m;}}
+  if(!player.dead&&hostileToPlayer(c.gang)){const d=tpos('player').distanceTo(c.pos);if(d<bd)tgt='player';}if(!tgt)continue;
+  const from=c.pos.clone().add(new V3(0,1.3,0)),to=tpos(tgt).clone().add(new V3(0,1.2,0));const hit=Math.random()<(tgt==='player'?0.3:0.4);
+  tracer(from,hit?to:to.clone().add(new V3(rand(-2,2),rand(-1,1),rand(-2,2))));sfx('uzi',from);if(hit)gmDamage(tgt,12,{gang:c.gang,pos:c.pos});}}
+
+/* =====================================================================
+   GANGS: player interaction, missions, UI, network, save
+   ===================================================================== */
+const gmis={active:false};let gMark=null;
+function gMarker(){if(!gMark){gMark=makeMarker();gMark.traverse(o=>{if(o.material)o.material=o.material.clone();});}return gMark;}
+const GM_REW={hit:[140,15,900],capture:[260,25,2500],steal:[90,10,1500]};
+function startGangMission(){const g=player.gang;if(gmis.active||g<0)return;const opts=[];
+  const en=[0,1,2,3,4].filter(h=>h!==g&&!GS[h].dead&&relStatus(g,h)==='enemy'&&ownedCount(h)>0);if(en.length)opts.push('hit','hit');
+  const ct=captureTargets(g);if(ct.length&&GS[g].roster>=12)opts.push('capture','capture');opts.push('steal');
+  const type=pick(opts);Object.assign(gmis,{active:true,type,g,timer:undefined,target:null,war:null,tp:null});gMarker().traverse(o=>{if(o.material&&o.material.color)o.material.color.set(GANGS[g].color);});
+  if(type==='hit'){const h=pick(en);const dl=districts.filter(d=>d.owner===h&&d.base<0).sort((a,b)=>a.center.distanceTo(player.pos)-b.center.distanceTo(player.pos));const d=dl[0]||districts.find(d=>d.owner===h);
+    const bl=pick(distBlocks(d.id));const t=rand(0,PER);const pos=new V3();ringPos(bl[0],bl[1],t,pos);
+    const grp={g:h,bx:bl[0],bz:bl[1],t,dir:1,type:'hang',timer:9999,fixed:true,members:[],d:d.id,spot:pos.clone()};groups.push(grp);
+    const tg=spawnGM(h,pos.clone().add(new V3(0.6,0,0)),'deputy','hang',{grp,gi:0,home:d.id,keep:true,mtarget:true,name:pick(DEPN)});tg.hp=220;tg.spot=tg.pos.clone();grp.members.push(tg);
+    for(let i=1;i<=3;i++){const a=i/4*Math.PI*2;const m=spawnGM(h,pos.clone().add(new V3(Math.cos(a)*1.7,0,Math.sin(a)*1.7)),'member','hang',{grp,gi:i,home:d.id,keep:true});m.spot=m.pos.clone();grp.members.push(m);}
+    gmis.h=h;gmis.target=tg;gmis.timer=300;gmis.guards=grp.members.slice();subMsg('Лидер: убери '+tg.name+' из '+gN(h)+'. Он на районе «'+d.name+'».',5);}
+  if(type==='capture'){const d=ct.sort((a,b)=>districts[a].center.distanceTo(player.pos)-districts[b].center.distanceTo(player.pos))[0];gmis.d=d;
+    const pool=clamp(Math.floor(GS[g].roster*0.5),10,30);let w;
+    if(NET.on&&!NET.host){const id='c'+NET.myId.slice(-5)+(warId++);w=startWar(g,d,{player:true,pool,id,owner:NET.myId});netSend({t:'graid',a:g,d,id,ow:NET.myId,pool});}else w=startWar(g,d,{player:true,pool});
+    gmis.war=w;subMsg('Лидер: собираем '+pool+' бойцов. Захватываем «'+districts[d].name+'»! Езжай туда.',5);}
+  if(type==='steal'){gmis.car=pick(['police','sport','limo','monster','muscle','hotdog']);gmis.timer=420;subMsg('Лидер: нужна тачка — '+CT[gmis.car].name+'. Пригони на базу.',5);}
+  closeDialog();}
+function endMissionCleanup(){if(gmis.guards)gmis.guards.forEach(m=>{m.keep=false;if(m.grp)m.grp.fixed=false;});gmis.guards=null;$('mission').textContent='';if(gMark)gMark.visible=false;}
+function completeGangMission(){if(!gmis.active)return;const r=GM_REW[gmis.type];gmis.active=false;endMissionCleanup();addRespect(r[0]);player.trust=Math.min(100,player.trust+r[1]);addMoney(r[2]);addRep(gmis.g,8);
+  bigMsg('ЗАДАНИЕ ВЫПОЛНЕНО! +$'+r[2],'#6dff8a',3);subMsg('+'+r[0]+' уважения · доверие лидера '+player.trust+'%',3);mission.wait=8;}
+function failGangMission(why){if(!gmis.active)return;gmis.active=false;endMissionCleanup();bigMsg('ПРОВАЛЕНО','#ff8a2a',2.5);subMsg(why,3);player.trust=Math.max(0,player.trust-5);}
+function updateGangMission(dt){if(!gmis.active)return;const e=$('mission');const mk=gMarker();let tp=null;
+  if(gmis.type==='hit'){const t=gmis.target;if(!GM.includes(t)&&!t.dead){failGangMission('Цель ушла');return;}tp=t.pos;gmis.timer-=dt;e.textContent='🎯 Устрани '+t.name+' ('+GANGS[gmis.h].emb+' '+GANGS[gmis.h].name+') · ⏱'+Math.ceil(gmis.timer);}
+  if(gmis.type==='capture'){tp=districts[gmis.d].center;const w=gmis.war;e.textContent='⚔️ Захвати «'+districts[gmis.d].name+'»'+(w&&w.phys?' · наши '+(w.aL|0)+' / враги '+(w.dL|0):' — езжай туда, братва ждёт');if(w&&w.ended&&gmis.active)failGangMission('Бой закончился');}
+  if(gmis.type==='steal'){gmis.timer-=dt;const have=player.car&&player.car.type===gmis.car&&!player.car.dead;tp=have?GS[gmis.g].base.drop:null;
+    e.textContent=(have?'🚗 Пригони '+CT[gmis.car].name+' на базу':'🚗 Угони: '+CT[gmis.car].name+' (есть на «Прокате тачек»)')+' · ⏱'+Math.ceil(gmis.timer);
+    if(have&&player.car.pos.distanceTo(tp)<7){const c=player.car;exitCar(false);setTimeout(()=>removeCar(c),1500);completeGangMission();return;}}
+  if(gmis.timer!==undefined&&gmis.timer<=0){failGangMission('Время вышло');return;}
+  gmis.tp=tp;if(tp){mk.visible=true;mk.position.set(tp.x,Math.max(0,heightAt(tp.x,tp.z)),tp.z);mk.userData.arrow.position.y=(gmis.type==='hit'?3.4:4)+Math.sin(NOW*4)*0.4;mk.userData.arrow.rotation.y+=dt*3;}else mk.visible=false;}
+
+/* ---------- join / leave / leader ---------- */
+function applyGangLook(){const g=player.gang;const skin=player.H?player.H.opts.skin:undefined;
+  if(g<0){player.color=player.baseColor||player.color;player.outfit=null;}else{const o=gangOutfit(g,player.isLeader?'leader':'member');player.color=o.shirt;player.outfit=Object.assign({},o,{shadow:true},skin?{skin}:{});}
+  if(started)buildPlayerModel();}
+function joinGang(g){player.baseColor=player.baseColor||player.color;player.gang=g;player.respect=0;player.trust=10;player.isLeader=false;addRep(g,15);applyGangLook();
+  bigMsg('ТЫ В БАНДЕ!',GANGS[g].color,3);subMsg('Добро пожаловать в '+gN(g)+'. Бери задания у лидера (E), зови братву (Y), смотри «Группировки» (K).',6);gnews('🤝 '+player.name+' вступил в '+gN(g),true,GANGS[g].color);sfx('cheat');}
+function leaveGang(kicked){const g=player.gang;if(g<0)return;if(player.isLeader){GS[g].leader=GS[g].deps.shift()||pick(DEPN);GS[g].deps.push(pick(DEPN));player.isLeader=false;}
+  FL.forEach(m=>{m.state='loiter';m.anchor=m.pos.clone();m.H.g.visible=true;});FL=[];GS[g].mutiny=false;
+  player.gang=-1;player.respect=0;player.trust=0;addRep(g,-30);GS[g].hate=NOW+40;if(gmis.active)failGangMission('Ты ушёл из банды');applyGangLook();
+  gnews('🚪 '+player.name+(kicked?' изгнан из ':' покинул ')+gN(g),true,'#ff8a8a');subMsg(kicked?'Тебя выгнали из банды!':'Ты покинул банду. Теперь для них ты предатель.',4);}
+function becomeLeader(g,peaceful){const old=GS[g].leader;for(const m of GM.slice())if(m.base===g&&m.role==='leader'&&!m.dead)removeGM(m);
+  GS[g].leader=player.name;GS[g].mutiny=false;player.isLeader=true;player.trust=100;applyGangLook();
+  bigMsg('ТЫ — ЛИДЕР!','#ffd21f',4);subMsg((peaceful?old+' уступил тебе место. ':'')+'Открой «Группировки» (K): войны, союзы, общак.',6);gnews('👑 '+player.name+' — новый лидер '+gN(g),true,GANGS[g].color);}
+function toggleFollowers(){if(player.gang<0){subMsg('Сначала вступи в банду: найди базу (эмблема на карте) и поговори с лидером',4);return;}
+  if(FL.length){FL.forEach(m=>{m.state='loiter';m.anchor=m.pos.clone();m.H.g.visible=true;});FL=[];subMsg('Братва, свободны!',2);return;}
+  const max=player.isLeader?7:Math.min(5,rankIdx()+2);let got=0;
+  for(const m of GM){if(got>=max)break;if(m.gang===player.gang&&!m.dead&&!m.war&&m.role==='member'&&m.base===undefined&&!m.keep&&m.pos.distanceTo(player.pos)<45){m.state='follow';m.target=null;detachGrp(m);got++;}}
+  for(;got<max;got++){const a=player.heading+Math.PI+rand(-0.8,0.8);const p=player.pos.clone().add(new V3(Math.sin(a)*rand(14,22),0,Math.cos(a)*rand(14,22)));p.y=0.5;collideCircle(p,0.6);spawnGM(player.gang,p,'member','follow');}
+  subMsg('👥 Братва с тобой: '+max,2);sfx('cheat');}
+function gangOnRespawn(){player.armor=0;FL.forEach(m=>{m.state='loiter';m.anchor=m.pos.clone();m.H.g.visible=true;});FL=[];const g=player.gang;if(g>=0&&GS[g].mutiny){GS[g].mutiny=false;leaveGang(true);}}
+
+/* ---------- UI ---------- */
+let dlgOpen=false,shopOpen=false,gangUIOpen=false,dlgGang=-1,gSel=-1;
+function uiOpen(){return dlgOpen||shopOpen||gangUIOpen;}
+function showOv(id,on){$(id).classList.toggle('hide',!on);if(on){if(document.exitPointerLock)document.exitPointerLock();for(const k in keys)keys[k]=false;mouse.left=mouse.right=false;touch.fire=false;}updateLockMsg();}
+function closeAllUI(){if(shopOpen)closeShop();if(dlgOpen)closeDialog();if(gangUIOpen)closeGangUI();}
+function nearShop(){if(player.car||player.dead)return null;for(const s of SHOPS_POS)if(s.distanceTo(player.pos)<3.2)return s;return null;}
+function nearTalk(){if(player.car||player.dead)return null;let best=null,bd=3.8;for(const m of GM){if(m.dead||m.base===undefined||m.target)continue;
+  if(m.role==='leader'||(m.role==='deputy'&&player.isLeader&&player.gang===m.gang)){const d=m.pos.distanceTo(player.pos);if(d<bd){bd=d;best=m;}}}return best;}
+function interact(){if(uiOpen()||!started)return;if(nearShop()){openShop();return;}const t=nearTalk();if(t){if(t.role==='deputy')openGangUI();else openDialog(t.gang);}}
+function gangHint(){if(player.car||player.dead)return '';const k=IS_TOUCH?'🤝':'E';if(nearShop())return k+' — Оружейная';const t=nearTalk();if(t)return k+' — поговорить: '+(t.role==='leader'?'лидер ':'зам ')+t.name+' '+GANGS[t.gang].emb;return '';}
+function openDialog(g){dlgOpen=true;dlgGang=g;renderDialog();showOv('gdlg',true);}
+function closeDialog(){if(!dlgOpen)return;dlgOpen=false;showOv('gdlg',false);}
+function renderDialog(){const g=dlgGang,gd=GANGS[g],s=GS[g],me=player.gang,r=rankIdx();let say='';const btns=[];
+  if(hostileToPlayer(g))say='Ты совсем страх потерял? Вали, пока цел!';
+  else if(me===g){say=pick(['Рад тебя видеть, '+RANKS[r].toLowerCase()+'.','Есть работа для тебя.','Как дела на районе?']);
+    if(gmis.active)btns.push(['cancel','Отказаться от задания (−5 доверия)','r']);else btns.push(['mission','🎯 Взять задание','']);
+    btns.push(['follow','👥 Позвать братву (Y)','b']);if(r>=4&&player.trust>=100)btns.push(['askleader','👑 Попросить место лидера','']);
+    if(r>=3&&!s.mutiny)btns.push(['challenge','⚔️ Бросить вызов лидеру','r']);btns.push(['leave','🚪 Покинуть банду','r']);
+    if(r<4)say+=' Нужно уважение '+RANK_REQ[r+1]+' для ранга «'+RANKS[r+1]+'».';else if(player.trust<100)say+=' Заслужи моё полное доверие — и банда будет твоей.';}
+  else if(me>=0)say='Ты носишь цвета '+GANGS[me].name+'. Нам с тобой говорить не о чем.';
+  else{if(player.rep[g]>=10){say='Слышал о тебе хорошее. Хочешь быть с нами?';btns.push(['join','✅ Вступить в '+gd.name,'']);}
+    else{say='Ты кто такой? Хочешь к нам — занеси $1000 в общак или заработай репутацию (бей наших врагов).';btns.push(['joinpay','💰 Вступить за $1000','']);}}
+  btns.push(['close','Уйти','b']);
+  $('gdlgBody').innerHTML=`<div style="display:flex;gap:12px;align-items:center"><div style="font-size:54px">${gd.emb}</div><div><div style="font-family:'Russo One',Impact;font-size:22px;color:${gd.color}">${gd.name}</div>
+   <div class="sm">Лидер: <b>${esc(s.leader)}</b> · бойцов: ${s.roster} · районов: ${ownedCount(g)}</div><div class="sm">Твоя репутация: ${player.rep[g]|0} (${repLabel(player.rep[g])})${me===g?' · ранг: '+RANKS[r]+' · доверие: '+player.trust+'%':''}</div></div></div>
+   <p style="margin:14px 0;font-size:17px">«${esc(say)}»</p>`+btns.map(b=>`<button class="sbtn ${b[2]}" data-a="${b[0]}">${b[1]}</button>`).join('');}
+function openShop(){shopOpen=true;renderShop();showOv('shop',true);sfx('door');}
+function closeShop(){if(!shopOpen)return;shopOpen=false;showOv('shop',false);}
+function renderShop(){let h=`<div class="gh"><h2>🔫 ОРУЖЕЙНАЯ «БАХ-БАХ»</h2><button class="xbtn" data-a="close">✕</button></div><div style="color:#6dff8a;font-size:20px;margin-bottom:8px">У тебя: $${Math.floor(player.money)}</div>`;
+  WEAPONS.forEach((w,i)=>{if(i===0||w.id==='duck')return;const own=player.owned.includes(i);
+    h+=`<div class="item"><div class="ic">${w.ic}</div><div class="nm"><b>${w.name}</b><br><small>${w.desc||''}${own&&!w.melee?' · патроны: '+player.ammo[i]+'/'+w.max:''}</small></div>`+
+      (own?(w.melee?'<small>✔ есть</small>':`<button class="sbtn" data-a="ammo:${i}" ${player.money<w.ammoPrice||player.ammo[i]>=w.max?'disabled':''}>+${w.pack} пт. $${w.ammoPrice}</button>`):`<button class="sbtn" data-a="buy:${i}" ${player.money<w.price?'disabled':''}>Купить $${w.price}</button>`)+'</div>';});
+  h+=`<div class="item"><div class="ic">🦺</div><div class="nm"><b>Бронежилет</b><br><small>Броня ${player.armor|0}/100 — поглощает урон</small></div><button class="sbtn b" data-a="armor" ${player.money<600?'disabled':''}>$600</button></div>`;
+  h+=`<div class="item"><div class="ic">💊</div><div class="nm"><b>Аптечка</b><br><small>Полное здоровье</small></div><button class="sbtn b" data-a="heal" ${player.money<200?'disabled':''}>$200</button></div>`;
+  $('shopBody').innerHTML=h;}
+function openGangUI(){gangUIOpen=true;if(gSel<0)gSel=districtOf(player.pos.x,player.pos.z);renderGangUI();showOv('gangs',true);}
+function closeGangUI(){if(!gangUIOpen)return;gangUIOpen=false;showOv('gangs',false);}
+function drawTerr(){const cv=$('terr'),g=cv.getContext('2d'),S=cv.width,cs=S/ND;g.fillStyle='#1a1d24';g.fillRect(0,0,S,S);g.textAlign='center';g.textBaseline='alphabetic';
+  for(const d of districts){const x=d.dx*cs,y=d.dz*cs,o=d.owner;g.fillStyle=o>=0?GANGS[o].color+'99':(d.id===CENTER_D?'#4a4f58':'#2c3038');g.fillRect(x+2,y+2,cs-4,cs-4);
+    if(d.id===gSel){g.strokeStyle='#fff';g.lineWidth=4;g.strokeRect(x+3,y+3,cs-6,cs-6);}
+    g.fillStyle='#fff';g.font='bold '+Math.round(cs*0.13)+'px Arial';g.fillText(d.name,x+cs/2,y+cs*0.2,cs-6);
+    let ic='';let sz=0.22;if(d.base>=0){ic=GANGS[d.base].emb;sz=0.4;}else if(d.id===CENTER_D){ic='🏙️';sz=0.3;}else if(o>=0)ic=GANGS[o].emb;
+    if(ic){g.font=Math.floor(cs*sz)+'px serif';g.fillText(ic,x+cs/2,y+cs*0.66);}
+    if(wars.some(w=>w.d===d.id)&&Math.sin(NOW*6)>-0.5){g.font=Math.floor(cs*0.28)+'px serif';g.fillText('⚔️',x+cs/2,y+cs*0.95);}}
+  g.font=Math.floor(cs*0.2)+'px serif';for(const p of SHOPS_POS)g.fillText('🔫',(p.x+HALF)/(2*HALF)*S,(p.z+HALF)/(2*HALF)*S);
+  const dot=(p,c)=>{g.fillStyle=c;g.strokeStyle='#000';g.lineWidth=2;g.beginPath();g.arc((p.x+HALF)/(2*HALF)*S,(p.z+HALF)/(2*HALF)*S,6,0,7);g.fill();g.stroke();};
+  for(const r of NET.remotes.values())dot(r.pos,r.color);dot(player.car?player.car.pos:player.pos,'#fff');}
+function renderGangUI(){drawTerr();const me=player.gang,r=rankIdx();let h='';
+  if(me<0)h='Ты не состоишь в банде. Найди базу группировки (эмблема на карте), подойди к лидеру и нажми <kbd>E</kbd>.';
+  else{const nx=r<4?RANK_REQ[r+1]:null;h=`<div style="font-size:16px"><b style="color:${GANGS[me].color}">${gN(me)}</b> · ранг <b>${RANKS[r]}</b>${nx?` · уважение ${player.respect}/${nx}`:''} · доверие лидера ${player.trust}%</div>
+    <div class="rep"><i style="left:0;width:${nx?Math.min(100,player.respect/nx*100):100}%;background:${GANGS[me].color}"></i></div>
+    <button class="sbtn b" data-a="follow">👥 Братва (Y)</button>${player.isLeader?`<button class="sbtn" data-a="withdraw">💰 Взять $1000 из общака ($${GS[me].money|0})</button>`:''}<button class="sbtn r" data-a="leave">🚪 Покинуть банду</button>`;
+    if(player.isLeader)h+='<div style="margin-top:6px;color:#ffd21f">👑 Ты лидер: выбери район на карте и нажми «Атаковать». Союзы и войны — в карточках банд.</div>';}
+  h+='<button class="sbtn" style="background:#333;color:#aaa" data-a="reset">🗑 Сбросить прогресс</button>';$('gMe').innerHTML=h;
+  let ti='Нажми на район на карте.';if(gSel>=0){const d=districts[gSel],o=d.owner;ti=`<b>${d.name}</b> — ${o>=0?`<span style="color:${GANGS[o].color}">${gN(o)}</span>`:'ничей'}${d.base>=0?' · база банды':''}${gSel===CENTER_D?' · центр (нейтрален)':''}`;
+    const w=wars.find(w=>w.d===gSel);if(w)ti+=`<br>⚔️ Бой: ${gN(w.atk)} (${w.aL|0}) против ${gN(w.def)} (${w.dL|0})`;
+    if(player.isLeader&&me>=0&&captureTargets(me).includes(gSel))ti+=`<br><button class="sbtn r" data-a="attack">⚔️ Атаковать (${clamp(Math.floor(GS[me].roster*0.55),10,50)} бойцов)</button>`;}
+  $('terrInfo').innerHTML=ti;let L='';
+  for(let g=0;g<5;g++){const gd=GANGS[g],s=GS[g],rep=player.rep[g];
+    const rels=[0,1,2,3,4].filter(x=>x!==g).map(x=>{const st=relStatus(g,x);return`<span class="chip ${st}" title="${REL[g][x]|0}">${GANGS[x].emb} ${REL_TXT[st]}</span>`;}).join('');
+    let act='';if(player.isLeader&&me>=0&&g!==me){const st=relStatus(me,g);act=(st!=='ally'?`<button class="sbtn b" data-a="ally:${g}">🤝 Союз $5000</button>`:'')+(st==='enemy'?`<button class="sbtn" data-a="peace:${g}">🕊️ Мир $3000</button>`:'')+(st!=='enemy'?`<button class="sbtn r" data-a="war:${g}">💢 Война</button>`:'');}
+    L+=`<div class="gcard" style="border-color:${gd.color}${s.dead?';opacity:.5':''}"><div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap"><div class="t" style="color:${gd.color}">${gd.emb} ${gd.name}${g===me?' (твоя)':''}</div><div>${s.dead?'💀 разгромлены':'👥 '+s.roster+' бойцов · 🏴 '+ownedCount(g)+' районов'}</div></div>
+     <div class="sm">Лидер: <b>${esc(s.leader)}</b> · замы: ${s.deps.map(esc).join(', ')} · стиль: ${gd.style}</div><div class="sm">${rels}</div>
+     <div class="sm">Твоя репутация: ${rep|0} — ${repLabel(rep)}</div><div class="rep"><i style="left:${rep<0?50+rep/2:50}%;width:${Math.abs(rep)/2}%;background:${rep<0?'#e33':'#3c3'}"></i></div>${act}</div>`;}
+  $('gList').innerHTML=L;$('gNews').innerHTML='<b>📰 Новости улиц</b>'+gangNews.slice(0,12).map(n=>`<div>${esc(n.t)}</div>`).join('');}
+function leaderAttack(d){const g=player.gang;const pool=clamp(Math.floor(GS[g].roster*0.55),10,50);
+  if(NET.on&&!NET.host)netSend({t:'graid',a:g,d,id:'c'+NET.myId.slice(-5)+(warId++),pool});else startWar(g,d,{pool});subMsg('Братва выдвигается на «'+districts[d].name+'»! Присоединяйся.',4);}
+function diplo(k,h){const g=player.gang;let v=REL[g][h],msg='';const pay=c=>{if(GS[g].money>=c){GS[g].money-=c;return true;}if(player.money>=c){addMoney(-c);return true;}subMsg('Нужно $'+c+' (в общаке или у тебя)',2);return false;};
+  if(k==='ally'){if(!pay(5000))return;if(v>-35){v=55;msg='🤝 '+gN(g)+' и '+gN(h)+' заключили союз!';}else{v-=5;subMsg(GANGS[h].name+' отказались от союза',3);}}
+  if(k==='peace'){if(!pay(3000))return;if(v>-85){v=0;msg='🕊️ '+gN(g)+' и '+gN(h)+' заключили мир';}else subMsg(GANGS[h].name+' не хотят мира',3);}
+  if(k==='war'){v=-70;msg='💢 '+gN(g)+' объявили войну '+gN(h)+'!';}
+  setRel(g,h,v);if(NET.on&&!NET.host)netSend({t:'grel',a:g,b:h,v,n:msg});if(msg)gnews(msg,true,'#ffd21f');}
+(function(){
+  $('gdlg').addEventListener('click',e=>{const a=e.target.dataset&&e.target.dataset.a;if(!a)return;const g=dlgGang;
+    if(a==='close')closeDialog();if(a==='join'){closeDialog();joinGang(g);}
+    if(a==='joinpay'){if(player.money<1000){subMsg('Не хватает денег',2);return;}addMoney(-1000);GS[g].money+=1000;closeDialog();joinGang(g);}
+    if(a==='mission')startGangMission();if(a==='cancel'){failGangMission('Ты отказался от задания');renderDialog();}
+    if(a==='follow'){closeDialog();toggleFollowers();}if(a==='askleader'){closeDialog();becomeLeader(g,true);}
+    if(a==='challenge'){closeDialog();GS[g].mutiny=true;bigMsg('БУНТ!','#ff3b3b',2);subMsg('Ты бросил вызов! Убей '+GS[g].leader+', чтобы занять его место.',5);}
+    if(a==='leave'){closeDialog();leaveGang(false);}});
+  $('shop').addEventListener('click',e=>{const a=e.target.dataset&&e.target.dataset.a;if(!a)return;if(a==='close'){closeShop();return;}
+    if(a==='armor'&&player.money>=600){addMoney(-600);player.armor=100;sfx('pickup');}
+    if(a==='heal'&&player.money>=200){addMoney(-200);player.hp=100;sfx('pickup');}
+    if(a.startsWith('buy:')){const i=+a.slice(4),w=WEAPONS[i];if(player.money>=w.price&&!player.owned.includes(i)){addMoney(-w.price);player.owned.push(i);if(!w.melee)player.ammo[i]=Math.min(w.max,(player.ammo[i]||0)+w.pack*2);player.weapon=i;sfx('cash');feed('Куплено: '+w.name,'#6dff8a');}}
+    if(a.startsWith('ammo:')){const i=+a.slice(5),w=WEAPONS[i];if(player.money>=w.ammoPrice){addMoney(-w.ammoPrice);player.ammo[i]=Math.min(w.max,player.ammo[i]+w.pack);sfx('pickup');}}
+    renderShop();});
+  $('gangs').addEventListener('click',e=>{const a=e.target.dataset&&e.target.dataset.a;if(!a)return;const me=player.gang;
+    if(a==='close')closeGangUI();if(a==='follow'){closeGangUI();toggleFollowers();}
+    if(a==='leave'&&confirm('Точно покинуть банду?')){leaveGang(false);}
+    if(a==='withdraw'&&player.isLeader&&GS[me].money>=1000){GS[me].money-=1000;addMoney(1000);}
+    if(a==='attack'&&player.isLeader)leaderAttack(gSel);
+    if(a==='reset'&&confirm('Удалить весь сохранённый прогресс?')){try{localStorage.removeItem('ec_save2');}catch(x){}location.reload();}
+    if(a.includes(':')){const [k,v]=a.split(':');diplo(k,+v);}
+    if(gangUIOpen)renderGangUI();});
+  $('terr').addEventListener('click',e=>{const r=e.target.getBoundingClientRect();const x=(e.clientX-r.left)/r.width,y=(e.clientY-r.top)/r.height;gSel=clamp(Math.floor(y*ND),0,ND-1)*ND+clamp(Math.floor(x*ND),0,ND-1);renderGangUI();});})();
+
+/* ---------- minimap / hud helpers ---------- */
+function mmGangs(poly){for(const d of districts){if(d.owner<0)continue;const x0=-HALF+d.dx*2*P,z0=-HALF+d.dz*2*P,x1=x0+2*P,z1=z0+2*P;poly([[x0,z0],[x1,z0],[x1,z1],[x0,z1]],GANGS[d.owner].color+'55');}}
+function mmIcons(T,c){mm.font='14px serif';mm.textAlign='center';mm.textBaseline='middle';const put=(x,z,t)=>{const p=T(x,z);if(Math.hypot(p[0]-c,p[1]-c)<c-8)mm.fillText(t,p[0],p[1]);};
+  GS.forEach((s,g)=>{if(s.base)put(s.base.center.x,s.base.center.z,GANGS[g].emb);});SHOPS_POS.forEach(p=>put(p.x,p.z,'🔫'));
+  if(Math.sin(NOW*6)>0)wars.forEach(w=>put(districts[w.d].center.x,districts[w.d].center.z,'⚔️'));mm.textBaseline='alphabetic';}
+function updateWarHud(){const e=$('war');const w=wars.find(w=>w.phys);if(!w||!started){e.classList.add('hide');return;}e.classList.remove('hide');const A=GANGS[w.atk],D=GANGS[w.def];
+  e.innerHTML=`⚔️ <span style="color:${A.color}">${A.emb} ${A.name} ${w.aL|0}</span> vs <span style="color:${D.color}">${w.dL|0} ${D.name} ${D.emb}</span> · «${districts[w.d].name}»`;}
+function carFx(c,dt){const fx=Math.sin(c.heading),fz=Math.cos(c.heading),rx=-Math.cos(c.heading),rz=Math.sin(c.heading);
+  if(c.nitroOn){player.nitro=Math.max(0,player.nitro-28*dt);const p=c.pos.clone().add(new V3(fx*(-c.spec.L/2-0.25),0.45+(c.spec.lift||0),fz*(-c.spec.L/2-0.25)));emit(p,2,{color:['#44aaff','#99ddff','#ffffff'],size:0.55,speed:2,life:0.16,add:true});}
+  else player.nitro=Math.min(100,player.nitro+7*dt);
+  const lat=Math.abs(c.vx*rx+c.vz*rz);if(lat>4.5&&c.air<=0&&!c.sunk&&Math.random()<0.7){for(const k of [-1,1]){const p=c.pos.clone().add(new V3(-fx*c.spec.wb/2+rx*k*c.spec.W/2,0.2,-fz*c.spec.wb/2+rz*k*c.spec.W/2));emit(p,1,{color:['#dddddd','#bbbbbb'],size:0.8,speed:0.6,up:0.8,life:1.1,grow:1.6,drag:1});}}}
+function cycleWeapon(dir){const ow=player.owned.slice().sort((a,b)=>a-b);let i=ow.indexOf(player.weapon);if(i<0)i=0;player.weapon=ow[(i+dir+ow.length)%ow.length];}
+
+/* ---------- network ---------- */
+function gangState(){return{t:'gs',o:districts.map(d=>d.owner),r:REL.map(r=>r.slice()),ro:GS.map(s=>s.roster),ld:GS.map(s=>s.leader),dp:GS.map(s=>s.deps),dd:GS.map(s=>s.dead?1:0),
+  w:wars.map(w=>({id:w.id,a:w.atk,df:w.def,d:w.d,ar:w.atkRes,dr:w.defRes,pl:w.player?1:0,ow:w.owner}))};}
+function gangNet(m){
+  if(m.t==='gs'&&!NET.host){m.o.forEach((o,i)=>districts[i].owner=o);for(let i=0;i<6;i++)for(let j=0;j<6;j++)REL[i][j]=m.r[i][j];m.ro.forEach((v,i)=>GS[i].roster=v);
+    m.ld.forEach((v,i)=>{if(!(player.isLeader&&player.gang===i))GS[i].leader=v;});m.dp.forEach((v,i)=>GS[i].deps=v);m.dd.forEach((v,i)=>GS[i].dead=!!v);
+    const ids=new Set(m.w.map(x=>String(x.id)));for(const w of wars.slice())if(!ids.has(String(w.id))&&(w.remote||w.owner===NET.myId))finishRemoteWar(w);
+    for(const x of m.w)if(!wars.some(w=>String(w.id)===String(x.id))&&x.ow!==NET.myId){const w=startWar(x.a,x.d,{id:x.id,remote:true,pool:x.ar||1,dpool:x.dr||1});if(w)w.def=x.df;}}
+  if(m.t==='gcap'&&NET.host)captureDistrict(m.d,m.g);
+  if(m.t==='graid'&&NET.host&&!wars.some(w=>w.d===m.d))startWar(m.a,m.d,{id:m.id,owner:m.ow||null,player:!!m.ow,pool:m.pool});
+  if(m.t==='gend'&&NET.host){const w=wars.find(w=>String(w.id)===String(m.id));if(w)endWar(w,!!m.win);}
+  if(m.t==='grel'&&NET.host){setRel(m.a,m.b,m.v);if(m.n)gnews(m.n,true);}
+  if(m.t==='gn'&&!NET.host){gangNews.unshift({t:m.m});if(m.i)feed(m.m,'#ffd21f');}}
+
+/* ---------- save ---------- */
+function saveProgress(){if(!started)return;try{localStorage.setItem('ec_save2',JSON.stringify({m:Math.floor(player.money),o:player.owned,a:player.ammo.map(v=>v===Infinity?-1:v),ar:player.armor|0,g:player.gang,r:player.respect,t:player.trust,rep:player.rep,L:player.isLeader?1:0,d:player.ducks,bc:player.baseColor}));}catch(e){}}
+function loadProgress(){try{const s=JSON.parse(localStorage.getItem('ec_save2')||'null');if(!s)return false;player.money=s.m;player.owned=s.o;s.a.forEach((v,i)=>{if(i<player.ammo.length)player.ammo[i]=v<0?Infinity:v;});
+  player.armor=s.ar||0;player.respect=s.r||0;player.trust=s.t||0;if(s.rep)player.rep=s.rep;player.ducks=s.d||0;if(s.bc)player.baseColor=s.bc;
+  if(s.g>=0){player.gang=s.g;player.isLeader=!!s.L;if(player.isLeader)GS[s.g].leader=player.name;const o=gangOutfit(s.g,player.isLeader?'leader':'member');player.color=o.shirt;player.outfit=Object.assign({},o,{shadow:true});}return true;}catch(e){return false;}}
+
+let gTick=2,gMan=0,gSync=0,gSave=10,gHud=0;
+function updateGangs(dt){FL=GM.filter(m=>(m.state==='follow'||m.state==='incar')&&!m.dead);updateGroups(dt);
+  gMan-=dt;if(gMan<=0){gMan=0.8;manageGangs();}const auth=!NET.on||NET.host;
+  gTick-=dt;if(gTick<=0){gTick=5;if(auth)gangTick();}
+  updateWars(dt,auth);updateGangCars(dt);updateGangMission(dt);
+  if(auth&&NET.on){gSync-=dt;if(gSync<=0){gSync=3;netSend(gangState());}}
+  gSave-=dt;if(gSave<=0){gSave=10;saveProgress();}
+  gHud-=dt;if(gHud<=0){gHud=0.5;updateWarHud();if(gangUIOpen)drawTerr();}}
 
 /* =====================================================================
    MENU / BOOT
@@ -1439,12 +2046,13 @@ let myColor=COLORS[Math.floor(Math.random()*COLORS.length)];
   $('codeIn').addEventListener('input',e=>{e.target.value=e.target.value.toUpperCase().replace(/[^A-Z0-9]/g,'');});})();
 function menuStatus(t){$('menuStatus').textContent=t;}
 function setBtns(dis){['btnSolo','btnHost','btnJoin'].forEach(id=>$(id).disabled=dis);}
-function startGame(){player.name=($('nameIn').value.trim()||'Игрок'+randi(10,99)).slice(0,14);player.color=myColor;try{localStorage.setItem('ec_name',player.name);}catch(e){}
+function startGame(){player.name=($('nameIn').value.trim()||'Игрок'+randi(10,99)).slice(0,14);player.color=myColor;player.baseColor=myColor;const loaded=loadProgress();try{localStorage.setItem('ec_name',player.name);}catch(e){}
   started=true;$('menu').classList.add('hide');$('hud').classList.remove('hide');document.body.classList.add('playing');audioInit();buildPlayerModel();player.pos.copy(SPAWN);camYaw=0;
   updateRoomInfo();updateLockMsg();if(!IS_TOUCH&&cvs.requestPointerLock)cvs.requestPointerLock();
   subMsg('Добро пожаловать в Eldar City, '+player.name+'!',4);setTimeout(()=>{if(!IS_TOUCH)feed('H — управление и чит-коды','#ffd21f');},2500);
   if(IS_TOUCH){try{document.documentElement.requestFullscreen&&document.documentElement.requestFullscreen().then(()=>screen.orientation&&screen.orientation.lock&&screen.orientation.lock('landscape').catch(()=>{})).catch(()=>{});}catch(e){}}
-  for(const pd of peds.slice())if(pd.pos.distanceTo(player.pos)<4)removePed(pd);}
+  for(const pd of peds.slice())if(pd.pos.distanceTo(player.pos)<4)removePed(pd);
+  setTimeout(()=>subMsg(loaded?'Прогресс загружен'+(player.gang>=0?' · ты в '+gN(player.gang):''):'Город поделён между 5 бандами. Оружейная 🔫 — к востоку. K — карта банд.',5),4500);}
 $('btnSolo').onclick=()=>{try{startGame();}catch(e){menuStatus('Ошибка: '+e.message);console.error(e);}};
 $('btnHost').onclick=()=>{setBtns(true);menuStatus('Создаю сервер...');hostGame(code=>{menuStatus('');startGame();bigMsg('КОД: '+code,'#ffd21f',6);subMsg('Скажи другу код '+code+' или нажми «ссылка» слева сверху',7);history.replaceState(null,'','#'+code);},e=>{menuStatus(e);setBtns(false);});};
 $('btnJoin').onclick=()=>{const code=$('codeIn').value.trim().toUpperCase();if(code.length!==4){menuStatus('Введи код из 4 символов');return;}setBtns(true);menuStatus('Подключаюсь к '+code+'...');
