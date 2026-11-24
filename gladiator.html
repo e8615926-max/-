@@ -311,7 +311,7 @@
   <div class="tablet wide">
     <div class="eyebrow">Ludus Magnus · Рим</div>
     <h1 class="title">Песок <em>Арены</em></h1>
-    <p class="lede">Выбери одного из двадцати четырёх героев, собери отряд из воинов и зверей, перевязывай раны и одолей семь мифических боссов. Толпа любит смелых — и бросает им дары.</p>
+    <p class="lede">Выбери одного из двадцати шести героев, собери отряд из воинов и зверей, перевязывай раны и одолей семь мифических боссов. Толпа любит смелых — и бросает им дары.</p>
     <div class="section-h"><span>Выбери героя</span><b id="heroCount"></b></div>
     <div class="hero-detail" id="heroDetail"></div>
     <div class="heroes" id="classCards"></div>
@@ -1105,6 +1105,13 @@ function makeHumanoid(cfg) {
   part(BOX(.46, .5, .27), cfg.chest === 'armor' ? metal : cfg.chest === 'fur' ? cloth : skin, torso, 0, .3, 0);
   if (cfg.chest === 'muscle') { for (const s of [-1, 1]) part(BOX(.19, .13, .05), skin, torso, s * .1, .44, .14); for (let i = 0; i < 3; i++) for (const s of [-1, 1]) part(BOX(.08, .07, .04), skin, torso, s * .05, .3 - i * .08, .135); }
   if (cfg.chest === 'strap') { const st = part(BOX(.08, .6, .3), leather, torso, 0, .3, 0); st.rotation.z = .7; }
+  if (cfg.chest === 'samurai') {
+    const lac = M(0x141418, { roughness: .35 }), red = M(cfg.crest || 0xb01818);
+    part(BOX(.5, .52, .32), lac, torso, 0, .3, 0);
+    for (let k = 0; k < 6; k++) part(BOX(.51, .018, .33), red, torso, 0, .1 + k * .08, 0);
+    for (let i = 0; i < 6; i++) { const a = i / 6 * TAU + .26; const pl = part(BOX(.15, .26, .03), lac, hips, Math.sin(a) * .3, -.2, Math.cos(a) * .3); pl.rotation.y = a; for (let k = 0; k < 3; k++) { const l = part(BOX(.155, .012, .035), red, hips, Math.sin(a) * .3, -.12 - k * .07, Math.cos(a) * .3); l.rotation.y = a; } }
+    skirt.scale.set(1.2, 1.5, 1.2); skirt.position.y = -.2;
+  }
   if (cfg.chest === 'plate' || cfg.chest === 'chain' || cfg.chest === 'robe' || cfg.chest === 'tabard') {
     const pm = cfg.chest === 'chain' ? M(0x8a8c90, { metalness: .6, roughness: .5 }) : cfg.chest === 'robe' ? cloth : metal;
     part(BOX(.5, .53, .31), pm, torso, 0, .3, 0);
@@ -1189,6 +1196,14 @@ function makeHumanoid(cfg) {
       for (let i = 0; i < 6; i++) { const a = i / 6 * TAU; part(new THREE.ConeGeometry(.032, .13, 4), gold, head, Math.cos(a) * .17, .53, Math.sin(a) * .17); part(BOX(.03, .03, .02), gem, head, Math.cos(a + TAU / 12) * .195, .44, Math.sin(a + TAU / 12) * .195).lookAt(0, .44, 0); }
       part(new THREE.SphereGeometry(.035, 6, 4), gem, head, 0, .45, .19);
     }
+  } else if (H === 'kabuto') {
+    const lac = M(0x141418, { roughness: .35 }), red = M(cfg.crest || 0xb01818), gold = M(0xe8c060, { metalness: .9, roughness: .2 });
+    part(BOX(.32, .24, .32), lac, head, 0, .33, 0); part(BOX(.34, .04, .34), gold, head, 0, .22, 0);
+    for (let k = 0; k < 3; k++) { const p = part(BOX(.46 + k * .06, .05, .3), lac, head, 0, .2 - k * .07, -.08 - k * .02); p.rotation.x = .35; part(BOX(.47 + k * .06, .012, .31), red, head, 0, .225 - k * .07, -.075 - k * .02).rotation.x = .35; }
+    for (const sd of [-1, 1]) { const f = part(BOX(.04, .12, .1), lac, head, sd * .2, .28, .1); f.rotation.y = sd * .5; }
+    for (const sd of [-1, 1]) { const h = part(BOX(.03, .32, .05), gold, head, sd * .09, .56, .14); h.rotation.z = -sd * .45; }
+    part(new THREE.SphereGeometry(.04, 8, 6), gold, head, 0, .42, .17);
+    part(BOX(.22, .12, .04), red, head, 0, .13, .14); part(BOX(.12, .02, .02), M(0x222222), head, 0, .16, .165);
   } else if (H === 'giant') {
     part(BOX(.28, .12, .28), M(0x3a2a1a), head, 0, .37, -.01); part(BOX(.3, .22, .06), M(0x3a2a1a), head, 0, .28, -.15);
     part(BOX(.27, .04, .27), M(0xe8dcc0), head, 0, .31, 0);
@@ -1221,6 +1236,12 @@ function makeHumanoid(cfg) {
   if (cfg.bow) { weapon = buildWeapon('bow', metal, wood, glow); L.hand.add(weapon); }
   if (cfg.shield) { shield = buildShield(cfg.shield, M(cfg.paint || 0x8c1f14), metal); shield.position.set(.08, -.12, .14); L.el.add(shield); }
   if (cfg.net) netBundle = part(BOX(.2, .16, .16), M(0x9a8a5a), L.hand, 0, -.08, 0);
+  if (cfg.sode) {
+    const lac = M(0x141418, { roughness: .35 }), red = M(cfg.crest || 0xb01818);
+    [[R, -1], [L, 1]].forEach(([A, sd]) => { const sg = new THREE.Group(); sg.position.set(sd * .1, .02, 0); sg.rotation.z = sd * .18; A.sh.add(sg); part(BOX(.05, .32, .27), lac, sg, 0, -.12, 0); for (let k = 0; k < 4; k++) part(BOX(.055, .012, .275), red, sg, 0, -.02 - k * .07, 0); });
+    for (const Lg of [LL, RL]) { part(BOX(.19, .3, .05), lac, Lg.hp, 0, -.16, .1); for (let k = 0; k < 3; k++) part(BOX(.195, .012, .055), red, Lg.hp, 0, -.06 - k * .08, .1); }
+  }
+  if (cfg.sashimono) { const pole = part(CYL(.015, .015, 1.0, 5), M(0x3a2a1a), torso, 0, .8, -.2); const fl = part(BOX(.02, .5, .3), M(cfg.sashimono, { side: THREE.DoubleSide }), torso, 0, 1.0, -.36); part(new THREE.CircleGeometry(.08, 12), M(0xf0ead8, { side: THREE.DoubleSide }), torso, .015, 1.0, -.36).rotation.y = Math.PI / 2; }
   if (cfg.plate) addPlate({ torso, hips, R, L, LL, RL }, metal, M(0xe0b860, { metalness: .9, roughness: .22 }), M(0x5a3420), dark);
   root.scale.setScalar(cfg.scale || 1);
   const m = { root, body, hips, torso, head, R, L, LL, RL, skirt, weapon, weapon2, shield, netBundle, glow, kind: 'human', reach: weapon ? weapon.userData.reach : 1.6, twoHanded: TWOH.includes(cfg.weapon) || (cfg.weapon === 'club' && (cfg.scale || 1) > 2) };
@@ -1412,6 +1433,7 @@ const DOG_NAMES = ['Цербер', 'Ферокс', 'Луп', 'Фортис', 'А
 const P = { skin: 0xc8905f, cloth: 0x8c1f14, metal: 0xc79a4a, crest: 0xb3261a };
 const hero = (o, look) => Object.assign({ st: 105, atkSpeed: 1, blockMul: .5, blockCost: 1.2, parry: .22 }, o, { look: Object.assign({}, P, look) });
 const CLASSES = {
+  samurai: hero({ name: 'Самурай', k: 'Катана и бусидо', d: 'Мастер клинка из далёкой Ниппон. Катана разрезает врагов по линии удара. Навык — дзансин: стойка, в которой каждый напавший получает мгновенный смертельный контрудар.', stats: 'Здоровье 120 · Парирование · Мастер катаны', hp: 120, st: 125, speed: 5.8, light: 18, heavy: 38, atkSpeed: 1.2, blockMul: .35, parry: .38, bleedBonus: .15, skill: 'zanshin', skillName: 'Дзансин', skillCd: 7 }, { weapon: 'katana', helmet: 'kabuto', chest: 'samurai', sode: true, cloth: 0x1c2340, metal: 0x1a1a1e, crest: 0xb01818, skin: 0xd8b08a, sashimono: 0xb01818 }),
   arbaros: hero({ name: 'Арбарос', k: 'Король-рыцарь', d: 'Двухметровый король в латах. Сам отбивает 70% ударов спереди и 30% сзади, бьёт быстро и точно. Навык — королевская тактика: удар щитом и стойка рипоста.', stats: 'Здоровье 165 · Автоотбив 70% · Мастер боя', hp: 165, st: 140, speed: 5.6, light: 18, heavy: 38, atkSpeed: 1.25, blockMul: 0, blockCost: .9, parry: .35, autoParry: .7, skill: 'tactics', skillName: 'Королевская тактика', skillCd: 7 }, { weapon: 'longsword', shield: 'royal', helmet: 'armet', crown: true, plate: true, chest: 'skin', skin: 0x26262c, cloth: 0x26262c, metal: 0x9aa0a8, crest: 0x5a1414, cape: 0x5a1414, scale: 1.1 }),
   achillesKatana: hero({ name: 'Ахиллес', k: 'Катана', d: 'Клинок режет как масло: враги распадаются на части ровно по линии удара. Навык — молниеносный рывок-разрез сквозь строй.', stats: 'Здоровье 115 · Блок 60% · Рассекающий', hp: 115, st: 115, speed: 5.7, light: 17, heavy: 36, atkSpeed: 1.15, blockMul: .4, parry: .3, bleedBonus: .15, skill: 'iaido', skillName: 'Рывок-разрез', skillCd: 6 }, { weapon: 'katana', helmet: 'achilles', chest: 'armor', metal: 0xd4a84a, crest: 0xb3261a, cloth: 0xe8e0cc, greaves: true, cape: 0xb3261a, pteruges: true, skin: 0xd8a070 }),
   murmillo: hero({ name: 'Гладиатор', k: 'Щит и гладиус', d: 'Классический боец арены. Большой щит держит любой удар. Навык — удар щитом, оглушает.', stats: 'Здоровье 115 · Блок 100% · Надёжный', hp: 115, st: 100, speed: 5.0, light: 14, heavy: 30, blockMul: 0, blockCost: 1.5, skill: 'bash', skillName: 'Удар щитом', skillCd: 6 }, { weapon: 'sword', shield: 'scutum', paint: 0x8c1f14, helmet: 'full', chest: 'strap', manica: true, greaves: true }),
@@ -2010,7 +2032,7 @@ function hit(t, dmg, src, o = {}) {
     return false;
   }
   if (t.isPlayer && G.buffs.wall > 0 && front && kind !== 'stomp') { sfx.clang(); burst(hp.clone().addScaledVector(dirFromTo(t.pos, sp), .5), 'spark', 14, 6); floatText(hp, 'стена', 'block'); if (srcUnit && srcUnit.vel) srcUnit.vel.addScaledVector(dirFromTo(t.pos, srcUnit.pos), 7 / (srcUnit.mass || 1)); return false; }
-  if (t.isPlayer && G.buffs.riposte > 0 && srcUnit && srcUnit.alive && srcUnit.hp !== undefined && !['arrow', 'net', 'stomp', 'charge'].includes(kind)) { sfx.bell(); floatText(hp.clone().setY(2.6), 'Рипост!', 'crit'); G.slowmo = .25; hit(srcUnit, 25 * G.up.dmg, t, { kind: 'heavy', ignoreGuard: true }); stun(srcUnit, 1); return false; }
+  if (t.isPlayer && (G.buffs.riposte > 0 || G.buffs.zanshin > 0) && srcUnit && srcUnit.alive && srcUnit.hp !== undefined && !['arrow', 'net', 'stomp', 'charge'].includes(kind)) { const zn = G.buffs.zanshin > 0; sfx.bell(); if (zn) sfx.slice(); floatText(hp.clone().setY(2.6), zn ? 'Контрудар!' : 'Рипост!', 'crit'); G.slowmo = zn ? .5 : .25; if (zn) t.facing = toSrc; hit(srcUnit, (zn ? 48 : 25) * G.up.dmg, t, { kind: 'heavy', ignoreGuard: true }); if (srcUnit.alive) stun(srcUnit, 1); return false; }
 
   if (t.isPlayer && t.blocking && front && !o.unblockable && t.state === 'free') {
     const C = t.cls;
@@ -2930,6 +2952,7 @@ function bannerMul(u) {
 function applyBuffSkill(s) {
   const p = player, B = G.buffs, top = p.pos.clone().setY(2.7);
   if (s === 'berserk') { B.berserk = 7; sfx.bossRoar(p.pos); burst(p.pos.clone().setY(1.2), 'blood', 20, 4, 2); floatText(top, 'Ярость!', 'crit'); }
+  else if (s === 'zanshin') { B.zanshin = 2.2; sfx.slice(); floatText(top, 'Дзансин', 'crit'); burst(p.pos.clone().setY(1.3), 'star', 10, 2, 1); }
   else if (s === 'riposte') { B.riposte = 2.4; sfx.clang(); floatText(top, 'Стойка рипоста', 'block'); }
   else if (s === 'execute') { B.execute = 5; sfx.shout(p.pos, true); floatText(top, 'Приговор', 'crit'); }
   else if (s === 'wall') { B.wall = 3.2; sfx.thud(); floatText(top, 'Стена щитов', 'block'); for (const e of aliveEnemies()) if (flatDist(e.pos, p.pos) < 3.2) e.vel.addScaledVector(dirFromTo(p.pos, e.pos), 8 / e.mass); }
@@ -3120,7 +3143,7 @@ function updatePlayer(dt) {
         for (const e of G.units) { if (!e.alive || e.team !== 'enemy') continue; if (flatDist(e.pos, p.pos) < 4.2 + e.radius * .5) { hit(e, 16 * G.up.dmg, p, { kind: 'stomp', ignoreGuard: true }); stun(e, 1.6); } }
       }
       if (p.t > .8) { p.state = 'free'; p.t = 0; }
-    } else if (['berserk', 'holy', 'riposte', 'execute', 'wall', 'cry', 'showoff', 'drain'].includes(s)) {
+    } else if (['berserk', 'holy', 'riposte', 'execute', 'wall', 'cry', 'showoff', 'drain', 'zanshin'].includes(s)) {
       if (!p.skillDone && p.t > .2) { p.skillDone = true; applyBuffSkill(s); }
       if (p.t > .5) { p.state = 'free'; p.t = 0; }
     } else if (s === 'tactics') {
@@ -3231,7 +3254,7 @@ function updatePlayer(dt) {
   if (p.state === 'skill') {
     if (p.skill === 'bash') { pose.shLx = -1.5; pose.elLx = 1.4; pose.torY = .5; pose.torX = .3; pose.bodyY = -.15; }
     else if (p.skill === 'net') applyCurve(pose, CURVE.throwL, clamp(p.t / .55, 0, 1));
-    else if (['berserk', 'holy', 'riposte', 'execute', 'wall', 'cry', 'showoff', 'drain'].includes(p.skill)) { pose.shRx = -2.8; pose.elRx = -.2; pose.headX = -.35; pose.torX = -.15; if (p.skill === 'wall' || p.skill === 'riposte') { pose.shRx = -1.4; pose.shLx = -1.3; pose.elLx = 1.15; pose.headX = 0; } }
+    else if (['berserk', 'holy', 'riposte', 'execute', 'wall', 'cry', 'showoff', 'drain', 'zanshin'].includes(p.skill)) { pose.shRx = -2.8; pose.elRx = -.2; pose.headX = -.35; pose.torX = -.15; if (p.skill === 'wall' || p.skill === 'riposte') { pose.shRx = -1.4; pose.shLx = -1.3; pose.elLx = 1.15; pose.headX = 0; } }
     else if (p.skill === 'tactics') { pose.shLx = -1.5; pose.elLx = 1.4; pose.torY = .5; pose.torX = .3; pose.bodyY = -.15; }
     else if (p.skill === 'iaido') { pose.shRz = p.t < .42 ? -.3 : -1.5; pose.shRx = p.t < .42 ? -1.2 : -.5; pose.elRx = -.05; pose.torY = p.t < .42 ? -.6 : .7; pose.bodyY = -.25; pose.bodyX = .2; }
     else if (p.skill === 'flurry') { applyCurve(pose, Math.floor(p.t * 8) % 2 ? CURVE.light2 : CURVE.light, (p.t * 8) % 1); }
@@ -3469,7 +3492,7 @@ function updateHud(dt) {
   if (w.leg) chips.push(`<span class="chip leg">Рана ноги${w.leg > 1 ? ' ×2' : ''}</span>`);
   if (w.arm) chips.push(`<span class="chip arm">Рана руки${w.arm > 1 ? ' ×2' : ''}</span>`);
   if (player.state === 'netted') chips.push('<span class="chip net">В сети</span>');
-  const BN = { berserk: 'Ярость', riposte: 'Рипост', execute: 'Приговор', wall: 'Стена щитов', cry: 'Боевой клич' };
+  const BN = { zanshin: 'Дзансин', berserk: 'Ярость', riposte: 'Рипост', execute: 'Приговор', wall: 'Стена щитов', cry: 'Боевой клич' };
   for (const k in G.buffs) if (G.buffs[k] > 0) chips.push(`<span class="chip net">${BN[k]} ${Math.ceil(G.buffs[k])}</span>`);
   if (G.armor) chips.push(`<span class="chip arm">Доспех ${ROMAN(G.armor)}</span>`);
   const cs = chips.join(''); if (cs !== lastChips) { hud.chips.innerHTML = cs; lastChips = cs; }
