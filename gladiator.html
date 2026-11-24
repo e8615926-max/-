@@ -200,6 +200,17 @@
   .card p { margin: 0; font-size: 14px; color: var(--marble-dim); line-height: 1.4; }
   .card .stats-line { font-size: 12px; color: var(--marble); letter-spacing: .04em; }
   .opts { display: grid; gap: 10px; width: 100%; }
+  .mp { width: 100%; text-align: left; display: grid; gap: 10px; }
+  .mp-row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  .mp-row label { font-size: 12px; letter-spacing: .2em; text-transform: uppercase; color: var(--bronze); }
+  .mp input { font: 600 15px var(--font-body); color: var(--marble); background: rgba(0,0,0,.45); border: 1px solid rgba(240,196,122,.4); border-radius: 3px; padding: 8px 10px; min-width: 0; width: 160px; }
+  #mpCodeIn { width: 96px; text-transform: uppercase; letter-spacing: .2em; }
+  .mp input:focus-visible { outline: 2px solid var(--bronze-hi); }
+  .mp-btn { font-size: 16px; padding: 8px 14px; }
+  .mp-or { color: var(--marble-dim); font-size: 13px; }
+  .mp-lobby { display: grid; gap: 8px; background: rgba(0,0,0,.35); border: 1px solid rgba(240,196,122,.3); border-radius: 3px; padding: 12px; }
+  .mp-code { font: 400 30px var(--font-display); color: var(--bronze-hi); letter-spacing: .25em; }
+  .mp-err { color: #ff9a7a; font-size: 13px; min-height: 1em; }
   .opt { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; justify-content: space-between; }
   .opt-l { font-size: 12px; letter-spacing: .24em; text-transform: uppercase; color: var(--bronze); }
   .seg { display: flex; border: 1px solid rgba(240,196,122,.35); border-radius: 3px; overflow: hidden; flex-wrap: wrap; }
@@ -304,11 +315,31 @@
     <div class="section-h"><span>Выбери героя</span><b id="heroCount"></b></div>
     <div class="hero-detail" id="heroDetail"></div>
     <div class="heroes" id="classCards"></div>
+    <div class="section-h"><span>Мультиплеер по коду</span></div>
+    <div class="mp" id="mpBox">
+      <p class="lede" id="mpUnavail" style="font-size:14px">Мультиплеер работает, когда игра открыта по ссылке claude.ai и вы оба вошли в аккаунт с доступом к ней (поделись страницей через меню «Поделиться»). В скачанном файле он недоступен.</p>
+      <div id="mpControls" hidden>
+        <div class="mp-row"><label for="mpName">Имя</label><input id="mpName" maxlength="18" placeholder="Твоё имя на арене"></div>
+        <div class="mp-row" id="mpJoinRow">
+          <button class="cta alt mp-btn" id="mpPvp" type="button">Создать: против друга</button>
+          <button class="cta alt mp-btn" id="mpCoop" type="button">Создать: вместе</button>
+          <span class="mp-or">или</span>
+          <input id="mpCodeIn" maxlength="8" placeholder="Код" autocomplete="off" autocapitalize="characters">
+          <button class="cta alt mp-btn" id="mpJoin" type="button">Войти</button>
+        </div>
+        <div id="mpLobby" hidden class="mp-lobby">
+          <div>Код комнаты: <b id="mpCode" class="mp-code"></b> <span id="mpModeTxt"></span></div>
+          <div id="mpStatus" class="note"></div>
+          <div class="row-btns"><button class="cta" id="mpStart" type="button" disabled>Начать бой</button><span id="mpWait" class="note">Ждём, пока создатель начнёт бой…</span><button class="cta alt mp-btn" id="mpLeave" type="button">Выйти из комнаты</button></div>
+        </div>
+        <div id="mpErr" class="mp-err"></div>
+      </div>
+    </div>
     <div class="opts">
       <div class="opt"><span class="opt-l">Режим</span><div class="seg" id="modeSeg"><button type="button" data-v="campaign">Кампания</button><button type="button" data-v="bosses">Арена богов · 8 боссов</button></div></div>
       <div class="opt"><span class="opt-l">Камера</span><div class="seg" id="viewSeg"><button type="button" data-v="third">Третье лицо</button><button type="button" data-v="fp">Первое лицо</button></div></div>
       <div class="opt"><span class="opt-l">Графика</span><div class="seg" id="qualSeg"><button type="button" data-v="high">Высокая</button><button type="button" data-v="medium">Средняя</button><button type="button" data-v="low">Низкая</button></div></div>
-      <div class="opt"><span class="opt-l">Музыка</span><div class="seg"><button type="button" class="music-btn">Музыка: вкл</button></div></div>
+      <div class="opt"><span class="opt-l">Музыка</span><div class="seg" id="trackSeg"><button type="button" data-v="auto">Авто</button><button type="button" data-v="epic">Боевой гимн</button><button type="button" data-v="lute">Лютня</button></div><div class="seg"><button type="button" class="music-btn">Музыка: вкл</button></div></div>
     </div>
     <p class="touch-help">Джойстик слева — движение, свайп по арене — камера, кнопки справа — удары, блок, рывок, навык, пилум, бинт и захват цели.</p>
     <details class="controls-wrap kbd-only">
@@ -1428,7 +1459,7 @@ const keys = new Set();
 const input = { moveX: 0, moveZ: 0, light: false, heavy: false, dodge: false, block: false, special: false, skill: false, throw: false, bandage: false };
 const G = {
   phase: 'menu', wave: 0, kills: 0, glory: 0, time: 0, phaseT: 0, paused: false,
-  buffs: { berserk: 0, riposte: 0, execute: 0, wall: 0, cry: 0 }, hitstop: 0, slowmo: 0, shake: 0, camYaw: 0, camPitch: 0.32, camDist: 6.5, fpPitch: .08,
+  nidSeq: 0, buffs: { berserk: 0, riposte: 0, execute: 0, wall: 0, cry: 0 }, hitstop: 0, slowmo: 0, shake: 0, camYaw: 0, camPitch: 0.32, camDist: 6.5, fpPitch: .08,
   units: [], projectiles: [], pickups: [], spawnQueue: [], lock: null,
   record: parseInt(store.get('arena-record') || '0', 10) || 0,
   up: {}, gold: 0, pila: 2, bandages: 2, armor: 0, allyMode: 'attack', mod: null, trapsOn: false,
@@ -1512,7 +1543,15 @@ function applyPose(m, pose, cur, dt, rate = 22) {
   if (m.cape) { const sp = pose.cape || 0; m.cape.forEach((g, i) => { g.rotation.x = (i ? .1 : .18) + sp * (i ? .25 : .6) + Math.sin(G.time * 3.2 + i * 1.3) * (.04 + sp * .06); }); }
 }
 function lifePose(u, pose, dt, tgtPos, look) {
-  const br = Math.sin(G.time * 2.1 + (u.seed || 0)) * .025;
+  const tired = u.isPlayer ? clamp(1 - u.st / Math.max(1, u.maxSt), 0, 1) : (u.hp < u.maxHp * .3 ? .6 : 0);
+  const br = Math.sin(G.time * (2.1 + tired * 2.4) + (u.seed || 0)) * (.025 + tired * .05);
+  const still = 1 - Math.min(1, u.moveAmt * 3);
+  if (still > 0 && tgtPos) {
+    const ws = Math.sin(G.time * 1.3 + (u.seed || 0) * 3);
+    pose.bodyY -= .07 * still; pose.knLx += .3 * still; pose.knRx += .3 * still; pose.hipLx -= .12 * still; pose.hipRx += .08 * still;
+    pose.bodyZ += ws * .035 * still; pose.torY += ws * .05 * still; pose.headX += tired * .25;
+  }
+  if (Math.abs(u.turnRate || 0) > 2.2 && u.moveAmt < .25) { u.walk += dt * 9; const s2 = Math.sin(u.walk); pose.hipLx += s2 * .35; pose.hipRx -= s2 * .35; pose.knLx += Math.max(0, -Math.cos(u.walk)) * .5; pose.knRx += Math.max(0, Math.cos(u.walk)) * .5; }
   pose.torX += br; pose.shRz -= br * .6; pose.shLz += br * .6;
   if (tgtPos) { const rel = angDiff(u.facing, Math.atan2(tgtPos.x - u.pos.x, tgtPos.z - u.pos.z)); pose.headY = clamp(rel, -.7, .7); }
   const amt = Math.min(1, u.moveAmt);
@@ -1749,8 +1788,44 @@ Object.assign(sfx, {
   step: (pos) => nz(.05, rand(500, 800), .8, .035 * distVol(pos), 'lowpass'),
 });
 
-const Music = { on: store.get('arena-music') !== '0', gain: null, drone: null, nextT: 0, step: 0, timer: null, intensity: 0 };
+const Music = { track: store.get('arena-track') || 'auto', on: store.get('arena-music') !== '0', gain: null, drone: null, nextT: 0, step: 0, timer: null, intensity: 0 };
 const EIGHTH = .27;
+/* -------- epic battle track: taiko, string ostinato, brass, choir, horn theme -------- */
+const SIXTEENTH = 60 / 132 / 4;
+const EPIC_CH = [[38, [0, 3, 7]], [34, [0, 4, 7]], [36, [0, 4, 7]], [33, [0, 4, 7]], [38, [0, 3, 7]], [41, [0, 4, 7]], [36, [0, 4, 7]], [33, [0, 4, 7]]];
+const OSTI = [0, 0, 12, 0, 7, 0, 12, 0, 0, 0, 12, 0, 7, 12, 7, 0];
+const THEME = [[69, -1, 74, -1, 77, -1, 76, 74], [72, -1, 77, -1, 81, -1, 79, 77], [76, -1, 79, -1, 84, -1, 82, 81], [81, -1, -1, -1, 76, -1, 73, -1]];
+function synthNote(f, t, dur, vol, type, cut, q = 1) {
+  const ctx = A.ctx, o = ctx.createOscillator(), lp = ctx.createBiquadFilter(), g = ctx.createGain();
+  o.type = type; o.frequency.value = f; lp.type = 'lowpass'; lp.Q.value = q;
+  lp.frequency.setValueAtTime(cut * 2.2, t); lp.frequency.exponentialRampToValueAtTime(cut, t + Math.min(.25, dur));
+  g.gain.setValueAtTime(.0001, t); g.gain.exponentialRampToValueAtTime(vol, t + .012); g.gain.setValueAtTime(vol, t + dur * .6); g.gain.exponentialRampToValueAtTime(.0001, t + dur);
+  o.connect(lp); lp.connect(g); g.connect(Music.gain); o.start(t); o.stop(t + dur + .05);
+}
+function choir(f, t, dur, vol) {
+  const ctx = A.ctx, g = ctx.createGain();
+  g.gain.setValueAtTime(.0001, t); g.gain.linearRampToValueAtTime(vol, t + .35); g.gain.setValueAtTime(vol, t + dur - .3); g.gain.linearRampToValueAtTime(.0001, t + dur);
+  for (const dt of [-4, 0, 5]) {
+    const o = ctx.createOscillator(); o.type = 'sawtooth'; o.frequency.value = f; o.detune.value = dt * 3;
+    [[800, 1], [1150, .5], [2900, .15]].forEach(([ff, w]) => { const bp = ctx.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = ff; bp.Q.value = 7; const gg = ctx.createGain(); gg.gain.value = w * 1.4; o.connect(bp); bp.connect(gg); gg.connect(g); });
+    o.start(t); o.stop(t + dur + .05);
+  }
+  g.connect(Music.gain);
+}
+function epicStep(step, t) {
+  const bar = Math.floor(step / 16) % 8, i = step % 16, [root, tri] = EPIC_CH[bar], inten = Music.intensity;
+  if ([0, 3, 6, 8, 10, 11, 14].includes(i)) mdrum(t, i % 8 === 0 ? 58 : 72, i % 8 === 0 ? .55 : .3, .45);
+  if (inten >= 2 && (i === 7 || i === 15)) mdrum(t, 95, .22, .2);
+  if (i === 4 || i === 12) { mnoise(t, 1800, .12, .14, 'bandpass'); mdrum(t, 180, .12, .1); }
+  if (i % 2 === 0) mnoise(t, 8000, .025, .04);
+  synthNote(mfreq(root + 24 + OSTI[i]), t, SIXTEENTH * .9, .045, 'sawtooth', 1400, 2);
+  if (i === 0) { synthNote(mfreq(root), t, SIXTEENTH * 15, .11, 'sawtooth', 260); synthNote(mfreq(root + 12), t, SIXTEENTH * 15, .05, 'square', 400); }
+  if (i === 0 || i === 10) for (const iv of tri) synthNote(mfreq(root + 24 + iv), t, i === 0 ? .55 : .3, .045, 'sawtooth', 1900, 1.5);
+  if (i === 0 && inten >= 1) for (const iv of tri) choir(mfreq(root + 36 + iv), t, SIXTEENTH * 16, .018);
+  if (bar >= 4 && i % 2 === 0) { const n = THEME[bar - 4][i / 2]; if (n > 0) { synthNote(mfreq(n), t, SIXTEENTH * 2.6, .07, 'sawtooth', 2400, 3); synthNote(mfreq(n - 12), t, SIXTEENTH * 2.6, .035, 'square', 1500); } }
+}
+function curTrack() { return Music.track === 'auto' ? (Music.intensity >= 1 ? 'epic' : 'lute') : Music.track; }
+
 const MEL = {
   A: [0, 3, 5, 7, 7, 5, 3, 2, 0, 2, 3, 5, 7, -1, 7, -1],
   B: [10, 7, 5, 3, 5, 7, 5, 3, 2, 0, -2, 2, 0, -1, -1, -1],
@@ -1808,7 +1883,7 @@ function musicStart() {
   Music.nextT = ctx.currentTime + .15;
   Music.timer = setInterval(() => {
     if (!A.ctx) return;
-    while (Music.nextT < A.ctx.currentTime + .3) { try { musicStep(Music.step, Music.nextT); } catch (e) {} Music.nextT += EIGHTH; Music.step++; }
+    while (Music.nextT < A.ctx.currentTime + .3) { const tr = curTrack(); try { if (tr === 'epic') epicStep(Music.step, Music.nextT); else musicStep(Music.step, Music.nextT); } catch (e) {} Music.nextT += tr === 'epic' ? SIXTEENTH : EIGHTH; Music.step++; }
   }, 70);
 }
 function setMusic(on) {
@@ -1838,6 +1913,7 @@ function createUnit(key, team, opts = {}) {
     lungeDir: new V3(), deadT: 0, kneeled: false, netDur: 0,
     label: opts.label || (a.myth ? a.name : a.boss && a.kind === 'human' ? `${pick(NAMES)}, чемпион` : a.kind === 'human' ? `${pick(NAMES)} · ${a.name}` : a.name),
   };
+  u.nid = ++G.nidSeq;
   if (a.abil) for (const ab of a.abil) u.cd[ab] = rand(1.5, 4);
   { const set = new Set(); model.root.traverse(o => { if (o.isMesh && o.material && o.material.emissive && o.material !== model.glow) set.add(o.material); }); u.flashMats = [...set]; }
   if (a.kind === 'horse') u.strafeT = rand(6, 10);
@@ -1906,6 +1982,7 @@ function entangle(u, dur) {
 }
 function hit(t, dmg, src, o = {}) {
   if (!t || !t.alive || t.iframes > 0 || t.mercy) return false;
+  if (t.mirror || t.proxy) return netHit(t, dmg, src, o);
   const kind = o.kind || 'light';
   const sp = src && src.pos ? src.pos : t.pos;
   const srcUnit = src && src.team ? src : null;
@@ -1981,7 +2058,7 @@ function hit(t, dmg, src, o = {}) {
   if (Math.random() < .3) addPool(t.pos, .22);
   const kb = o.kb !== undefined ? o.kb : ({ heavy: 7 * G.up.heavyMul, special: 9, pilum: 6, charge: 13, stomp: 8, bash: 6, claw: 5, bite: 3 }[kind] || 3);
   t.vel.addScaledVector(dirFromTo(sp, t.pos), kb / t.mass);
-  if (playerInvolved) { G.hitstop = crit ? .09 : .05; G.shake = Math.max(G.shake, crit ? .35 : .15); }
+  if (playerInvolved) { G.hitstop = crit ? .09 : .05; G.shake = Math.max(G.shake, crit ? .35 : .15); if (srcUnit && srcUnit.isPlayer) G.punch = crit ? 1 : .5; }
   rollWounds(t, kind, o);
   if (t.isPlayer) { G.hurtFlash = .6; G.glory = Math.max(0, G.glory - 5); }
   if (srcUnit && srcUnit.isPlayer) { gainGlory(6); if (G.up.lifesteal || G.buffs.berserk > 0) player.hp = Math.min(player.maxHp, player.hp + G.up.lifesteal + (G.buffs.berserk > 0 ? 3 : 0)); }
@@ -2004,7 +2081,13 @@ function hit(t, dmg, src, o = {}) {
       else if (t.key === 'champion') poise = kind !== 'light';
       else if (t.key === 'murmillo') poise = kind !== 'light' || Math.random() < .5;
       if (a.kind === 'beast' && t.state === 'strike') poise = false;
-      if (poise) { t.state = 'stagger'; t.t = 0; t.stunT = o.stun || .4; clearGlow(t); }
+      if (poise) {
+        t.state = 'stagger'; t.t = 0; t.stunT = o.stun || .4; clearGlow(t);
+        const strong = (o.kb || 0) >= 8 || ['heavy', 'charge', 'stomp', 'bash', 'special', 'pilum'].includes(kind);
+        t.knock = strong && a.kind === 'human' && !a.boss && Math.random() < .55;
+        if (t.knock) { t.stunT = Math.max(t.stunT, 1.35); }
+        t.hitSide = angDiff(t.facing, toSrc) > 0 ? 1 : -1;
+      }
     }
   }
   return true;
@@ -2306,6 +2389,7 @@ function attackersOn(t, except) { return G.units.filter(o => o !== except && o.a
 function updateUnit(u, dt) {
   const m = u.model, a = u.a;
   u.t += dt;
+  if (u.mirror || u.proxy) { netDriveUnit(u, dt); return; }
   u.pos.addScaledVector(u.vel, dt); u.vel.multiplyScalar(Math.exp(-7 * dt));
   if (u.state === 'dead') { animateDeath(u, dt); return; }
   tickWounds(u, dt);
@@ -2669,7 +2753,14 @@ function animateHuman(u, dt) {
     else applyCurve(pose, u.comboLeft ? CURVE.light2 : CURVE.light, p);
     if (u.model.twoHanded) { pose.shLx = pose.shRx; pose.elLx = pose.elRx; pose.shLz = -pose.shRz - .25; }
   }
-  if (st === 'stagger') { pose.torX = -.35; pose.headX = -.3; pose.shRx = -.2; pose.shLx = -.1; pose.bodyY = -.1; }
+  if (st === 'stagger') {
+    if (u.knock) {
+      const k = u.t / Math.max(.01, u.stunT), fall = k < .3 ? k / .3 : k < .7 ? 1 : 1 - (k - .7) / .3, e = fall * fall * (3 - 2 * fall);
+      pose.bodyX = -1.35 * e; pose.bodyY = -.72 * e; pose.shRx = -.2 - 1.2 * e; pose.shLx = -.2 - 1.2 * e; pose.shRz = -.6 * e; pose.shLz = .6 * e;
+      pose.hipLx = -.9 * e; pose.hipRx = -.4 * e; pose.knLx = 1.2 * e; pose.knRx = .6 * e; pose.headX = .3 * e;
+      if (k > .28 && !u.landed) { u.landed = true; burst(u.pos.clone().setY(.2), 'dust', 14, 2.5, .5); sfx.thud(); }
+    } else { const sd = u.hitSide || 1, k = Math.sin(clamp(u.t / Math.max(.01, u.stunT), 0, 1) * Math.PI); pose.torX = -.4 * k; pose.headX = -.35 * k; pose.torY = .45 * sd * k; pose.bodyZ = -.18 * sd * k; pose.shRx = -.2; pose.shLx = -.1; pose.shRz = -.5 * k; pose.shLz = .5 * k; pose.bodyY = -.12 * k; }
+  } else u.landed = false;
   if (st === 'kneel') kneelPose(pose);
   if (st === 'netted') { pose.shRx = -.1; pose.shLx = -.1; pose.shRz = .2; pose.shLz = -.2; pose.torY = Math.sin(G.time * 14) * .3; pose.bodyY = -.15; }
   if ((st === 'windup' || st === 'strike') && ['slam', 'sweep', 'rock', 'summon', 'dash', 'charge'].includes(u.action)) {
@@ -2877,6 +2968,7 @@ function throwPilum() {
   faceTarget(nearestEnemy(22));
 }
 function execTarget() {
+  if (NET.started && (NET.role === 'guest' || NET.mode === 'pvp')) return null;
   let best = null, bd = 3.6;
   for (const e of G.units) { if (!e.alive || e.team !== 'enemy' || e.state !== 'kneel' || e.mercy) continue; const d = flatDist(e.pos, player.pos); if (d < bd) { bd = d; best = e; } }
   return best;
@@ -2894,6 +2986,7 @@ function startBandage() {
   player.state = 'bandage'; player.t = 0; sfx.bandage();
 }
 function killPlayer() {
+  if (NET.mode && NET.started) { netPlayerDied(); return; }
   player.alive = false; player.hp = 0; player.state = 'dead'; player.t = 0;
   sfx.roar(1.5); crowd.excite = 1; G.lock = null;
   const reached = G.wave, newRec = reached > G.record;
@@ -3152,7 +3245,8 @@ function updatePlayer(dt) {
   if (p.state === 'execute') { applyCurve(pose, CURVE.heavy, clamp(p.t / 1.0, 0, 1)); pose.bodyY -= .08; }
   if (p.state === 'bandage') { pose.shRx = -1.1; pose.elRx = -1.4; pose.shLx = -.9; pose.elLx = -1.2; pose.headX = .5; pose.torX = .3; pose.bodyY = -.2; }
   if (p.state === 'dodge') { const k = Math.sin(clamp(p.t / .42, 0, 1) * Math.PI); pose.bodyY = -.45 * k; pose.torX = .9 * k; pose.knLx = 1.6 * k; pose.knRx = 1.4 * k; pose.hipLx = -1.2 * k; pose.hipRx = -.6 * k; pose.headX = .4 * k; }
-  if (p.state === 'stagger') { pose.torX = -.35; pose.headX = -.3; pose.bodyY = -.1; pose.shRx = -.2; }
+  if (p.state === 'stagger') { const k = Math.sin(clamp(p.t / Math.max(.01, p.stunT), 0, 1) * Math.PI); pose.torX = -.45 * k; pose.headX = -.35 * k; pose.bodyY = -.14 * k; pose.shRx = -.2; pose.shRz = -.4 * k; pose.shLz = .4 * k; pose.torY = .3 * k; }
+  if (p.state === 'free' && (G.phase === 'cleared' || G.phase === 'intermission') && p.moveAmt < .2) { pose.shRx = -2.95; pose.elRx = -.15; pose.shRz = -.25; pose.headX = -.35; pose.torX = -.12; pose.shLx = -.5; pose.shLz = .4; }
   if (p.state === 'netted') { pose.shRx = -.1; pose.shLx = -.1; pose.torY = Math.sin(G.time * 14) * .3; pose.bodyY = -.15; }
   const nearE = nearestEnemy(12);
   lifePose(p, pose, dt, nearE ? nearE.pos : null, look);
@@ -3460,6 +3554,7 @@ function describeWave(list) {
 }
 function queueSpawn(key, delay, gateIdx, mult, lift) { G.spawnQueue.push({ key, at: G.phaseT + delay, gateIdx, mult, lift }); }
 function doSpawn(s) {
+  if (NET.started && NET.mode === 'coop') s = Object.assign({}, s, { mult: (s.mult || 1) * 1.6 });
   const gate = GATES[s.gateIdx % GATES.length];
   const pos = new V3(Math.cos(gate) * (ARENA_R + 1.5), 0, Math.sin(gate) * (ARENA_R + 1.5));
   let u;
@@ -3627,7 +3722,7 @@ function renderShop() {
   if (!allies.length) { const s = document.createElement('span'); s.textContent = 'Пока ты бьёшься один'; s.style.color = 'var(--marble-dim)'; sq.appendChild(s); }
   allies.forEach(a => { const s = document.createElement('span'); s.textContent = `${a.label} · ${Math.ceil(a.hp)}/${a.maxHp}`; sq.appendChild(s); });
 }
-$('nextBtn').addEventListener('click', () => { if (!giftChosen) return; $('inter').hidden = true; startWave(); });
+$('nextBtn').addEventListener('click', () => { if (!giftChosen) return; $('inter').hidden = true; if (NET.started && NET.role === 'guest') { G.phase = 'fight'; toast('Ждём, пока друг начнёт бой', 2); return; } startWave(); });
 $('spareBtn').addEventListener('click', () => resolveMercy(true));
 $('killBtn').addEventListener('click', () => resolveMercy(false));
 
@@ -3661,6 +3756,7 @@ function startGame() {
   startWave();
 }
 function toMenu() {
+  if (NET.started) { NET.started = false; for (const k in NET.proxies) { const u = NET.proxies[k]; u.removed = true; scene.remove(u.model.root); u.tag && u.tag.remove(); } NET.proxies = {}; }
   Music.intensity = 0;
   clearWorld(); G.phase = 'menu'; G.paused = false; setTod('sunset');
   ['over', 'inter', 'mercy', 'pause', 'hud', 'touch'].forEach(id => $(id).hidden = true);
@@ -3682,6 +3778,9 @@ $('muteBtn').addEventListener('click', () => { A.muted = !A.muted; store.set('ar
 refreshMute();
 if (isTouch) $('gloryHint').textContent = 'Толпа требует крови — кнопка «Ярость»';
 document.querySelectorAll('.music-btn').forEach(b => b.addEventListener('click', () => { initAudio(); setMusic(!Music.on); }));
+function syncTrack() { document.querySelectorAll('#trackSeg button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.v === Music.track))); }
+document.querySelectorAll('#trackSeg button').forEach(b => b.addEventListener('click', () => { initAudio(); Music.track = b.dataset.v; store.set('arena-track', Music.track); syncTrack(); if (!Music.on) setMusic(true); }));
+syncTrack();
 setMusic(Music.on);
 $('muteBtn2').addEventListener('click', () => $('muteBtn').click());
 addEventListener('pointerdown', () => initAudio(), { once: true });
@@ -3705,6 +3804,12 @@ function renderClassCards() {
   $('heroCount').textContent = `${Object.keys(CLASSES).length} героев`;
 }
 renderClassCards();
+$('mpName').value = store.get('arena-nick') || '';
+$('mpPvp').addEventListener('click', () => { initAudio(); netJoin(genCode(), 'host', 'pvp'); });
+$('mpCoop').addEventListener('click', () => { initAudio(); netJoin(genCode(), 'host', 'coop'); });
+$('mpJoin').addEventListener('click', () => { initAudio(); netJoin($('mpCodeIn').value, 'guest', null); });
+$('mpLeave').addEventListener('click', () => netLeave());
+$('mpStart').addEventListener('click', () => { if (NET.role === 'host' && NET.others.length) netStartGame(); });
 function syncSegs() {
   document.querySelectorAll('#modeSeg button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.v === G.mode)));
   document.querySelectorAll('#viewSeg button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.v === G.view)));
@@ -3881,6 +3986,256 @@ function renderAll() {
   postPass(Post.comp, null);
 }
 
+/* =================== Multiplayer (room capability) =================== */
+const ST_CODES = ['move', 'windup', 'strike', 'recover', 'stagger', 'kneel', 'netted', 'dazed', 'dead', 'enter', 'charge', 'dash', 'rise', 'sidestep', 'taunt'];
+const ACT_CODES = [null, 'melee', 'bow', 'net', 'lunge', 'swipe', 'stomp', 'charge', 'slam', 'sweep', 'rock', 'summon', 'volley', 'kick', 'ride', 'dash', 'bash'];
+const NET = { api: null, room: null, mode: null, role: null, code: '', hitSeq: 0, out: [], seen: {}, peers: [], others: [], lastSend: 0, started: false, deaths: 0, proxies: {}, hostPeer: null, lastPh: '', lastWave: 0, waitingRespawn: 0 };
+(async () => { try { NET.api = await window.claude?.use?.('room'); } catch (e) { NET.api = null; } netUi(); })();
+const nick = () => (($('mpName') && $('mpName').value) || store.get('arena-nick') || 'Гладиатор').slice(0, 18);
+function netUi() {
+  const box = $('mpBox'); if (!box) return;
+  const ok = !!NET.api;
+  $('mpUnavail').hidden = ok; $('mpControls').hidden = !ok;
+  const inRoom = !!NET.room;
+  $('mpLobby').hidden = !inRoom; $('mpJoinRow').hidden = inRoom;
+  if (inRoom) {
+    $('mpCode').textContent = NET.code.toUpperCase();
+    $('mpModeTxt').textContent = NET.mode === 'pvp' ? 'Режим: против друга' : 'Режим: вместе против арены';
+    const n = NET.others.length;
+    $('mpStatus').textContent = n ? `В комнате: ${NET.others.map(o => o.presence.nm || 'Игрок').join(', ')}` : 'Ждём друга… Отправь ему код';
+    $('mpStart').hidden = NET.role !== 'host'; $('mpStart').disabled = !n;
+    $('mpWait').hidden = NET.role === 'host';
+  }
+}
+function genCode() { const al = 'abcdefghjkmnpqrstuvwxyz23456789'; let s = ''; for (let i = 0; i < 5; i++) s += al[(Math.random() * al.length) | 0]; return s; }
+async function netJoin(code, role, mode) {
+  if (!NET.api) return;
+  code = String(code || '').toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 8);
+  if (code.length < 3) { $('mpErr').textContent = 'Введи код из 3–8 букв и цифр'; return; }
+  try {
+    if (NET.room) await netLeave();
+    NET.room = await NET.api.join('arena-' + code);
+    Object.assign(NET, { code, role, mode, started: false, out: [], seen: {}, deaths: 0, proxies: {}, hostPeer: null });
+    store.set('arena-nick', nick());
+    $('mpErr').textContent = '';
+    NET.room.onPeers(ch => { NET.peers = ch.peers; NET.others = ch.peers.filter(p => !p.sameTab && p.presence && p.presence.v === 3); netUi(); }, e => { $('mpErr').textContent = 'Связь с комнатой потеряна'; NET.room = null; netUi(); });
+    netSend(true); netUi();
+  } catch (e) { $('mpErr').textContent = e && e.code === 'not_permitted' ? 'Комнаты недоступны для этого аккаунта' : 'Не удалось подключиться — попробуй ещё раз'; NET.room = null; netUi(); }
+}
+async function netLeave() {
+  try { if (NET.room) await NET.room.leave(); } catch (e) {}
+  for (const k in NET.proxies) { const u = NET.proxies[k]; u.alive = false; u.removed = true; scene.remove(u.model.root); u.tag && u.tag.remove(); }
+  Object.assign(NET, { room: null, mode: null, role: null, started: false, proxies: {}, others: [] });
+  netUi();
+}
+function myState() {
+  const p = player, r = { v: 3, nm: nick(), h: G.cls, md: NET.mode, rl: NET.role, go: NET.started ? 1 : 0,
+    x: Math.round(p.pos.x * 100) / 100, z: Math.round(p.pos.z * 100) / 100, f: Math.round(p.facing * 100) / 100,
+    st: p.state, ma: Math.round(p.moveAmt * 100) / 100, wk: Math.round(p.walk * 10) / 10, bl: p.blocking ? 1 : 0,
+    hp: Math.max(0, Math.round(p.hp)), mh: p.maxHp, al: p.alive ? 1 : 0, dn: NET.deaths, sk: p.skill || null };
+  if (p.state === 'attack' && p.atk) { r.cv = p.atk.curve; r.k = Math.round(clamp(p.t / p.atk.dur, 0, 1) * 100) / 100; r.sp = p.atk.kind === 'special' ? 1 : 0; }
+  if (p.state === 'execute') r.k = Math.round(clamp(p.t, 0, 1) * 100) / 100;
+  const now = Date.now(); NET.out = NET.out.filter(h => now - h.ts < 2500).slice(-10);
+  r.hits = NET.out.map(h => ({ i: h.i, to: h.to, u: h.u, d: h.d, k: h.k, s: h.s, ig: h.ig }));
+  if (NET.mode === 'coop' && NET.role === 'host') {
+    r.ph = G.phase; r.wv = G.wave; r.gm = G.mod || null;
+    r.w = G.units.filter(u => !u.proxy && !u.removed).slice(0, 30).map(u => {
+      const sti = ST_CODES.indexOf(u.alive ? u.state : 'dead'), dur = u.state === 'windup' ? u.windDur : u.state === 'strike' ? (ACT[u.action] && u.action !== 'charge' ? ACT[u.action][1] : u.a.strike) : (u.recDur || u.a.recover);
+      return [u.nid, u.key, u.team === 'ally' ? 1 : 0, Math.round(u.pos.x * 10), Math.round(u.pos.z * 10), Math.round(u.facing * 100), sti < 0 ? 0 : sti, Math.max(0, ACT_CODES.indexOf(u.action)), Math.max(0, Math.round(u.hp)), u.maxHp, Math.round(clamp(u.t / Math.max(.01, dur || 1), 0, 1) * 100)];
+    });
+  }
+  return r;
+}
+function netSend(force) {
+  if (!NET.room) return;
+  const now = performance.now();
+  if (!force && now - NET.lastSend < 45) return;
+  NET.lastSend = now;
+  try { NET.room.presence(myState()).catch(() => {}); } catch (e) {}
+}
+function netQueueHit(t, dmg, src, o) {
+  const h = { i: ++NET.hitSeq, ts: Date.now(), d: Math.round(dmg), k: o.kind || 'light', ig: o.ignoreGuard ? 1 : 0 };
+  if (t.proxy) { h.to = t.proxy; h.s = src && src.isPlayer ? 'P' : (src && src.nid) || 0; }
+  else { h.u = t.nid; }
+  NET.out.push(h); netSend(true);
+}
+function netHit(t, dmg, src, o = {}) {
+  if (!t.alive || (o.kind === 'net')) return false;
+  const hp = t.pos.clone().setY(t.height * .6);
+  burst(hp, 'blood', 6, 4); sfx.impact(src && src.isPlayer ? player.cls.look.weapon : null, o.kind === 'heavy', t.pos);
+  floatText(hp, Math.round(dmg), 'crit'); t.flinch = 1; if (t.flashMats) t.flashT = .12;
+  if (src && src.isPlayer) { gainGlory(6); G.damageDealt += dmg; }
+  netQueueHit(t, dmg, src, o);
+  return true;
+}
+function makeProxy(peer, pr) {
+  const key = '__p_' + peer.peer, c = CLASSES[pr.h] || CLASSES.murmillo;
+  ARCH[key] = { kind: 'human', name: String(pr.nm || 'Игрок').slice(0, 18), hp: pr.mh || 100, dmg: 0, speed: 5, windup: .5, strike: .1, recover: .3, cool: [99, 99], look: c.look, scale: c.look.scale };
+  const u = createUnit(key, NET.mode === 'pvp' ? 'enemy' : 'ally', { pos: new V3(pr.x || 0, 0, pr.z || 0), label: ARCH[key].name, keepLook: true, state: 'move' });
+  u.proxy = peer.peer; u.heroKey = pr.h; u.netT = { x: pr.x, z: pr.z, f: pr.f || 0 };
+  NET.proxies[peer.peer] = u; return u;
+}
+function remotePose(u, r, dt) {
+  const m = u.model, look = u.a.look || {}, pose = basePose();
+  u.walk = r.wk || 0; u.moveAmt = r.ma || 0;
+  walkPose(pose, u, Math.min(1, u.moveAmt));
+  lifePose(u, pose, dt, null, look);
+  if (look.shield === 'scutum') { pose.shLx = -.5; pose.elLx = .35; }
+  if (THRUST.includes(look.weapon)) { pose.shRx = -.9; pose.elRx = -.5; }
+  if (look.weapon2) { pose.shLx = -.55; pose.elLx = -.7; }
+  if (r.bl) { if (look.shield) { pose.shLx = -1.3; pose.shLz = -.25; pose.elLx = 1.15; pose.torY = .25; pose.shRx = -.2; } else { pose.shRx = -1.5; pose.elRx = -.9; pose.shRz = .4; pose.shLx = -1.3; pose.elLx = -.8; pose.shLz = -.3; } pose.bodyY = -.12; }
+  if (r.st === 'attack' && r.sp) { pose.shRz = -1.5; pose.shRx = -.3; pose.elRx = 0; pose.shLz = 1.2; pose.bodyY = -.15; }
+  else if (r.st === 'attack' && CURVE[r.cv]) applyCurve(pose, CURVE[r.cv], r.k || 0);
+  if (r.st === 'execute') applyCurve(pose, CURVE.heavy, r.k || 0);
+  if (r.st === 'skill' || r.st === 'throw') { pose.shRx = -2.4; pose.elRx = -.3; pose.torX = .2; }
+  if (r.st === 'dodge') { pose.bodyY = -.4; pose.torX = .8; pose.knLx = 1.4; pose.knRx = 1.2; pose.hipLx = -1; }
+  if (r.st === 'stagger') { pose.torX = -.35; pose.headX = -.3; pose.bodyY = -.1; }
+  if (r.st === 'bandage') { pose.shRx = -1.1; pose.elRx = -1.4; pose.shLx = -.9; pose.elLx = -1.2; pose.headX = .5; pose.bodyY = -.2; }
+  if (m.twoHanded && !r.bl) { pose.shLx = pose.shRx; pose.elLx = pose.elRx; pose.shLz = -pose.shRz - .25; }
+  applyPose(m, pose, u.pose, dt, r.st === 'attack' ? 40 : 22);
+  const on = r.st === 'attack' && (r.sp || (r.k > .3 && r.k < .66));
+  if (m.weapon) feedTrail(u, 'trail', m.weapon, on, NET.mode === 'pvp' ? 0xff8060 : 0x9affb0, dt);
+}
+function netDriveUnit(u, dt) {
+  const m = u.model, T = u.netT || { x: u.pos.x, z: u.pos.z, f: u.facing };
+  const ox = u.pos.x, oz = u.pos.z;
+  const k = 1 - Math.exp(-14 * dt);
+  u.pos.x = lerp(u.pos.x, T.x, k); u.pos.z = lerp(u.pos.z, T.z, k);
+  if (Math.hypot(T.x - u.pos.x, T.z - u.pos.z) > 6) { u.pos.x = T.x; u.pos.z = T.z; }
+  u.facing += angDiff(u.facing, T.f) * (1 - Math.exp(-16 * dt));
+  if (u.state === 'dead') { animateDeath(u, dt); return; }
+  m.root.position.set(u.pos.x, 0, u.pos.z); m.root.rotation.y = u.facing;
+  if (u.proxy) { const r = u.netR || {}; remotePose(u, r, dt); return; }
+  const sp = Math.hypot(u.pos.x - ox, u.pos.z - oz) / Math.max(dt, 1e-3);
+  u.walk += sp * dt * 2.6; u.moveAmt = lerp(u.moveAmt, clamp(sp / 3, 0, 1.3), 1 - Math.exp(-10 * dt));
+  if (u.state === 'windup' && (u.action === 'slam' || u.action === 'sweep')) { if (!u.tele) u.tele = makeTele(); showTele(u.tele, u.action === 'slam' ? u.a.slamR : u.reach + 1.2, clamp(u.t / (u.windDur || 1), 0, 1), u.pos); }
+  else if (u.tele) u.tele.g.visible = false;
+  if (m.kind === 'human') animateHuman(u, dt); else if (m.kind === 'beast') animateBeast(u, dt); else if (m.kind === 'horse') animateHorse(u, dt); else animateElephant(u, dt);
+}
+function netApplyWorld(r) {
+  const seen = new Set();
+  for (const e of r.w || []) {
+    const [nid, key, team, x, z, f, sti, ai, hp, mh, kp] = e;
+    if (!ARCH[key]) continue;
+    seen.add(nid);
+    let u = G.units.find(q => q.mirror && q.nid === nid);
+    if (!u) { u = createUnit(key, team ? 'ally' : 'enemy', { pos: new V3(x / 10, 0, z / 10), state: 'move' }); u.mirror = true; u.nid = nid; }
+    u.netT = { x: x / 10, z: z / 10, f: f / 100 };
+    const st = ST_CODES[sti] || 'move';
+    u.hp = hp; u.maxHp = mh;
+    if (st === 'dead') { if (u.alive) { u.alive = false; u.state = 'dead'; u.t = 0; u.deadT = 0; u.deathType = pick(['back', 'front', 'side']); addPool(u.pos, .8); if (u.tag) u.tag.style.display = 'none'; } continue; }
+    if (st === 'rise') { u.model.root.position.y = 0; }
+    u.state = st; u.action = ACT_CODES[ai] || null;
+    const dur = st === 'windup' ? (ACT[u.action] ? ACT[u.action][0] : u.a.windup) : st === 'strike' ? (ACT[u.action] ? ACT[u.action][1] : u.a.strike) : (ACT[u.action] ? ACT[u.action][2] : u.a.recover);
+    u.windDur = st === 'windup' ? dur : u.windDur; u.t = (kp / 100) * (dur || 1);
+  }
+  for (const u of G.units) if (u.mirror && !seen.has(u.nid) && !u.removed) { if (u.alive) { u.alive = false; u.state = 'dead'; } u.deadT = Math.max(u.deadT || 0, 8.5); }
+}
+function netApplyHits(peer, r) {
+  const me = NET.room && NET.peers.find(p => p.sameTab);
+  const myPeer = me ? me.peer : null;
+  const last = NET.seen[peer.peer] || 0; let mx = last;
+  for (const h of r.hits || []) {
+    if (h.i <= last) continue; mx = Math.max(mx, h.i);
+    if (h.to && h.to === myPeer && player.alive) {
+      let src = h.s === 'P' ? NET.proxies[peer.peer] : G.units.find(q => q.mirror && q.nid === h.s);
+      if (!src) src = NET.proxies[peer.peer] || { pos: player.pos.clone().add(new V3(0, 0, 1)), team: 'enemy', a: {}, vel: new V3(), mass: 1, state: '' };
+      hit(player, h.d, src, { kind: h.k, ignoreGuard: !!h.ig });
+    } else if (h.u && NET.role === 'host') {
+      const t = G.units.find(q => q.nid === h.u && q.alive);
+      if (t) hit(t, h.d, NET.proxies[peer.peer] || { pos: t.pos.clone(), team: 'ally', a: {}, vel: new V3(), mass: 1 }, { kind: h.k, ignoreGuard: !!h.ig });
+    }
+  }
+  NET.seen[peer.peer] = mx;
+}
+function netTick(dt) {
+  if (!NET.room) return;
+  const others = NET.others;
+  if (NET.role === 'guest' && !NET.started) {
+    const host = others.find(o => o.presence.rl === 'host');
+    if (host && host.presence.go) { NET.mode = host.presence.md; netStartGame(); }
+  }
+  if (NET.started) {
+    for (const o of others) {
+      const r = o.presence; if (!r || !r.v) continue;
+      let u = NET.proxies[o.peer];
+      if (!u) u = makeProxy(o, r);
+      u.netR = r; u.netT = { x: r.x, z: r.z, f: r.f };
+      u.hp = r.hp; u.maxHp = r.mh || u.maxHp;
+      if (!r.al && u.alive) { u.alive = false; u.state = 'dead'; u.t = 0; u.deadT = 0; u.deathType = 'back'; }
+      if (r.al && !u.alive) { u.alive = true; u.state = 'move'; u.deadT = 0; u.model.body.rotation.set(0, 0, 0); u.model.body.position.set(0, 0, 0); u.model.root.position.y = 0; u.model.root.visible = true; if (u.tag) u.tag.style.display = ''; }
+      u.deadT = Math.min(u.deadT || 0, 5);
+      netApplyHits(o, r);
+      if (NET.mode === 'coop' && NET.role === 'guest' && r.rl === 'host') netFollowHost(r);
+    }
+    for (const k in NET.proxies) if (!others.find(o => o.peer === k)) { const u = NET.proxies[k]; u.alive = false; u.removed = true; scene.remove(u.model.root); u.tag && u.tag.remove(); delete NET.proxies[k]; toast('Друг покинул арену', 2); }
+    if (NET.mode === 'pvp') netDuelTick(dt);
+    if (NET.mode === 'coop' && NET.role === 'host' && !player.alive && G.phase !== 'over') {
+      const anyAlive = others.some(o => o.presence.al);
+      if (!anyAlive) netCoopOver();
+    }
+  }
+  netSend(false);
+}
+function netFollowHost(r) {
+  netApplyWorld(r);
+  if (r.wv !== NET.lastWave && r.wv > 0) {
+    NET.lastWave = r.wv; G.wave = r.wv; G.mod = r.gm || null;
+    setTod(['day', 'day', 'sunset', 'sunset', 'night'][(G.wave - 1) % 5]);
+    $('waveName').textContent = `Бой ${ROMAN(G.wave)}`; $('waveSub').textContent = 'Вместе с другом';
+    showBanner(`Бой ${ROMAN(G.wave)}`, 'Сражаемся вдвоём', '', 2.6); sfx.horn();
+    if (!player.alive) { player.alive = true; player.state = 'free'; player.hp = player.maxHp * .5; player.model.body.rotation.set(0, 0, 0); player.model.body.position.set(0, 0, 0); }
+    if (G.phase === 'intermission') { $('inter').hidden = true; }
+    G.phase = 'fight';
+  }
+  if (r.ph === 'intermission' && G.phase !== 'intermission' && NET.lastPh !== 'intermission') { openIntermission(); $('nextBtn').textContent = 'Ждём друга…'; }
+  if (r.ph === 'over' && G.phase !== 'over') { player.alive = false; netCoopOver(); }
+  NET.lastPh = r.ph;
+}
+function netCoopOver() {
+  G.phase = 'over'; exitLock();
+  $('overLede').textContent = 'Вы пали вместе. Толпа запомнит этот бой.';
+  $('overStats').innerHTML = '';
+  for (const [v, l] of [[ROMAN(Math.max(1, G.wave)), 'бой'], [G.kills, 'побед'], [Math.round(G.damageDealt), 'урона']]) { const d = document.createElement('div'); d.innerHTML = '<b></b><span></span>'; d.querySelector('b').textContent = v; d.querySelector('span').textContent = l; $('overStats').appendChild(d); }
+  $('over').hidden = false; $('hud').hidden = true; $('touch').hidden = true;
+}
+function netPlayerDied() {
+  player.alive = false; player.hp = 0; player.state = 'dead'; player.t = 0; NET.deaths++; sfx.roar(1.4); G.lock = null;
+  netSend(true);
+  if (NET.mode === 'pvp') { toast('Ты пал! Новый раунд через 3 секунды', 2.8); NET.waitingRespawn = 3; }
+  else toast('Ты пал. Друг ещё бьётся — вернёшься в следующем бою', 3);
+}
+function netDuelSpawn() {
+  const side = NET.role === 'host' ? 1 : -1;
+  player.pos.set(0, 0, 8 * side); player.vel.set(0, 0, 0); player.facing = side > 0 ? Math.PI : 0;
+  G.camYaw = side > 0 ? 0 : Math.PI;
+  Object.assign(player, { hp: player.maxHp, st: player.maxSt, state: 'free', t: 0, alive: true, iframes: 1, w: newWounds() });
+  player.model.body.rotation.set(0, 0, 0); player.model.body.position.set(0, 0, 0);
+}
+function netDuelTick(dt) {
+  if (NET.waitingRespawn > 0) { NET.waitingRespawn -= dt; if (NET.waitingRespawn <= 0) { netDuelSpawn(); showBanner('Раунд!', 'Бейся', '', 1.4); sfx.horn(); } }
+  const o = NET.others[0]; const them = o ? (o.presence.dn || 0) : 0;
+  const txt = `Счёт ${them} : ${NET.deaths}`;
+  if ($('waveSub').textContent !== txt) { $('waveSub').textContent = txt; if (them > (NET.lastScore || 0)) { showBanner('Очко!', `${nick()} ведёт бой`, txt, 1.6); sfx.roar(1.4); sfx.crowdHa(); } NET.lastScore = them; }
+}
+function netStartGame() {
+  NET.started = true; NET.lastWave = 0; NET.lastPh = '';
+  initAudio(); resetGame();
+  ['menu', 'over', 'inter', 'mercy', 'pause'].forEach(id => $(id).hidden = true);
+  $('hud').hidden = false; $('touch').hidden = !isTouch; G.paused = false;
+  if (NET.mode === 'pvp') {
+    G.phase = 'fight'; G.wave = 0; Music.intensity = 2; setTod('sunset');
+    $('waveName').textContent = 'Дуэль'; $('waveSub').textContent = 'Счёт 0 : 0';
+    netDuelSpawn(); showBanner('Дуэль', 'Один на один перед толпой', `Код ${NET.code.toUpperCase()}`, 2.6); sfx.horn(); sfx.roar(1);
+  } else if (NET.role === 'host') {
+    startWave();
+  } else {
+    G.phase = 'intro'; G.wave = 0; Music.intensity = 1;
+    player.pos.set(2, 0, 9);
+    $('waveName').textContent = 'Вместе'; $('waveSub').textContent = 'Ждём начала боя';
+  }
+  netSend(true);
+}
 /* =================== Quality =================== */
 const Q = { level: store.get('arena-quality') || (isTouch ? 'medium' : 'high'), dyn: 1, ema: 1 / 60, slowT: 0, fastT: 0 };
 function basePR() { const d = window.devicePixelRatio || 1; return Q.level === 'high' ? Math.min(d, 2) : Q.level === 'medium' ? Math.min(d, isTouch ? 1.25 : 1.5) : Math.min(d, isTouch ? .85 : 1); }
@@ -3906,7 +4261,7 @@ function dynRes(rdt) {
 function resize() {
   const w = innerWidth, h = innerHeight;
   renderer.setSize(w, h, false); camera.aspect = w / h; vmCam.aspect = w / h; vmCam.updateProjectionMatrix();
-  camera.fov = w < h ? 68 : 55; camera.updateProjectionMatrix();
+  camera.fov = w < h ? 68 : 55; G.baseFov = camera.fov; camera.updateProjectionMatrix();
   if (typeof Post !== 'undefined' && Post.ok) postResize();
 }
 addEventListener('resize', resize); resize();
@@ -3926,6 +4281,7 @@ function frame(now) {
   requestAnimationFrame(frame);
   const rdt = Math.min(.05, (now - last) / 1000); last = now;
   frameNo++; dynRes(rdt);
+  if (NET.room) { try { netTick(rdt); } catch (e) { console.warn(e); } }
   if (G.paused || G.phase === 'intermission' || G.phase === 'mercy' || G.phase === 'over') {
     G.time += rdt * .3; ambient(rdt); if (G.phase !== 'over') updateTags();
     if (G.phase === 'menu' || G.phase === 'over') updateCamera(rdt);
@@ -3938,8 +4294,9 @@ function frame(now) {
   readKeys();
   if (G.phase !== 'menu') {
     G.phaseT += dt;
-    for (let i = G.spawnQueue.length - 1; i >= 0; i--) if (G.phaseT >= G.spawnQueue[i].at) { doSpawn(G.spawnQueue[i]); G.spawnQueue.splice(i, 1); }
-    if (G.mod === 'beasts' && !G.beastsReleased && G.phase === 'fight' && (G.phaseT > 14 || aliveEnemies().length <= 1)) {
+    const solo = !NET.started || (NET.mode === 'coop' && NET.role === 'host');
+    if (solo) for (let i = G.spawnQueue.length - 1; i >= 0; i--) if (G.phaseT >= G.spawnQueue[i].at) { doSpawn(G.spawnQueue[i]); G.spawnQueue.splice(i, 1); }
+    if (solo && G.mod === 'beasts' && !G.beastsReleased && G.phase === 'fight' && (G.phaseT > 14 || aliveEnemies().length <= 1)) {
       G.beastsReleased = true; const pair = Math.random() < .5;
       (pair ? ['wolf', 'wolf'] : [pick(['lion', 'tiger'])]).forEach((k, i) => queueSpawn(k, .3 + i * .5, 1 + i, G.waveMult));
       toast('Зверинец открыт!', 2); sfx.roar(1.2);
@@ -3952,13 +4309,13 @@ function frame(now) {
     crowd.wave = G.glory >= 100 ? 1 : 0;
     if (G.glory >= 100 && G.time - (G.lastClap || 0) > .6) { G.lastClap = G.time; sfx.claps(); }
     if (G.mercyTimer > 0) { G.mercyTimer -= dt; if (G.mercyTimer <= 0 && G.mercyUnit && player.alive) openMercy(); }
-    if (G.phase === 'intro' && G.phaseT > 1.5) G.phase = 'fight';
-    if (G.phase === 'fight' && player.alive && G.spawnQueue.length === 0 && aliveEnemies().length === 0 && !G.mercyUnit) {
+    if (solo && G.phase === 'intro' && G.phaseT > 1.5) G.phase = 'fight';
+    if (solo && G.phase === 'fight' && (player.alive || NET.started) && G.spawnQueue.length === 0 && aliveEnemies().length === 0 && !G.mercyUnit) {
       G.phase = 'cleared'; G.phaseT = 0; G.trapsOn = false;
       showBanner('Победа', pick(['Толпа скандирует твоё имя', 'Император доволен', 'Песок принимает павших', 'Ещё один шаг к свободе']), '', 2);
       sfx.roar(1.6); crowd.excite = 1;
     }
-    if (G.phase === 'cleared' && G.phaseT > 2.4) openIntermission();
+    if (solo && G.phase === 'cleared' && G.phaseT > 2.4) openIntermission();
     if (G.lock && !G.lock.alive) G.lock = null;
     lockRing.visible = !!G.lock;
     if (G.lock) { lockRing.position.set(G.lock.pos.x, .04, G.lock.pos.z); lockRing.scale.setScalar(G.lock.radius * 1.4); lockRing.rotation.z += dt * 2; }
@@ -3967,12 +4324,13 @@ function frame(now) {
   updateParticles(dt); updateSlices(dt);
   ambient(dt);
   updateCamera(dt);
+  if (G.baseFov) { G.punch = Math.max(0, (G.punch || 0) - rdt * 5); const f = G.baseFov - G.punch * 2.2; if (Math.abs(camera.fov - f) > .01) { camera.fov = f; camera.updateProjectionMatrix(); } }
   updateViewModel(rdt);
   renderAll();
 }
 requestAnimationFrame(frame);
 
-window.__arena = { hit, scene, Post, Q, applyQuality, CLASSES, ARCH, buildPlayerModel, G, player, sun, todCur, setTod, startGame, input, spawnAlly, createUnit, crowdThrow, openIntermission,
+window.__arena = { epicStep, Music, AUD: A, initAudio, hit, scene, Post, Q, applyQuality, CLASSES, ARCH, buildPlayerModel, G, player, sun, todCur, setTod, startGame, input, spawnAlly, createUnit, crowdThrow, openIntermission,
   jumpToWave(n) { G.wave = n - 1; for (const u of G.units) if (u.team === 'enemy') { u.alive = false; u.removed = true; scene.remove(u.model.root); u.tag && u.tag.remove(); } G.units = G.units.filter(u => !u.removed); startWave(); } };
 })();
 </script>
